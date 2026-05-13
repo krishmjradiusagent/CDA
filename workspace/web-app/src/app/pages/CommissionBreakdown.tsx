@@ -7,7 +7,9 @@ import {
   HelpCircle,
   Info,
   Pencil,
+  Printer,
   Plus,
+  RefreshCw,
   Sliders,
   Trash2,
   TrendingUp,
@@ -41,6 +43,7 @@ import {
 import { Separator } from "../components/ui/separator";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -122,6 +125,25 @@ const initialSides: Side[] = [
     ],
     active: false,
   },
+];
+
+const PDF_PREVIEW_DETAILS = [
+  { label: "Property Address", value: "1284 Willow Creek Dr" },
+  { label: "Client Name", value: "Michael Loft" },
+  { label: "Gross Commission", value: "$25,000.00" },
+  { label: "Agent Net Total", value: "$18,650.00" },
+  { label: "Company Dollar", value: "$4,100.00" },
+  { label: "Finalized By", value: "Jessica (Auditor)" },
+];
+
+const PDF_FINAL_NUMBERS = [
+  { label: "Gross Commission", value: "$25,000.00", tone: "text-emerald-700" },
+  { label: "Pre-Split Deductions", value: "-$750.00", badge: "Pre-Split", badgeClassName: "border-blue-200 bg-blue-50 text-blue-700" },
+  { label: "Split Basis", value: "$24,250.00" },
+  { label: "Agent Net Total", value: "$18,650.00", tone: "text-emerald-700", description: "Total to all agents after deductions" },
+  { label: "Team Portion", value: "$4,850.00", description: "20% team split" },
+  { label: "Radius Fee", value: "$750.00", badge: "Auditor Entry", badgeClassName: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700" },
+  { label: "Company Dollar", value: "$4,100.00", tone: "text-emerald-700", description: "Final company revenue" },
 ];
 
 function currency(value: number) {
@@ -254,6 +276,7 @@ export function CommissionBreakdown() {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [rejectInput, setRejectInput] = useState("");
   // Simple pre-split deduction for agent role (Credits / Referral Fees)
   const [showAgentPreSplitDialog, setShowAgentPreSplitDialog] = useState(false);
@@ -440,7 +463,7 @@ export function CommissionBreakdown() {
                 variant="outline"
                 className="h-8 gap-1.5 rounded-lg px-4 text-xs"
                 style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }}
-                onClick={() => toast.success("CDA PDF downloaded")}
+                onClick={() => setShowPdfPreview(true)}
               >
                 <Download className="size-3.5" />
                 Download CDA
@@ -928,6 +951,138 @@ export function CommissionBreakdown() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showPdfPreview} onOpenChange={setShowPdfPreview}>
+        <DialogContent className="flex h-[94vh] max-h-[94vh] flex-col gap-0 overflow-hidden border-border bg-background p-0 sm:max-w-[min(96vw,1440px)] [&>[data-slot=dialog-close]]:hidden">
+          <DialogHeader className="border-b bg-muted/40 px-7 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="text-2xl font-semibold text-slate-800">
+                Commission Disbursement Authorization
+              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="h-11 rounded-[10px] px-5 text-[15px] text-slate-700" onClick={() => window.print()}>
+                  <Printer className="mr-2 size-4" />
+                  Print
+                </Button>
+                <Button className="h-11 rounded-[10px] bg-blue-600 px-5 text-[15px] hover:bg-blue-700" onClick={() => toast.success("CDA PDF downloaded")}>
+                  <Download className="mr-2 size-4" />
+                  Download
+                </Button>
+                <DialogClose asChild>
+                  <Button variant="ghost" size="icon" className="size-11 rounded-[10px] text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+                    <X className="size-5" />
+                    <span className="sr-only">Close PDF preview</span>
+                  </Button>
+                </DialogClose>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-[clamp(16px,5vw,84px)] py-8">
+            <div className="mx-auto w-full max-w-[1020px] rounded-[14px] bg-white px-[clamp(20px,4vw,72px)] py-[clamp(24px,4vw,56px)] shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
+              <div className="flex flex-col gap-6 border-b border-slate-200 pb-8 md:flex-row md:items-start md:justify-between">
+                <div className="mx-auto max-w-[520px] text-center md:mx-0 md:flex-1">
+                  <h2 className="text-[clamp(28px,3vw,40px)] font-bold uppercase tracking-[0.03em] text-slate-800">
+                    Commission Disbursement Authorization
+                  </h2>
+                  <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.28em] text-slate-500">
+                    California Real Estate Transaction
+                  </p>
+                </div>
+                <div className="space-y-1 text-right text-[11px] font-medium text-slate-500">
+                  <p><span className="font-semibold text-slate-700">Transaction ID:</span> TXN-DEFIJ</p>
+                  <p><span className="font-semibold text-slate-700">Escrow #:</span> ESC-097388</p>
+                  <p><span className="font-semibold text-slate-700">Prepared:</span> April 22, 2026</p>
+                </div>
+              </div>
+
+              <div className="mt-14 space-y-6">
+                <Card className="rounded-[14px] border border-black/10 shadow-none">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <h3 className="text-base font-medium text-black">PDF Preview</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("CDA PDF downloaded")}>
+                          <Download className="mr-2 size-3.5" />
+                          Download
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => window.print()}>
+                          <Printer className="mr-2 size-3.5" />
+                          Print
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("PDF regenerated")}>
+                          <RefreshCw className="mr-2 size-3.5" />
+                          Regenerate PDF
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-[10px] border border-black/10 bg-white px-8 py-8">
+                      <div className="text-center">
+                        <h4 className="text-[28px] font-semibold text-black">Commission Disbursement Authorization</h4>
+                        <p className="mt-1 text-sm text-[#717182]">Final Commission Distribution</p>
+                      </div>
+
+                      <Separator className="my-6 bg-black/10" />
+
+                      <div className="grid gap-x-4 gap-y-6 md:grid-cols-2">
+                        {PDF_PREVIEW_DETAILS.map((item) => (
+                          <div key={item.label}>
+                            <p className="text-sm text-[#717182]">{item.label}</p>
+                            <p className="mt-1 text-sm font-medium text-black">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <Separator className="my-6 bg-black/10" />
+
+                      <p className="text-center text-xs text-[#717182]">Finalized: Today, 1:22 PM</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-[14px] border border-black/10 shadow-none">
+                  <CardContent className="p-6">
+                    <h3 className="text-base font-medium text-black">Final Numbers</h3>
+                    <div className="mt-5 space-y-0">
+                      {PDF_FINAL_NUMBERS.map((item, index) => (
+                        <div key={item.label}>
+                          <div className="flex items-start justify-between gap-6 px-3 py-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className={cn("text-base font-medium text-slate-700", item.tone)}>{item.label}</p>
+                                {item.badge ? (
+                                  <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[11px] font-medium", item.badgeClassName)}>
+                                    {item.badge}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              {item.description ? (
+                                <p className="mt-1 text-xs text-[#717182]">{item.description}</p>
+                              ) : null}
+                            </div>
+                            <p className={cn("pt-0.5 text-base font-medium text-slate-800", item.tone)}>{item.value}</p>
+                          </div>
+                          {index === 1 || index === 5 ? <Separator className="my-1 bg-black/10" /> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="mt-14 border-t border-slate-200 pt-4 text-center">
+                <p className="text-[10px] font-semibold text-slate-500">
+                  Prepared by Radius Agent, Inc. • California Licensed Real Estate Brokerage
+                </p>
+                <p className="mx-auto mt-2 max-w-[760px] text-[8px] leading-[1.5] text-slate-400">
+                  This document authorizes payment of earned commission only in accordance with California Real Estate Law and DFPI guidelines.
+                  555 Market Street, Suite 1200, San Francisco, CA 94105 • (555) 123-4567 • hello@radiusagent.com • CA DRE #01234567
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Return for edits */}
       <Dialog open={showRejectDialog} onOpenChange={(open) => { setShowRejectDialog(open); if (!open) setRejectInput(""); }}>
