@@ -176,6 +176,12 @@ function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
 }
 
+const roleMeta: Record<string, { label: string; badge: string; avatar: string }> = {
+  agent: { label: "Agent", badge: "bg-blue-50 text-blue-700 border-blue-200", avatar: "bg-blue-100 text-blue-700" },
+  team_lead: { label: "Team Lead", badge: "bg-amber-50 text-amber-700 border-amber-200", avatar: "bg-amber-100 text-amber-700" },
+  radius_auditing: { label: "Admin", badge: "bg-purple-50 text-purple-700 border-purple-200", avatar: "bg-purple-100 text-purple-700" },
+};
+
 /** Editable value for deduction rows — no clear X (row has its own delete) */
 function DeductionValue({ value, onChange, readOnly }: { value: number; onChange: (v: number) => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false);
@@ -929,13 +935,19 @@ export function CommissionBreakdown() {
                     {commentHistory.length > 0 && (
                       <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 max-h-[180px] overflow-y-auto">
                         {commentHistory.map((c) => (
-                          <div key={c.id} className="space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
-                              <span className="text-[10px] text-muted-foreground">·</span>
-                              <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
+                          <div key={c.id} className="flex gap-2">
+                            <Avatar className="size-6 shrink-0 mt-0.5">
+                              <AvatarFallback className={`text-[10px] font-semibold ${(roleMeta[c.role] ?? roleMeta.agent).avatar}`}>{initials(c.author)}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
+                                <span className={`rounded-full border px-1.5 py-0 text-[9px] font-medium ${(roleMeta[c.role] ?? roleMeta.agent).badge}`}>{(roleMeta[c.role] ?? roleMeta.agent).label}</span>
+                                <span className="text-[10px] text-muted-foreground">·</span>
+                                <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
                           </div>
                         ))}
                       </div>
@@ -1118,13 +1130,19 @@ export function CommissionBreakdown() {
                     {commentHistory.length > 0 && (
                       <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 max-h-[180px] overflow-y-auto">
                         {commentHistory.map((c) => (
-                          <div key={c.id} className="space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
-                              <span className="text-[10px] text-muted-foreground">·</span>
-                              <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
+                          <div key={c.id} className="flex gap-2">
+                            <Avatar className="size-6 shrink-0 mt-0.5">
+                              <AvatarFallback className={`text-[10px] font-semibold ${(roleMeta[c.role] ?? roleMeta.agent).avatar}`}>{initials(c.author)}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
+                                <span className={`rounded-full border px-1.5 py-0 text-[9px] font-medium ${(roleMeta[c.role] ?? roleMeta.agent).badge}`}>{(roleMeta[c.role] ?? roleMeta.agent).label}</span>
+                                <span className="text-[10px] text-muted-foreground">·</span>
+                                <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
                           </div>
                         ))}
                       </div>

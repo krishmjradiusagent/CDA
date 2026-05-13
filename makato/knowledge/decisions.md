@@ -51,3 +51,16 @@ This file tracks architectural and product decisions made during development.
   2. **Team Lead**: Can edit everything EXCEPT Radius fees.
   3. **Radius Admin**: Can edit everything.
 - **Status**: Final — follow religiously.
+
+---
+
+### Decision: Fee Payment Assignment — Who Pays (Future)
+- **Context**: Biju's feedback on fee deductions and CDA payment instructions.
+- **Rules**:
+  1. Every fee needs "Who Pays": **Agent**, **Team**, or **Both** (50/50 split).
+  2. CDA purpose: instructions telling title company exactly who to transfer money to.
+  3. Three payment routing modes (configured in Settings):
+     - **Everything to Radius**: Title sends full check to Radius, Radius distributes.
+     - **Radius fee to Radius, rest to Team**: Title splits — Radius fees → Radius, remainder → Team distributes to agents.
+     - **Direct to all**: Title pays Radius fee → Radius, team fee → Team, agent commission → Agent directly.
+- **Status**: Captured — not yet implemented.
