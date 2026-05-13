@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
+  CircleDollarSign,
   Building2,
   ChevronRight,
   Download,
   HelpCircle,
   Info,
+  Moon,
   Pencil,
   Printer,
   Plus,
   RefreshCw,
   Sliders,
+  Sun,
   Trash2,
   TrendingUp,
   User,
@@ -22,6 +25,7 @@ import { Badge } from "../components/ui/badge";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
+import { Switch } from "../components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +115,8 @@ const initialSides: Side[] = [
     agents: [
       { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
       { id: "a2", name: "Sarah Kim", role: "Co-agent", payout: 10000 },
+      { id: "a4", name: "Taylor Brooks", role: "Showing agent", payout: 5000 },
+      { id: "a5", name: "Nina Patel", role: "Referral partner", payout: 3000 },
     ],
     active: true,
   },
@@ -122,6 +128,9 @@ const initialSides: Side[] = [
     gross: 49500,
     agents: [
       { id: "a3", name: "Ryan Torres", role: "Primary agent", payout: 35000 },
+      { id: "a6", name: "Olivia Chen", role: "Co-agent", payout: 9000 },
+      { id: "a7", name: "Marcus Lee", role: "ISA partner", payout: 4500 },
+      { id: "a8", name: "Jade Foster", role: "Referral partner", payout: 1000 },
     ],
     active: false,
   },
@@ -258,6 +267,7 @@ function EditableValue({
 }
 
 export function CommissionBreakdown() {
+  const [detailPanelTheme, setDetailPanelTheme] = useState<"light" | "dark">("light");
   const [role, setRole] = useState<Role>("radius_auditing");
   const [selectedSide, setSelectedSide] = useState<SideId>("listing");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -314,7 +324,9 @@ export function CommissionBreakdown() {
   const [sidesData, setSidesData] = useState(initialSides);
 
   // per-agent editable field overrides: { [agentId]: { commissionBasis, split } }
-  const [fieldOverrides, setFieldOverrides] = useState<Record<string, { commissionBasis: number; split: number }>>({});
+  const [fieldOverrides, setFieldOverrides] = useState<Record<string, { commissionBasis: number; split: number }>>({
+    a1: { commissionBasis: 29451, split: 7500 },
+  });
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -393,9 +405,9 @@ export function CommissionBreakdown() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div className="flex min-h-screen flex-col bg-muted/40">
       <CDAFlowSwitcher />
-      <main className="w-full">
+      <main className="flex flex-1 flex-col">
 
         {/* ── Breadcrumb + role bar ── */}
         <div className="flex items-center justify-between border-b bg-background px-6 py-2.5">
@@ -487,6 +499,7 @@ export function CommissionBreakdown() {
         <div className="grid grid-cols-[1fr_1px_1fr] items-stretch border-b bg-background">
           <div className="px-6 py-5">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <CircleDollarSign className="size-3.5" />
               Total Gross Commission
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -509,10 +522,10 @@ export function CommissionBreakdown() {
         </div>
 
         {/* ── Two-column body ── */}
-        <div className="grid lg:grid-cols-[3fr_2fr]">
+        <div className="grid min-h-0 flex-1 items-stretch lg:grid-cols-[3fr_2fr]">
 
           {/* LEFT — side cards */}
-          <section className="space-y-3 border-r bg-muted/30 p-4">
+          <section className="h-full space-y-3 border-r bg-muted/30 p-4">
             {sides.map((side) => (
               <Card key={side.id} className={cn(
                 "gap-0 rounded-xl shadow-none transition-all duration-150",
@@ -598,7 +611,12 @@ export function CommissionBreakdown() {
           </section>
 
           {/* RIGHT — agent detail OR side breakdown */}
-          <aside className="flex flex-col border-l bg-background">
+          <aside
+            className={cn("flex h-full min-h-0 flex-col border-l bg-background", detailPanelTheme === "dark" && "dark")}
+            style={detailPanelTheme === "dark"
+              ? { background: "radial-gradient(125% 125% at 50% 10%, #000000 55%, #160616 100%)" }
+              : undefined}
+          >
             {selectedAgent ? (
               <>
                 {/* Agent header */}
@@ -614,6 +632,15 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-full border bg-muted/40 px-2 py-1">
+                      <Sun className="size-3.5 text-muted-foreground" />
+                      <Switch
+                        checked={detailPanelTheme === "dark"}
+                        onCheckedChange={(checked) => setDetailPanelTheme(checked ? "dark" : "light")}
+                        aria-label="Toggle detail panel theme"
+                      />
+                      <Moon className="size-3.5 text-muted-foreground" />
+                    </div>
                     {/* Apply plan — dropdown (team_lead + radius only) */}
                     {role !== "agent" ? (
                       <DropdownMenu>
@@ -666,7 +693,7 @@ export function CommissionBreakdown() {
                 </div>
 
                 {/* Agent ledger */}
-                <div className="flex-1 px-5 py-4">
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
                     <EditableValue value={selectedAgent.commissionBasis} onChange={(v) => setAgentField("commissionBasis", v)} readOnly={isAgent || isLocked} />
@@ -825,16 +852,27 @@ export function CommissionBreakdown() {
                       <h2 className="text-sm font-semibold">{activeSide.title}</h2>
                       <p className="text-xs text-muted-foreground">{activeSide.subline}</p>
                     </div>
-                    {!isAgent && !isLocked && (
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs" style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }}>
-                          <Pencil className="size-3" />Edit
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs" style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }} onClick={() => setShowAwardDialog(true)}>
-                          <Sliders className="size-3" />Award allocation
-                        </Button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <div className="flex items-center gap-2 rounded-full border bg-muted/40 px-2 py-1">
+                        <Sun className="size-3.5 text-muted-foreground" />
+                        <Switch
+                          checked={detailPanelTheme === "dark"}
+                          onCheckedChange={(checked) => setDetailPanelTheme(checked ? "dark" : "light")}
+                          aria-label="Toggle detail panel theme"
+                        />
+                        <Moon className="size-3.5 text-muted-foreground" />
                       </div>
-                    )}
+                      {!isAgent && !isLocked && (
+                        <>
+                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs" style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }}>
+                            <Pencil className="size-3" />Edit
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs" style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }} onClick={() => setShowAwardDialog(true)}>
+                            <Sliders className="size-3" />Award allocation
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {[
@@ -853,10 +891,10 @@ export function CommissionBreakdown() {
                   </div>
                 </div>
 
-                <div className="flex-1 px-5 py-4">
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Income</p>
-                    <p className="text-base font-bold">{currency(grossIncome)}</p>
+                    <p className="text-base font-bold text-foreground">{currency(grossIncome)}</p>
                   </div>
                   {/* Agents: simplified Credits/Referral Fee dialog; TL/Radius: full fee builder */}
                   {!isLocked && (
@@ -874,7 +912,7 @@ export function CommissionBreakdown() {
 
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent Commissions</p>
-                    <p className="text-base font-bold">{currency(totalAgentPayout)}</p>
+                    <p className="text-base font-bold text-foreground">{currency(totalAgentPayout)}</p>
                   </div>
                   {!isAgent && !isLocked && (
                     <div className="mt-2">
@@ -887,14 +925,14 @@ export function CommissionBreakdown() {
                   <Separator className="my-4" />
 
                   {/* Office Net card */}
-                  <div className="rounded-xl border bg-muted/30 px-4 py-3.5">
+                  <div className="rounded-xl border bg-card px-4 py-3.5">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-xs font-medium text-muted-foreground">Office Net</p>
                         <p className="mt-0.5 text-xs text-muted-foreground/60">After agent commissions &amp; deductions</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-2xl font-bold tracking-tight">{currency(officeNet)}</p>
+                        <p className="text-2xl font-bold tracking-tight text-foreground">{currency(officeNet)}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">{Math.round((officeNet / (grossIncome || 1)) * 100)}% of gross</p>
                       </div>
                     </div>
