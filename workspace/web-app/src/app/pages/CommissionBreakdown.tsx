@@ -627,7 +627,7 @@ export function CommissionBreakdown() {
                         <AvatarFallback className="text-sm font-bold">{initials(selectedAgent.agent.name)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <h2 className="text-base font-bold uppercase tracking-wide">{selectedAgent.agent.name}</h2>
+                        <h2 className="text-base font-bold uppercase tracking-wide text-foreground">{selectedAgent.agent.name}</h2>
                         <p className="text-xs text-muted-foreground">{selectedAgent.agent.role} · {selectedAgent.side.title}</p>
                       </div>
                     </div>
@@ -849,7 +849,7 @@ export function CommissionBreakdown() {
                 <div className="border-b px-5 py-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h2 className="text-sm font-semibold">{activeSide.title}</h2>
+                      <h2 className="text-sm font-semibold text-foreground">{activeSide.title}</h2>
                       <p className="text-xs text-muted-foreground">{activeSide.subline}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
