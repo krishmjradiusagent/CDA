@@ -40,3 +40,14 @@ This file tracks architectural and product decisions made during development.
 - **Decision**: Commented out the section in both React and HTML.
 - **Rationale**: Temporary removal from view while other features are finalized.
 - **Status**: Temporary
+
+---
+
+## Date: 2026-05-14
+### Decision: Commission Breakdown Role Permissions (CANONICAL)
+- **Context**: Strict role-based access for commission breakdown CTAs.
+- **Rules**:
+  1. **Agent**: Can add pre-split Credits/Referrals (dollar amount). Can add post-split deductions. Can edit pre-determined post-split deductions. CANNOT add "Agent pre-split deductions" (TL/Admin only). Cannot change commission plan.
+  2. **Team Lead**: Can edit everything EXCEPT Radius fees.
+  3. **Radius Admin**: Can edit everything.
+- **Status**: Final — follow religiously.

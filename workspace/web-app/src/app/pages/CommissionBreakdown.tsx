@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   CircleDollarSign,
@@ -7,25 +7,29 @@ import {
   Download,
   HelpCircle,
   Info,
-  Moon,
+  MessageSquare,
   Pencil,
   Printer,
   Plus,
   RefreshCw,
+  Send,
+  Shield,
   Sliders,
-  Sun,
   Trash2,
   TrendingUp,
   User,
+  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
-import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import { Card, CardContent } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Switch } from "../components/ui/switch";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "../components/v4/ui/button";
+import { Badge } from "../components/v4/ui/badge";
+import { Avatar, AvatarFallback } from "../components/v4/ui/avatar";
+import { Card, CardContent } from "../components/v4/ui/card";
+import { Input } from "../components/v4/ui/input";
+import { Textarea } from "../components/v4/ui/textarea";
+import { Alert, AlertDescription } from "../components/v4/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +39,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../components/ui/alert-dialog";
+} from "../components/v4/ui/alert-dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -43,8 +47,8 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../components/ui/breadcrumb";
-import { Separator } from "../components/ui/separator";
+} from "../components/v4/ui/breadcrumb";
+import { Separator } from "../components/v4/ui/separator";
 import {
   Dialog,
   DialogClose,
@@ -53,7 +57,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
+} from "../components/v4/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../components/v4/ui/accordion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,14 +71,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+} from "../components/v4/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "../components/ui/tooltip";
-import { cn } from "../components/ui/utils";
-import { CDAFlowSwitcher } from "../components/finance/cda-flow-switcher";
+  TooltipProvider,
+} from "../components/v4/ui/tooltip";
+import { Checkbox } from "../components/v4/ui/checkbox";
+
+import { cn } from "../../lib/utils";
+import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { FeeBuilderModal } from "../components/finance/fee-builder-modal";
 import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
 
@@ -198,8 +211,7 @@ function DeductionValue({ value, onChange, readOnly }: { value: number; onChange
   return (
     <button
       onClick={() => setEditing(true)}
-      className="text-sm font-semibold underline underline-offset-2"
-      style={{ color: "#5A5FF2" }}
+      className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]"
     >
       {currency(value)}
     </button>
@@ -247,17 +259,16 @@ function EditableValue({
   }
 
   return (
-    <div className="group flex items-center gap-1">
+    <div className="group relative flex items-center justify-end">
       <button
         onClick={() => setEditing(true)}
-        className="text-sm font-semibold underline underline-offset-2"
-        style={{ color: "#5A5FF2" }}
+        className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]"
       >
         {currency(value)}
       </button>
       <button
         onClick={() => onChange(0)}
-        className="invisible size-4 text-muted-foreground/40 hover:text-destructive group-hover:visible"
+        className="absolute -left-5 invisible size-4 text-muted-foreground/40 hover:text-destructive group-hover:visible"
         tabIndex={-1}
       >
         <X className="size-3" />
@@ -267,13 +278,30 @@ function EditableValue({
 }
 
 export function CommissionBreakdown() {
-  const [detailPanelTheme, setDetailPanelTheme] = useState<"light" | "dark">("light");
+  const [agentComment, setAgentComment] = useState("");
+  type CommentEntry = { id: string; author: string; role: Role; text: string; timestamp: string };
+  const [commentHistory, setCommentHistory] = useState<CommentEntry[]>([
+    { id: "ch1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount — it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM" },
+    { id: "ch2", author: "Mark Perez", role: "agent", text: "Updated. The RERM was adjusted per the new schedule effective May 1.", timestamp: "May 12, 2026 · 4:02 PM" },
+  ]);
+  function handleSendComment() {
+    const text = agentComment.trim();
+    if (!text) return;
+    const roleNames: Record<Role, string> = { agent: "You (Agent)", team_lead: "You (Team Lead)", radius_auditing: "You (Admin)" };
+    setCommentHistory((prev) => [...prev, { id: `ch-${Date.now()}`, author: roleNames[role], role, text, timestamp: "Just now" }]);
+    setAgentComment("");
+    toast.success("Comment sent");
+  }
   const [role, setRole] = useState<Role>("radius_auditing");
   const [selectedSide, setSelectedSide] = useState<SideId>("listing");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  // Connector refs & state
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [connectorTop, setConnectorTop] = useState(0);
   const [showGrossInfo, setShowGrossInfo] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [feeDialogTiming, setFeeDialogTiming] = useState<"pre-split" | "post-split" | null>(null);
+  const feeDialogTitle = "Fee Type";
   const [showCDCDialog, setShowCDCDialog] = useState(false);
   const [showNetCommissionDialog, setShowNetCommissionDialog] = useState(false);
   const [showStatementDialog, setShowStatementDialog] = useState(false);
@@ -292,16 +320,23 @@ export function CommissionBreakdown() {
   const [showAgentPreSplitDialog, setShowAgentPreSplitDialog] = useState(false);
   const [agentPreSplitLabel, setAgentPreSplitLabel] = useState("");
   const [agentPreSplitAmount, setAgentPreSplitAmount] = useState("");
-  const [showRadiusFeeDialog, setShowRadiusFeeDialog] = useState(false);
-  const [radiusFeeLabel, setRadiusFeeLabel] = useState("");
-  const [radiusFeeAmount, setRadiusFeeAmount] = useState("");
 
-  const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>({
-    a1: [
-      { id: "pre1", name: "Credits", amount: 200 },
-      { id: "pre2", name: "Referrals", amount: 50 },
+
+  // Sliding scale dialog
+
+
+  const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>({});
+
+  // Side-level gross deductions (Credits, Referrals) — keyed by SideId
+  type SideDeduction = { id: string; name: string; amount: number };
+  const [sideGrossDeductions, setSideGrossDeductions] = useState<Record<string, SideDeduction[]>>({
+    listing: [
+      { id: "sg1", name: "Credits", amount: 200 },
+      { id: "sg2", name: "Referrals", amount: 50 },
     ],
+    buyer: [],
   });
+
 
   const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>>({
     a1: [
@@ -319,6 +354,26 @@ export function CommissionBreakdown() {
   const [agentSearch, setAgentSearch] = useState("");
   const [pendingAgent, setPendingAgent] = useState<{ id: string; name: string } | null>(null);
   const [agentAllocations, setAgentAllocations] = useState<Record<string, number>>({});
+
+  // Compute connector top position from selected anchor
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const anchorId = selectedAgentId
+      ? `agent-${selectedAgentId}`
+      : `${selectedSide}-side`;
+    const update = () => {
+      const anchor = grid.querySelector(`[data-connector-anchor="${anchorId}"]`);
+      if (!anchor) return;
+      const gridRect = grid.getBoundingClientRect();
+      const anchorRect = anchor.getBoundingClientRect();
+      setConnectorTop(anchorRect.top - gridRect.top + anchorRect.height / 2);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(grid);
+    return () => ro.disconnect();
+  }, [selectedSide, selectedAgentId]);
 
   // mutable sides so delete works
   const [sidesData, setSidesData] = useState(initialSides);
@@ -371,13 +426,21 @@ export function CommissionBreakdown() {
   }
 
   function handleFeeAdded(fee: FeeTypeDraft) {
-    if (selectedAgentId && fee.timing === "post-split") {
+    const amount = Math.round(Number(fee.amount) || 0);
+    if (fee.timing === "pre-split") {
+      // Pre-split → side-level gross deductions
+      setSideGrossDeductions((prev) => ({
+        ...prev,
+        [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount }],
+      }));
+    } else if (fee.timing === "post-split" && selectedAgentId) {
+      // Post-split → agent-level deductions
       setPostSplitDeductions((prev) => ({
         ...prev,
-        [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount: fee.amount ?? 0 }],
+        [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount }],
       }));
     }
-    toast.success(`"${fee.name}" deduction added`);
+    toast.success(`"${fee.name}" added`);
     setFeeDialogTiming(null);
   }
 
@@ -397,42 +460,56 @@ export function CommissionBreakdown() {
     approved: "Approved",
     rejected: "Returned for edits",
   };
-  const STATUS_COLORS: Record<typeof txStatus, string> = {
-    draft: "text-muted-foreground border-muted-foreground/30",
-    submitted: "text-amber-600 border-amber-300 bg-amber-50",
-    approved: "text-emerald-700 border-emerald-300 bg-emerald-50",
-    rejected: "text-destructive border-destructive/30 bg-destructive/5",
+  const STATUS_COLORS: Record<typeof txStatus, React.ComponentProps<typeof Badge>["variant"]> = {
+    draft: "outline",
+    submitted: "secondary", // amber in theme?
+    approved: "default",    // emerald in theme?
+    rejected: "destructive",
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/40">
-      <CDAFlowSwitcher />
+    <TooltipProvider>
+      <div className="flex min-h-screen flex-col bg-muted/40">
       <main className="flex flex-1 flex-col">
 
         {/* ── Breadcrumb + role bar ── */}
         <div className="flex items-center justify-between border-b bg-background px-6 py-2.5">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild><Link to="/deal-terms" className="text-xs">Transaction</Link></BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-xs">Commission Breakdown</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div className="flex items-center gap-1 rounded-full border bg-muted/40 p-0.5">
-            {(["agent", "team_lead", "radius_auditing"] as Role[]).map((r) => (
-              <button key={r} onClick={() => setRole(r)}
-                className={cn("rounded-full px-3 py-1 text-xs font-medium transition-all",
-                  role === r ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {r === "agent" ? "Agent" : r === "team_lead" ? "TL" : "Radius"}
-              </button>
-            ))}
+          <div className="flex items-center gap-4">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild><Link to="/deal-terms" className="text-xs">Transaction</Link></BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="text-xs">Commission Breakdown</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <Separator orientation="vertical" className="!h-4" />
+            <CDAFlowSwitcher />
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-2 rounded-lg px-3 text-xs">
+                {role === "agent" ? <User className="size-3.5" /> : role === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
+                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : "Admin view"}
+                <ChevronRight className="size-3 rotate-90" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Switch role</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(["agent", "team_lead", "radius_auditing"] as Role[]).map((r) => (
+                <DropdownMenuItem key={r} onClick={() => setRole(r)} className={cn(role === r && "bg-accent")}>
+                  <div className="flex items-center gap-2">
+                    {r === "agent" ? <User className="size-3.5" /> : r === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
+                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : "Admin view"}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* ── Page title bar ── */}
@@ -448,9 +525,9 @@ export function CommissionBreakdown() {
           </div>
           <div className="flex items-center gap-2">
             {txStatus !== "draft" && (
-              <span className={cn("rounded-full border px-3 py-1 text-xs font-medium", STATUS_COLORS[txStatus])}>
+              <Badge variant={STATUS_COLORS[txStatus]} className="rounded-full px-3">
                 {STATUS_LABELS[txStatus]}
-              </span>
+              </Badge>
             )}
             {rejectionNote && txStatus === "draft" && (
               <Tooltip>
@@ -474,7 +551,7 @@ export function CommissionBreakdown() {
                 size="sm"
                 variant="outline"
                 className="h-8 gap-1.5 rounded-lg px-4 text-xs"
-                style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }}
+                className="text-primary border-primary"
                 onClick={() => setShowPdfPreview(true)}
               >
                 <Download className="size-3.5" />
@@ -487,7 +564,7 @@ export function CommissionBreakdown() {
                 <Button size="sm" variant="outline" className="h-8 rounded-lg px-4 text-xs text-destructive border-destructive/40 hover:bg-destructive/5" onClick={() => setShowRejectDialog(true)}>
                   Return
                 </Button>
-                <Button size="sm" className="h-8 rounded-lg px-4 text-xs" style={{ backgroundColor: "#5A5FF2" }} onClick={() => setShowApproveDialog(true)}>
+                <Button size="sm" className="h-8 rounded-lg px-4 text-xs bg-primary" onClick={() => setShowApproveDialog(true)}>
                   Approve
                 </Button>
               </>
@@ -522,105 +599,157 @@ export function CommissionBreakdown() {
         </div>
 
         {/* ── Two-column body ── */}
-        <div className="grid min-h-0 flex-1 items-stretch lg:grid-cols-[3fr_2fr]">
+        <div ref={gridRef} className="relative grid min-h-0 flex-1 items-start lg:grid-cols-[3fr_2fr]">
 
-          {/* LEFT — side cards */}
-          <section className="h-full space-y-3 border-r bg-muted/30 p-4">
-            {sides.map((side) => (
-              <Card key={side.id} className={cn(
-                "gap-0 rounded-xl shadow-none transition-all duration-150",
-                side.active ? "border-primary/30 ring-1 ring-primary/15 shadow-sm" : "hover:border-border/80 hover:shadow-sm"
-              )}>
-                <div
-                  role="button" tabIndex={0}
-                  onClick={() => { setSelectedSide(side.id); setSelectedAgentId(null); }}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedSide(side.id); setSelectedAgentId(null); } }}
-                  className="flex cursor-pointer items-start justify-between gap-4 px-5 py-4 outline-none"
-                >
-                  <div className="min-w-0">
-                    <span className="text-base font-semibold">{side.title}</span>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{side.subline}</span>
-                      <span className="text-xs text-muted-foreground/40">|</span>
-                      {!isAgent && !isLocked ? (
-                        <Badge
-                          variant="outline"
-                          className="cursor-pointer rounded-full px-2 py-0 text-[11px] font-medium hover:opacity-80"
-                          style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }}
-                          onClick={(e) => { e.stopPropagation(); setShowAwardDialog(true); }}
-                        >
-                          Award {side.award}%
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px] font-medium text-muted-foreground">
-                          Award {side.award}%
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-xs font-medium text-muted-foreground">Side total</p>
-                    <p className="text-xl font-bold tracking-tight">{currency(side.agents.reduce((s, a) => s + a.payout, 0))}</p>
-                  </div>
-                </div>
+          {/* ── Horizontal connector line ── */}
+          {connectorTop > 0 && (
+            <div
+              className="absolute h-px bg-[#5A5FF2]/20 rounded-full pointer-events-none hidden xl:block z-10"
+              style={{
+                top: `${connectorTop}px`,
+                left: 'calc(60% - 16px)',
+                width: '20px',
+              }}
+            />
+          )}
 
-                <Separator />
-
-                <div className="px-5 py-3 space-y-2">
-                  {side.agents.map((agent) => (
-                    <div
-                      key={agent.id}
-                      role="button" tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); } }}
-                      className={cn(
-                        "flex cursor-pointer items-center justify-between gap-4 rounded-lg px-4 py-2.5 outline-none transition-colors",
-                        selectedAgentId === agent.id ? "bg-primary/8 ring-1 ring-primary/20" : "bg-muted/50 hover:bg-muted/80"
-                      )}
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar className="size-8 shrink-0 border">
-                          <AvatarFallback className="bg-background text-xs font-semibold">{initials(agent.name)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{agent.name}</p>
-                          <p className="text-xs text-muted-foreground">{agent.role}</p>
+          {/* LEFT — unified side card */}
+          <section className="bg-muted/30 p-4">
+            <Card className="rounded-xl border bg-card overflow-hidden p-0 gap-0 block shadow-sm">
+              <div className="w-full">
+                {sides.map((side, index) => (
+                  <React.Fragment key={side.id}>
+                    <div className="border-none">
+                      <div
+                        data-connector-anchor={`${side.id}-side`}
+                        className={cn(
+                          "flex items-start justify-between px-5 py-4 transition-colors duration-150",
+                          index === 0 && "rounded-t-xl",
+                          selectedSide === side.id && "bg-[#5A5FF2]/[0.035]"
+                        )}>
+                        <div className="flex flex-1 items-start justify-between">
+                          <div className="min-w-0">
+                            <span className="text-base font-semibold">{side.title}</span>
+                            <div className="flex items-center gap-3 mt-1" data-testid={`${side.id}-meta-row`}>
+                              <span className="text-xs text-muted-foreground">{side.subline}</span>
+                              
+                              <Separator
+                                orientation="vertical"
+                                data-testid={`${side.id}-separator-1`}
+                                className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
+                              />
+                              
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "rounded-full px-2 py-0 text-[11px] font-medium border-[#5A5FF2] text-[#5A5FF2] bg-transparent",
+                                  !isAgent && !isLocked && "cursor-pointer hover:opacity-80"
+                                )}
+                                onClick={!isAgent && !isLocked ? (e) => { e.stopPropagation(); setShowAwardDialog(true); } : undefined}
+                              >
+                                Award {side.award}%
+                              </Badge>
+                              
+                              <Separator
+                                orientation="vertical"
+                                data-testid={`${side.id}-separator-2`}
+                                className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
+                              />
+                              
+                              {!isAgent && !isLocked && (
+                                <Badge 
+                                  variant="secondary"
+                                  className="border border-[#5A5FF2] text-[#5A5FF2] bg-[#5A5FF210] hover:bg-[#5A5FF214] cursor-pointer px-2 py-0 text-[11px] font-medium h-5 flex items-center justify-center rounded-md shadow-none"
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    setAddAgentSideId(side.id); 
+                                    setAgentSearch(""); 
+                                    setPendingAgent(null); 
+                                    setAgentAllocations({}); 
+                                    setShowAddAgentDialog(true); 
+                                  }}
+                                >
+                                  + Agent
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 shrink-0 mr-1">
+                            <div className="text-right">
+                              <p className="text-xs font-medium text-muted-foreground">Side total</p>
+                              <p className="text-xl font-bold tracking-tight tabular-nums">{currency(side.agents.reduce((s, a) => s + a.payout, 0))}</p>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="size-8 p-0 hover:bg-muted"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setSelectedSide(side.id); 
+                                setSelectedAgentId(null); 
+                              }}
+                            >
+                              <ChevronRight className="size-4 text-muted-foreground/50" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
-                          <p className="text-xs font-medium text-muted-foreground">Payout</p>
-                          <p className="text-base font-bold tracking-tight">{currency(agent.payout)}</p>
+                      <div className="px-5 pb-4">
+                        <div className="mt-1 space-y-2">
+                          {side.agents.map((agent) => (
+                            <div
+                              data-connector-anchor={`agent-${agent.id}`}
+                              key={agent.id}
+                              role="button" tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); }}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); } }}
+                              className={cn(
+                                "flex cursor-pointer items-center justify-between gap-4 px-4 py-3 min-h-[64px] rounded-lg outline-none transition-colors",
+                                selectedAgentId === agent.id ? "bg-muted ring-1 ring-border shadow-sm" : "bg-muted/50 hover:bg-muted/80"
+                              )}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <Avatar className="size-8 shrink-0 border">
+                                  <AvatarFallback className="bg-background text-xs font-semibold">{initials(agent.name)}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium">{agent.name}</p>
+                                  <p className="text-xs text-muted-foreground">{agent.role}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right">
+                                  <p className="text-xs font-medium text-muted-foreground">Payout</p>
+                                  <p className="text-base font-bold tracking-tight tabular-nums">{currency(agent.payout)}</p>
+                                </div>
+                                <ChevronRight className="size-4 text-muted-foreground/50" />
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <ChevronRight className="size-4 text-muted-foreground/50" />
                       </div>
                     </div>
-                  ))}
-                  {!isAgent && !isLocked && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setAddAgentSideId(side.id); setAgentSearch(""); setPendingAgent(null); setAgentAllocations({}); setShowAddAgentDialog(true); }}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/5"
-                      style={{ borderColor: "#5A5FF2", color: "#5A5FF2" }}
-                    >
-                      <Plus className="size-3.5" />Add agent
-                    </button>
-                  )}
-                </div>
-              </Card>
-            ))}
+                    {index === 0 && <Separator />}
+                  </React.Fragment>
+                ))}
+              </div>
+            </Card>
           </section>
 
           {/* RIGHT — agent detail OR side breakdown */}
-          <aside
-            className={cn("flex h-full min-h-0 flex-col border-l bg-background", detailPanelTheme === "dark" && "dark")}
-            style={detailPanelTheme === "dark"
-              ? { background: "radial-gradient(125% 125% at 50% 10%, #000000 55%, #160616 100%)" }
-              : undefined}
-          >
+          <aside className="py-4 pr-4 pl-1">
+           <Card
+            className="rounded-xl border bg-card shadow-sm overflow-hidden p-0"
+           >
             {selectedAgent ? (
-              <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 {/* Agent header */}
-                <div className="border-b px-5 py-4">
+                <div className="shrink-0 border-b px-5 py-4 bg-[#5A5FF2]/[0.035]">
+                  <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">
+                    <span>{selectedAgent.side.title}</span>
+                    <ChevronRight className="size-2.5" />
+                    <span>{selectedAgent.agent.role}</span>
+                  </div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <Avatar className="size-10 border">
@@ -632,15 +761,6 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 rounded-full border bg-muted/40 px-2 py-1">
-                      <Sun className="size-3.5 text-muted-foreground" />
-                      <Switch
-                        checked={detailPanelTheme === "dark"}
-                        onCheckedChange={(checked) => setDetailPanelTheme(checked ? "dark" : "light")}
-                        aria-label="Toggle detail panel theme"
-                      />
-                      <Moon className="size-3.5 text-muted-foreground" />
-                    </div>
                     {/* Apply plan — dropdown (team_lead + radius only) */}
                     {role !== "agent" ? (
                       <DropdownMenu>
@@ -677,7 +797,6 @@ export function CommissionBreakdown() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : null}
-                    <Button variant="outline" size="sm" className="h-7 rounded-lg px-3 text-xs" onClick={() => setShowStatementDialog(true)}>Statement</Button>
                     {!isAgent && !isLocked && (
                       <Button
                         variant="outline"
@@ -693,51 +812,25 @@ export function CommissionBreakdown() {
                 </div>
 
                 {/* Agent ledger */}
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                <div className="px-5 py-4">
+                  {/* Tentative notice */}
+                  <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
+                    <Info className="size-3.5 text-blue-500" />
+                    <span>Breakdown is tentative until confirmed by the Team Lead.</span>
+                  </div>
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
-                    <EditableValue value={selectedAgent.commissionBasis} onChange={(v) => setAgentField("commissionBasis", v)} readOnly={isAgent || isLocked} />
-                  </div>
-                  {/* Pre-split deductions (Credits, Referrals) — agents can edit amounts, TL/Radius can also add/delete */}
-                  {(preSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => (
-                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
-                      <p className="text-xs text-muted-foreground">{ded.name}</p>
-                      <div className="flex items-center gap-2">
-                        <DeductionValue
-                          value={ded.amount}
-                          readOnly={isLocked}
-                          onChange={(v) => setPreSplitDeductions((prev) => ({
-                            ...prev,
-                            [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
-                          }))}
-                        />
-                        {!isAgent && !isLocked && (
-                          <button
-                            onClick={() => setPreSplitDeductions((prev) => ({
-                              ...prev,
-                              [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
-                            }))}
-                            className="invisible size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:visible"
-                            tabIndex={-1}
-                          >
-                            <X className="size-3" />
-                          </button>
-                        )}
-                      </div>
+                    <div className="min-w-[120px] text-right">
+                      <EditableValue value={selectedAgent.commissionBasis} onChange={(v) => setAgentField("commissionBasis", v)} readOnly={isAgent || isLocked} />
                     </div>
-                  ))}
-                  {/* TL/Radius can add more pre-split deductions */}
+                  </div>
                   {!isAgent && !isLocked && (
-                    <button
-                      onClick={() => setFeeDialogTiming("pre-split")}
-                      className="flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15"
-                      style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}
-                    >
-                      <Plus className="size-3.5" />
-                      Pre-split deduction
-                    </button>
+                  <div className="pt-1">
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
+                      <Plus className="size-3.5 mr-1" />Pre-commission deduction
+                    </Button>
+                  </div>
                   )}
-
                   <Separator className="my-3" />
 
                   <div className="flex items-start justify-between py-3">
@@ -745,7 +838,9 @@ export function CommissionBreakdown() {
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Split</p>
                       <p className="text-xs text-muted-foreground">0% of remaining balance</p>
                     </div>
-                    <EditableValue value={selectedAgent.split} onChange={(v) => setAgentField("split", v)} readOnly={isAgent || isLocked} />
+                    <div className="min-w-[120px] text-right">
+                      <EditableValue value={selectedAgent.split} onChange={(v) => setAgentField("split", v)} readOnly={isAgent || isLocked} />
+                    </div>
                   </div>
                   <Separator className="my-3" />
 
@@ -760,7 +855,7 @@ export function CommissionBreakdown() {
                       <div key={ded.id} className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs text-muted-foreground">{ded.name}</p>
-                          {ded.isRadiusFee && <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Radius</span>}
+                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{ded.isRadiusFee ? "Paid by Agent" : "Paid by Both"}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <DeductionValue
@@ -777,7 +872,7 @@ export function CommissionBreakdown() {
                                 ...prev,
                                 [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
                               }))}
-                              className="invisible size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:visible"
+                              className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
                               tabIndex={-1}
                             >
                               <X className="size-3" />
@@ -788,86 +883,111 @@ export function CommissionBreakdown() {
                     );
                   })}
 
-                  {/* Agents and TL/Radius can add post-split deductions */}
-                  {!isLocked && (
-                    <button
-                      onClick={() => setFeeDialogTiming("post-split")}
-                      className="mt-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15"
-                      style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}
-                    >
-                      <Plus className="size-3.5" />
-                      Post-split deduction
-                    </button>
-                  )}
-                  {/* Radius only: add a flagged Radius fee */}
-                  {canEditAll && txStatus !== "approved" && (
-                    <button
-                      onClick={() => setShowRadiusFeeDialog(true)}
-                      className="mt-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15"
-                      style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}
-                    >
-                      <Plus className="size-3.5" />
-                      Radius fee
-                    </button>
-                  )}
+                  {/* Empty state + CTAs for post-split */}
+                  <div className="flex items-center gap-3 pt-1 pb-0.5">
+                    {!isLocked && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("post-split")}>
+                        <Plus className="size-3.5 mr-1" />Post-split deduction
+                      </Button>
+                    )}
+                    {canEditAll && !isLocked && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("post-split")}>
+                        <Plus className="size-3.5 mr-1" />Radius fee
+                      </Button>
+                    )}
+                  </div>
 
                   <Separator className="my-3" />
 
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Net Commission</p>
-                    <button
-                      onClick={() => setShowNetCommissionDialog(true)}
-                      className="text-sm font-semibold underline underline-offset-2"
-                      style={{ color: "#5A5FF2" }}
-                    >
-                      {currency(selectedAgent.netCommission)}
-                    </button>
+                    <div className="min-w-[120px] text-right">
+                      <button onClick={() => setShowNetCommissionDialog(true)} className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]">
+                        {currency(selectedAgent.netCommission)}
+                      </button>
+                    </div>
                   </div>
 
                   <Separator className="my-3" />
 
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company Dollar Contribution</p>
-                    <button
-                      onClick={() => setShowCDCDialog(true)}
-                      className="text-sm font-semibold underline underline-offset-2"
-                      style={{ color: "#5A5FF2" }}
-                    >
-                      {currency(selectedAgent.companyDollar)}
-                    </button>
+                    <div className="min-w-[120px] text-right">
+                      <button onClick={() => setShowCDCDialog(true)} className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]">
+                        {currency(selectedAgent.companyDollar)}
+                      </button>
+                    </div>
+                  </div>
+                  <Separator className="my-3" />
+
+                  <div className="space-y-3 pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="size-3 text-muted-foreground" />
+                      <p className="text-xs font-medium text-muted-foreground">Comment for Team Lead</p>
+                    </div>
+                    {/* Comment history */}
+                    {commentHistory.length > 0 && (
+                      <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 max-h-[180px] overflow-y-auto">
+                        {commentHistory.map((c) => (
+                          <div key={c.id} className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
+                              <span className="text-[10px] text-muted-foreground">·</span>
+                              <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <Textarea
+                        value={agentComment}
+                        onChange={(e) => setAgentComment(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
+                        placeholder="Add a note about this breakdown…"
+                        rows={2}
+                        className="min-h-[60px] resize-none border border-input bg-background pr-10 text-xs placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1.5 bottom-1.5 size-7 text-[#5A5FF2] hover:bg-[#5A5FF2]/10 hover:text-[#5A5FF2] disabled:opacity-50"
+                        disabled={!agentComment.trim()}
+                        onClick={handleSendComment}
+                      >
+                        <Send className="size-3.5" />
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60">Flag incorrect splits or add context before confirmation. Press Enter to send.</p>
+                  </div>
+                  <div className="flex items-center pb-4">
+                    <Button variant="ghost" size="sm" className="h-8 gap-2 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
+                      <HelpCircle className="size-4" />Need help?
+                    </Button>
                   </div>
                 </div>
-
-                <div className="border-t px-5 py-3">
-                  <Button variant="ghost" size="sm" className="h-8 gap-2 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-                    <HelpCircle className="size-4" />Need help?
-                  </Button>
-                </div>
-              </>
+              </motion.div>
             ) : (
-              <>
-                <div className="border-b px-5 py-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <div className="shrink-0 border-b px-5 py-4 bg-[#5A5FF2]/[0.035]">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h2 className="text-sm font-semibold text-foreground">{activeSide.title}</h2>
-                      <p className="text-xs text-muted-foreground">{activeSide.subline}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-lg border bg-muted/50">
+                        <Building2 className="size-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-semibold text-foreground">{activeSide.title}</h2>
+                        <p className="text-xs text-muted-foreground">{activeSide.subline}</p>
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <div className="flex items-center gap-2 rounded-full border bg-muted/40 px-2 py-1">
-                        <Sun className="size-3.5 text-muted-foreground" />
-                        <Switch
-                          checked={detailPanelTheme === "dark"}
-                          onCheckedChange={(checked) => setDetailPanelTheme(checked ? "dark" : "light")}
-                          aria-label="Toggle detail panel theme"
-                        />
-                        <Moon className="size-3.5 text-muted-foreground" />
-                      </div>
                       {!isAgent && !isLocked && (
                         <>
-                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs" style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }}>
+                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs text-primary border-primary">
                             <Pencil className="size-3" />Edit
                           </Button>
-                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs" style={{ color: "#5A5FF2", borderColor: "#5A5FF2" }} onClick={() => setShowAwardDialog(true)}>
+                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs text-primary border-primary" onClick={() => setShowAwardDialog(true)}>
                             <Sliders className="size-3" />Award allocation
                           </Button>
                         </>
@@ -891,34 +1011,82 @@ export function CommissionBreakdown() {
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                <div className="px-5 py-4">
+                  {/* Tentative notice */}
+                  <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
+                    <Info className="size-3.5 text-blue-500" />
+                    <span>Breakdown is tentative until confirmed by the Team Lead.</span>
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Income</p>
-                    <p className="text-base font-bold text-foreground">{currency(grossIncome)}</p>
+                    <div className="min-w-[120px] text-right">
+                      <p className="text-base font-bold text-foreground tabular-nums">{currency(grossIncome)}</p>
+                    </div>
                   </div>
-                  {/* Agents: simplified Credits/Referral Fee dialog; TL/Radius: full fee builder */}
-                  {!isLocked && (
-                    <button
-                      onClick={() => isAgent ? setShowAgentPreSplitDialog(true) : setFeeDialogTiming("pre-split")}
-                      className="mt-2 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15"
-                      style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}
-                    >
-                      <Plus className="size-3.5" />
-                      {isAgent ? "Add credit or referral fee" : "Pre-commission deduction"}
-                    </button>
+                  {/* Side-level gross deductions: Credits, Referrals */}
+                  {(sideGrossDeductions[activeSide.id] ?? []).map((ded) => (
+                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!isAgent && !isLocked ? (
+                          <DeductionValue
+                            value={ded.amount}
+                            readOnly={false}
+                            onChange={(v) => setSideGrossDeductions((prev) => ({
+                              ...prev,
+                              [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
+                            }))}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground tabular-nums min-w-[80px] text-right">{currency(ded.amount)}</span>
+                        )}
+                        {!isAgent && !isLocked && (
+                          <button
+                            onClick={() => setSideGrossDeductions((prev) => ({
+                              ...prev,
+                              [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
+                            }))}
+                            className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                            tabIndex={-1}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {isAgent && (sideGrossDeductions[activeSide.id] ?? []).length === 0 && (
+                  <div className="pt-1">
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
+                      <Plus className="size-3.5 mr-1" />Add credit or referral fee
+                    </Button>
+                  </div>
+                  )}
+                  {!isAgent && !isLocked && (
+                  <div className="pt-1">
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
+                      <Plus className="size-3.5 mr-1" />Pre-commission deduction
+                    </Button>
+                  </div>
                   )}
 
                   <Separator className="my-4" />
 
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent Commissions</p>
-                    <p className="text-base font-bold text-foreground">{currency(totalAgentPayout)}</p>
+                    <div className="min-w-[120px] text-right">
+                      <p className="text-base font-bold text-foreground tabular-nums">{currency(totalAgentPayout)}</p>
+                    </div>
                   </div>
-                  {!isAgent && !isLocked && (
-                    <div className="mt-2">
-                      <button onClick={() => setFeeDialogTiming("post-split")} className="flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15" style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}>
-                        <Plus className="size-3.5" />Post-commission deduction
-                      </button>
+                  {!isLocked && (
+                    <div className="pt-1">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("post-split")}>
+                        <Plus className="size-3.5 mr-1" />Post-commission deduction
+                      </Button>
                     </div>
                   )}
 
@@ -931,25 +1099,66 @@ export function CommissionBreakdown() {
                         <p className="text-xs font-medium text-muted-foreground">Office Net</p>
                         <p className="mt-0.5 text-xs text-muted-foreground/60">After agent commissions &amp; deductions</p>
                       </div>
-                      <div className="text-center">
+                      <div className="text-right">
                         <p className="text-2xl font-bold tracking-tight text-foreground">{currency(officeNet)}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">{Math.round((officeNet / (grossIncome || 1)) * 100)}% of gross</p>
                       </div>
                     </div>
                   </div>
 
-                  <button className="mt-2 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15" style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}>
-                    <Plus className="size-3.5" />Office income
-                  </button>
-                </div>
 
-                <div className="border-t px-5 py-3">
-                  <Button variant="ghost" size="sm" className="h-8 gap-2 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-                    <HelpCircle className="size-4" />Need help?
-                  </Button>
+                  <Separator className="my-4" />
+
+                  <div className="space-y-3 pb-2">
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="size-3 text-muted-foreground" />
+                      <p className="text-xs font-medium text-muted-foreground">Comment for Team Lead</p>
+                    </div>
+                    {/* Comment history */}
+                    {commentHistory.length > 0 && (
+                      <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 max-h-[180px] overflow-y-auto">
+                        {commentHistory.map((c) => (
+                          <div key={c.id} className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
+                              <span className="text-[10px] text-muted-foreground">·</span>
+                              <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <Textarea
+                        value={agentComment}
+                        onChange={(e) => setAgentComment(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
+                        placeholder="Add a note about this breakdown…"
+                        rows={2}
+                        className="min-h-[60px] resize-none border border-input bg-background pr-10 text-xs placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1.5 bottom-1.5 size-7 text-[#5A5FF2] hover:bg-[#5A5FF2]/10 hover:text-[#5A5FF2] disabled:opacity-50"
+                        disabled={!agentComment.trim()}
+                        onClick={handleSendComment}
+                      >
+                        <Send className="size-3.5" />
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60">Flag incorrect splits or add context before confirmation. Press Enter to send.</p>
+                  </div>
+                  <div className="flex items-center pb-4">
+                    <Button variant="ghost" size="sm" className="h-8 gap-2 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
+                      <HelpCircle className="size-4" />Need help?
+                    </Button>
+                  </div>
                 </div>
-              </>
+              </motion.div>
             )}
+           </Card>
           </aside>
         </div>
       </main>
@@ -965,7 +1174,7 @@ export function CommissionBreakdown() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction style={{ backgroundColor: "#5A5FF2" }} onClick={() => { setTxStatus("submitted"); setRejectionNote(""); setShowSubmitDialog(false); toast.success("Submitted for approval"); }}>
+            <AlertDialogAction className="bg-primary" onClick={() => { setTxStatus("submitted"); setRejectionNote(""); setShowSubmitDialog(false); toast.success("Submitted for approval"); }}>
               Submit
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -983,7 +1192,7 @@ export function CommissionBreakdown() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction style={{ backgroundColor: "#5A5FF2" }} onClick={() => { setTxStatus("approved"); setShowApproveDialog(false); toast.success("Breakdown approved"); }}>
+            <AlertDialogAction className="bg-primary" onClick={() => { setTxStatus("approved"); setShowApproveDialog(false); toast.success("Breakdown approved"); }}>
               Approve
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1034,7 +1243,7 @@ export function CommissionBreakdown() {
               </div>
 
               <div className="mt-14 space-y-6">
-                <Card className="rounded-[14px] border border-black/10 shadow-none">
+                <Card className="rounded-[14px] border border-black/10 shadow-none p-0 gap-0 block">
                   <CardContent className="p-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <h3 className="text-base font-medium text-black">PDF Preview</h3>
@@ -1078,7 +1287,7 @@ export function CommissionBreakdown() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-[14px] border border-black/10 shadow-none">
+                <Card className="rounded-[14px] border border-black/10 shadow-none p-0 gap-0 block">
                   <CardContent className="p-6">
                     <h3 className="text-base font-medium text-black">Final Numbers</h3>
                     <div className="mt-5 space-y-0">
@@ -1161,13 +1370,13 @@ export function CommissionBreakdown() {
           <div className="space-y-3 px-6 py-4">
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">Label</p>
-              <Input value={agentPreSplitLabel} onChange={(e) => setAgentPreSplitLabel(e.target.value)} placeholder="e.g. Referral fee" className="h-9" />
+              <Input value={agentPreSplitLabel} onChange={(e) => setAgentPreSplitLabel(e.target.value)} placeholder="e.g. Referral fee" className="h-9 border border-input bg-background" />
             </div>
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">Amount</p>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                <Input value={agentPreSplitAmount} onChange={(e) => setAgentPreSplitAmount(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" inputMode="decimal" className="h-9 pl-7" />
+                <Input value={agentPreSplitAmount} onChange={(e) => setAgentPreSplitAmount(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" inputMode="decimal" className="h-9 pl-7 border border-input bg-background" />
               </div>
             </div>
           </div>
@@ -1175,7 +1384,7 @@ export function CommissionBreakdown() {
             <Button variant="outline" onClick={() => setShowAgentPreSplitDialog(false)}>Cancel</Button>
             <Button
               disabled={!agentPreSplitLabel.trim() || !agentPreSplitAmount}
-              style={{ backgroundColor: "#5A5FF2" }}
+              className="bg-primary"
               onClick={() => {
                 const agentId = sidesData.flatMap(s => s.agents).find(a => a.id === selectedAgentId)?.id ?? selectedAgentId ?? "";
                 setPreSplitDeductions((prev) => ({
@@ -1194,48 +1403,8 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
-      {/* Radius fee dialog */}
-      <Dialog open={showRadiusFeeDialog} onOpenChange={(open) => { setShowRadiusFeeDialog(open); if (!open) { setRadiusFeeLabel(""); setRadiusFeeAmount(""); } }}>
-        <DialogContent className="gap-0 p-0 sm:max-w-sm">
-          <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Add Radius fee</DialogTitle>
-            <DialogDescription>Fee will be flagged as a Radius fee — agents and team leads cannot edit or remove it.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 px-6 py-4">
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">Fee name</p>
-              <Input value={radiusFeeLabel} onChange={(e) => setRadiusFeeLabel(e.target.value)} placeholder="e.g. Compliance fee" className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">Amount</p>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                <Input value={radiusFeeAmount} onChange={(e) => setRadiusFeeAmount(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" inputMode="decimal" className="h-9 pl-7" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowRadiusFeeDialog(false)}>Cancel</Button>
-            <Button
-              disabled={!radiusFeeLabel.trim() || !radiusFeeAmount}
-              style={{ backgroundColor: "#5A5FF2" }}
-              onClick={() => {
-                if (!selectedAgentId) return;
-                setPostSplitDeductions((prev) => ({
-                  ...prev,
-                  [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `rf-${Date.now()}`, name: radiusFeeLabel.trim(), amount: Math.round(Number(radiusFeeAmount)), isRadiusFee: true }],
-                }));
-                toast.success(`Radius fee "${radiusFeeLabel}" added`);
-                setShowRadiusFeeDialog(false);
-                setRadiusFeeLabel("");
-                setRadiusFeeAmount("");
-              }}
-            >
-              Add fee
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
+
 
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -1259,10 +1428,10 @@ export function CommissionBreakdown() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Fee type dialog — pre or post split */}
+      {/* Single fee modal — pre-split or post-split based on feeDialogTiming */}
       <FeeBuilderModal
         open={feeDialogTiming !== null}
-        title={feeDialogTiming === "pre-split" ? "Add pre-split deduction" : "Add post-split deduction"}
+        title={feeDialogTitle}
         onOpenChange={(open) => { if (!open) setFeeDialogTiming(null); }}
         initialData={{ timing: feeDialogTiming ?? "pre-split" }}
         onSave={handleFeeAdded}
@@ -1433,7 +1602,7 @@ export function CommissionBreakdown() {
             /* Step 2 — allocation */
             <div className="px-6 py-4">
               <div className="mb-3 flex items-center justify-end">
-                <span className="text-xs text-muted-foreground">Sales volume: <span className="font-medium" style={{ color: "#5A5FF2" }}>Auto-calculated</span></span>
+                <span className="text-xs text-muted-foreground">Sales volume: <span className="font-medium text-primary">Auto-calculated</span></span>
               </div>
               <div className="space-y-3">
                 {[...(sidesData.find((s) => s.id === addAgentSideId)?.agents ?? []), { id: pendingAgent.id, name: pendingAgent.name, role: "Agent", payout: 0 }].map((agent) => {
@@ -1518,6 +1687,8 @@ export function CommissionBreakdown() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      </div>
+    </TooltipProvider>
   );
 }
