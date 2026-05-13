@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
@@ -19,9 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { ScrollArea } from "../ui/scroll-area";
-import { Separator } from "../ui/separator";
 
 export type FeeTier = {
   id: string;
@@ -30,27 +29,24 @@ export type FeeTier = {
   fee: string;
 };
 
+export type PercentageBase = "property-value" | "pre-split" | "post-split";
+
 export interface FeeTypeDraft {
   id: string | null;
   name: string;
   type: "flat" | "percentage";
   amount: string;
-  appliesToMode: "team" | "agents";
+  percentageBase: PercentageBase;
+  appliesToMode: "team" | "agent" | "both";
   agentIds: string[];
   timing: "pre-split" | "post-split";
   slidingScale: boolean;
   tiers: FeeTier[];
   contributesToCap: boolean;
+  visibleOnCda: boolean;
+  notLessThan: { enabled: boolean; amount: string };
+  notToExceed: { enabled: boolean; amount: string };
 }
-
-const agents = [
-  { id: "vanessa", name: "Vanessa Brown", email: "vanessa@radiusagent.com", role: "Team Lead" },
-  { id: "rod", name: "Rod Watson", email: "rod@radiusagent.com", role: "Agent" },
-  { id: "ila", name: "Ila Corcoran", email: "ila@radiusagent.com", role: "Agent" },
-  { id: "michael", name: "Michael Loft", email: "michael@radiusagent.com", role: "Agent" },
-  { id: "scott", name: "Scott Kato", email: "scott@radiusagent.com", role: "Team Lead" },
-  { id: "priya", name: "Priya Shah", email: "priya@radiusagent.com", role: "Agent" },
-] as const;
 
 export interface FeeBuilderModalProps {
   open: boolean;
@@ -66,12 +62,16 @@ function createDraft(initialData?: Partial<FeeTypeDraft>): FeeTypeDraft {
     name: initialData?.name ?? "",
     type: initialData?.type ?? "flat",
     amount: initialData?.amount ?? "",
+    percentageBase: initialData?.percentageBase ?? "pre-split",
     appliesToMode: initialData?.appliesToMode ?? "team",
     agentIds: initialData?.agentIds ?? [],
     timing: initialData?.timing ?? "pre-split",
     slidingScale: initialData?.slidingScale ?? false,
     tiers: initialData?.tiers ?? [],
     contributesToCap: initialData?.contributesToCap ?? false,
+    visibleOnCda: initialData?.visibleOnCda ?? true,
+    notLessThan: initialData?.notLessThan ?? { enabled: false, amount: "0.00" },
+    notToExceed: initialData?.notToExceed ?? { enabled: false, amount: "0.00" },
   };
 }
 
@@ -79,20 +79,17 @@ function numericValue(value: string) {
   return Number(value.replace(/[^0-9.]/g, "")) || 0;
 }
 
-function formatAmount(type: FeeTypeDraft["type"], amount: string) {
-  if (type === "flat") return `$${amount || "0"}`;
-  return `${amount || "0"}%`;
-}
-
 function FeeAmountInput({
   value,
   type,
   invalid,
+  disabled,
   onChange,
 }: {
   value: string;
   type: FeeTypeDraft["type"];
   invalid: boolean;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const prefix = type === "flat" ? "$" : undefined;
@@ -111,6 +108,7 @@ function FeeAmountInput({
         inputMode="decimal"
         placeholder={placeholder}
         aria-invalid={invalid}
+        disabled={disabled}
         className={`h-10 ${prefix ? "pl-7" : ""} ${suffix ? "pr-8" : ""}`}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -151,34 +149,32 @@ function TierRows({
   }
 
   return (
-    <div className="space-y-3">
-      <ScrollArea className="max-h-[220px]">
-        <div className="space-y-2 pr-4">
+    <div className="space-y-2">
+      <ScrollArea className="max-h-[200px]">
+        <div className="space-y-2">
           {draft.tiers.map((tier) => (
             <div
               key={tier.id}
-              className={`grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-md border p-2 transition-all duration-300 ${
+              className={`grid grid-cols-[1fr_1fr_auto] gap-2 rounded-md border p-2 transition-all duration-300 ${
                 flashTierId === tier.id ? "bg-primary/10" : "bg-background"
               }`}
             >
-              <Input
-                className="h-9 text-xs"
-                placeholder="From"
-                value={tier.from}
-                onChange={(event) => updateTier(tier.id, { from: event.target.value })}
-              />
-              <Input
-                className="h-9 text-xs"
-                placeholder="To"
-                value={tier.to}
-                onChange={(event) => updateTier(tier.id, { to: event.target.value })}
-              />
-              <FeeAmountInput
-                type={draft.type}
-                value={tier.fee}
-                invalid={false}
-                onChange={(value) => updateTier(tier.id, { fee: value })}
-              />
+              <div className="relative">
+                <Input
+                  className="h-9 text-xs"
+                  placeholder="Over"
+                  value={tier.from}
+                  onChange={(event) => updateTier(tier.id, { from: event.target.value })}
+                />
+              </div>
+              <div className="relative">
+                <Input
+                  className="h-9 text-xs"
+                  placeholder="Up to"
+                  value={tier.to}
+                  onChange={(event) => updateTier(tier.id, { to: event.target.value })}
+                />
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -225,11 +221,8 @@ export function FeeBuilderModal({
   function validate() {
     const nextErrors: Record<string, string> = {};
     if (!draft.name.trim()) nextErrors.name = "Fee name required";
-    if (numericValue(draft.amount) <= 0) nextErrors.amount = "Amount required";
-    if (draft.slidingScale) {
-      const invalidTier = draft.tiers.find((tier) => !tier.from || numericValue(tier.fee) <= 0);
-      if (invalidTier) nextErrors.tiers = "Complete all tier rows";
-    }
+    if (!draft.slidingScale && numericValue(draft.amount) <= 0) nextErrors.amount = "Amount required";
+    if (draft.slidingScale && draft.tiers.length === 0) nextErrors.tiers = "Add at least one tier";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
@@ -253,104 +246,195 @@ export function FeeBuilderModal({
         </DialogHeader>
 
         <ScrollArea className="min-h-0">
-          <div className="flex flex-col gap-3 px-6 py-4">
+          <div className="flex flex-col gap-4 px-6 py-4">
 
-            {/* Fee Setup */}
-            <div className="space-y-4">
+            {/* Fee Name */}
+            <div className="space-y-1.5">
+              <Label htmlFor="fee-name">Fee Name</Label>
+              <Input
+                id="fee-name"
+                className="h-10"
+                placeholder="e.g., Transaction Coordinator Fee"
+                value={draft.name}
+                aria-invalid={Boolean(errors.name)}
+                onChange={(event) => updateField("name", event.target.value)}
+              />
+              {errors.name ? <p className="text-xs text-destructive">{errors.name}</p> : null}
+            </div>
+
+            {/* Fee Type + Amount */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="fee-name">Fee Name</Label>
-                <Input
-                  id="fee-name"
-                  className="h-10"
-                  placeholder="e.g., Transaction Coordinator Fee"
-                  value={draft.name}
-                  aria-invalid={Boolean(errors.name)}
-                  onChange={(event) => updateField("name", event.target.value)}
-                />
-                {errors.name ? <p className="text-xs text-destructive">{errors.name}</p> : null}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Fee Type</Label>
-                  <Select value={draft.type} onValueChange={(value) => updateField("type", value as FeeTypeDraft["type"])}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="flat">Flat</SelectItem>
-                      <SelectItem value="percentage">Percentage</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>{draft.type === "flat" ? "Flat Fee" : "Fee Percentage"}</Label>
-                  <FeeAmountInput
-                    value={draft.amount}
-                    type={draft.type}
-                    invalid={Boolean(errors.amount)}
-                    onChange={(value) => updateField("amount", value)}
-                  />
-                  {errors.amount ? <p className="text-xs text-destructive">{errors.amount}</p> : null}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>When Applied</Label>
-                <Select value={draft.timing} onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}>
+                <Label>Fee Type</Label>
+                <Select value={draft.type} onValueChange={(value) => updateField("type", value as FeeTypeDraft["type"])}>
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pre-split">Pre-Split</SelectItem>
-                    <SelectItem value="post-split">Post-Split</SelectItem>
+                    <SelectItem value="flat">Flat Fee</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="sliding-scale" className="text-sm">Sliding Scale</Label>
-                    <p className="text-xs text-muted-foreground truncate">Enable tiered fee values.</p>
-                  </div>
-                  <Switch
-                    id="sliding-scale"
-                    checked={draft.slidingScale}
-                    onCheckedChange={(checked) => updateField("slidingScale", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="contributes-cap" className="text-sm">Contributes to Cap</Label>
-                    <p className="text-xs text-muted-foreground truncate">Count toward cap.</p>
-                  </div>
-                  <Switch
-                    id="contributes-cap"
-                    checked={draft.contributesToCap}
-                    onCheckedChange={(checked) => updateField("contributesToCap", checked)}
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label>{draft.type === "flat" ? "Flat Fee" : "Fee Percentage"}</Label>
+                <FeeAmountInput
+                  value={draft.amount}
+                  type={draft.type}
+                  invalid={Boolean(errors.amount)}
+                  disabled={draft.slidingScale}
+                  onChange={(value) => updateField("amount", value)}
+                />
+                {errors.amount ? <p className="text-xs text-destructive">{errors.amount}</p> : null}
               </div>
             </div>
 
-            <Separator className="my-1" />
+            {/* Percentage Based On — only for % type */}
+            {draft.type === "percentage" && (
+              <div className="space-y-1.5">
+                <Label>Percentage Based On</Label>
+                <Select value={draft.percentageBase} onValueChange={(value) => updateField("percentageBase", value as PercentageBase)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="property-value">Property Value</SelectItem>
+                    <SelectItem value="pre-split">Pre-Split Amount (Gross Commission)</SelectItem>
+                    <SelectItem value="post-split">Post-Split Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            {/* Sliding Scale Tiers — only shown when ON */}
-            {draft.slidingScale ? (
-              <div className="space-y-3 pt-2">
-                <div className="flex flex-col gap-1 px-1">
-                  <h3 className="text-sm font-semibold">Sliding Scale Tiers</h3>
-                  <p className="text-xs text-muted-foreground">Set fee amounts by commission range.</p>
-                </div>
-                <div className="px-1 pb-4">
-                  <TierRows draft={draft} onDraftChange={setDraft} />
-                  {errors.tiers ? <p className="text-xs text-destructive mt-2">{errors.tiers}</p> : null}
+            {/* When Applied */}
+            <div className="space-y-1.5">
+              <Label>When Applied</Label>
+              <Select value={draft.timing} onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pre-split">Pre-Split</SelectItem>
+                  <SelectItem value="post-split">Post-Split</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Fee Payer */}
+            <div className="space-y-1.5">
+              <Label>Fee Payer</Label>
+              <Select value={draft.appliesToMode} onValueChange={(value) => updateField("appliesToMode", value as FeeTypeDraft["appliesToMode"])}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="team">Team</SelectItem>
+                  <SelectItem value="both">Both (split equally)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sliding Scale — full row */}
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label htmlFor="sliding-scale" className="text-sm">Sliding Scale</Label>
+                <p className="text-xs text-muted-foreground">Enable tiered fee values.</p>
+              </div>
+              <Switch
+                id="sliding-scale"
+                checked={draft.slidingScale}
+                onCheckedChange={(checked) => updateField("slidingScale", checked)}
+              />
+            </div>
+
+            {/* Sliding Scale inline section */}
+            {draft.slidingScale && (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <TierRows draft={draft} onDraftChange={setDraft} />
+                {errors.tiers ? <p className="text-xs text-destructive">{errors.tiers}</p> : null}
+
+                {/* Cap constraints */}
+                <div className="flex items-center gap-4 pt-1">
+                  <div className="flex flex-1 items-center gap-2">
+                    <Checkbox
+                      id="not-less-than"
+                      checked={draft.notLessThan.enabled}
+                      onCheckedChange={(checked) =>
+                        updateField("notLessThan", { ...draft.notLessThan, enabled: Boolean(checked) })
+                      }
+                    />
+                    <Label htmlFor="not-less-than" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+                      Not less than
+                    </Label>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input
+                        className="h-9 pl-7 text-sm"
+                        value={draft.notLessThan.amount}
+                        inputMode="decimal"
+                        disabled={!draft.notLessThan.enabled}
+                        onChange={(e) =>
+                          updateField("notLessThan", { ...draft.notLessThan, amount: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-1 items-center gap-2">
+                    <Checkbox
+                      id="not-to-exceed"
+                      checked={draft.notToExceed.enabled}
+                      onCheckedChange={(checked) =>
+                        updateField("notToExceed", { ...draft.notToExceed, enabled: Boolean(checked) })
+                      }
+                    />
+                    <Label htmlFor="not-to-exceed" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+                      Not to exceed
+                    </Label>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input
+                        className="h-9 pl-7 text-sm"
+                        value={draft.notToExceed.amount}
+                        inputMode="decimal"
+                        disabled={!draft.notToExceed.enabled}
+                        onChange={(e) =>
+                          updateField("notToExceed", { ...draft.notToExceed, amount: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : null}
+            )}
+
+            {/* Contributes to Cap + Visible on CDA — same row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                <div className="space-y-0.5">
+                  <Label htmlFor="contributes-cap" className="text-sm">Contributes to Cap</Label>
+                  <p className="text-xs text-muted-foreground truncate">Count toward cap.</p>
+                </div>
+                <Switch
+                  id="contributes-cap"
+                  checked={draft.contributesToCap}
+                  onCheckedChange={(checked) => updateField("contributesToCap", checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                <div className="space-y-0.5">
+                  <Label htmlFor="visible-cda" className="text-sm">Visible on CDA</Label>
+                  <p className="text-xs text-muted-foreground truncate">Show on document.</p>
+                </div>
+                <Switch
+                  id="visible-cda"
+                  checked={draft.visibleOnCda}
+                  onCheckedChange={(checked) => updateField("visibleOnCda", checked)}
+                />
+              </div>
+            </div>
 
           </div>
         </ScrollArea>

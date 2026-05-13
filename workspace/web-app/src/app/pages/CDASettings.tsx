@@ -150,7 +150,6 @@ type CommissionPlan = {
   feeType: FeeType;
   feeAmount: number;
   capAmount: number;
-  dealTypes: string[];
   assignedAgentsCount: number;
   resetPeriod: ResetPeriod;
   basedOn: BasedOn;
@@ -170,7 +169,6 @@ type PlanForm = {
   feeType: FeeType;
   feeAmount: string;
   capAmount: string;
-  dealTypes: Record<string, boolean>;
   applyAsDefault: boolean;
   defaultMode: DefaultMode;
   selectedAgentIds: string[];
@@ -178,7 +176,7 @@ type PlanForm = {
 };
 
 type PlanErrors = Partial<
-  Record<"planName" | "splitTotal" | "dealTypes" | "selectedAgentIds", string>
+  Record<"planName" | "splitTotal" | "selectedAgentIds", string>
 > & {
   tiers?: Record<string, string>;
 };
@@ -203,17 +201,17 @@ const defaultTiers: TierRow[] = [
 ];
 
 const seedPlans: CommissionPlan[] = [
-  { id: "p1", name: "80/20 Standard", type: "standard", agentSplit: 80, teamSplit: 20, feeType: "flat", feeAmount: 495, capAmount: 18000, dealTypes: ["Buyer", "Seller"], assignedAgentsCount: 12, resetPeriod: "yearly", basedOn: "units", tiers: [] },
-  { id: "p2", name: "70/30 Standard", type: "standard", agentSplit: 70, teamSplit: 30, feeType: "flat", feeAmount: 495, capAmount: 15000, dealTypes: ["Buyer", "Seller"], assignedAgentsCount: 4, resetPeriod: "yearly", basedOn: "units", tiers: [] },
-  { id: "p3", name: "Keystone Tiered", type: "tiered", agentSplit: 80, teamSplit: 20, feeType: "flat", feeAmount: 0, capAmount: 0, dealTypes: ["Buyer", "Seller"], assignedAgentsCount: 2, resetPeriod: "yearly", basedOn: "units", tiers: defaultTiers.map((t) => ({ ...t })) },
-  { id: "p4", name: "Lease Referral Plan", type: "standard", agentSplit: 60, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, dealTypes: ["Lease", "Landlord"], assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [] },
+  { id: "p1", name: "80/20 Standard", type: "standard", agentSplit: 80, teamSplit: 20, feeType: "flat", feeAmount: 495, capAmount: 18000, assignedAgentsCount: 12, resetPeriod: "yearly", basedOn: "units", tiers: [] },
+  { id: "p2", name: "70/30 Standard", type: "standard", agentSplit: 70, teamSplit: 30, feeType: "flat", feeAmount: 495, capAmount: 15000, assignedAgentsCount: 4, resetPeriod: "yearly", basedOn: "units", tiers: [] },
+  { id: "p3", name: "Keystone Tiered", type: "tiered", agentSplit: 80, teamSplit: 20, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 2, resetPeriod: "yearly", basedOn: "units", tiers: defaultTiers.map((t) => ({ ...t })) },
+  { id: "p4", name: "Lease Referral Plan", type: "standard", agentSplit: 60, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [] },
 ];
 
 const seedFees: FeeRecord[] = [
-  { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [] },
-  { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agents", agentIds: ["a1", "a3", "a5"], slidingScale: false, contributesToCap: true, tiers: [] },
-  { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agents", agentIds: ["a1", "a2", "a3"], slidingScale: false, contributesToCap: false, tiers: [] },
-  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [] },
+  { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
+  { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a3", "a5"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
+  { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a2", "a3"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
+  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: false },
 ];
 
 export const seedAssignments: AgentAssignment[] = [
@@ -244,12 +242,6 @@ function getFreshPlanForm(): PlanForm {
     feeType: "flat",
     feeAmount: "",
     capAmount: "18000",
-    dealTypes: {
-      buyer: false,
-      seller: false,
-      lease: false,
-      landlord: false,
-    },
     applyAsDefault: false,
     defaultMode: "all",
     selectedAgentIds: [],
@@ -938,9 +930,6 @@ function PlanSetupSummaryCard({
   onExpandToggle: () => void;
   onEdit: () => void;
 }) {
-  const selectedDealTypes = Object.entries(form.dealTypes)
-    .filter(([, selected]) => selected)
-    .map(([dealType]) => dealType.charAt(0).toUpperCase() + dealType.slice(1));
   const splitSummary =
     form.planType === "standard"
       ? `Agent ${form.agentSplit}% / Team ${form.teamSplit}%`
@@ -964,15 +953,6 @@ function PlanSetupSummaryCard({
             <p className="text-xs text-muted-foreground">
               {splitSummary} · {feeSummary} · Cap {formatMoney(numericValue(form.capAmount || "0"))}
             </p>
-            {selectedDealTypes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {selectedDealTypes.map((dealType) => (
-                  <Badge key={dealType} variant="outline" className="bg-background">
-                    {dealType}
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="ghost" size="sm" className="h-8 px-2.5" onClick={onEdit}>
@@ -1121,15 +1101,7 @@ function PlanSetupFields({
 
       <div className="flex flex-col gap-2">
         <Label className="text-sm font-medium">Fee Type</Label>
-        <Select value={form.feeType} onValueChange={(value) => onFormChange({ feeType: value as FeeType, feeAmount: "" })}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="flat">Flat</SelectItem>
-            <SelectItem value="percentage">Percentage</SelectItem>
-          </SelectContent>
-        </Select>
+        <Input className="h-10 w-full" value="Flat Fee" readOnly aria-readonly="true" />
       </div>
 
       <div className="grid w-full grid-cols-2 gap-4">
@@ -1138,9 +1110,9 @@ function PlanSetupFields({
           <AdornedInput
             id="fee-amount"
             value={form.feeAmount}
-            placeholder={form.feeType === "flat" ? "495" : "2.5"}
-            adornment={form.feeType === "flat" ? "$" : "%"}
-            adornmentSide={form.feeType === "flat" ? "start" : "end"}
+            placeholder="495"
+            adornment="$"
+            adornmentSide="start"
             onChange={(value) => onFormChange({ feeAmount: value })}
           />
         </div>
@@ -1154,15 +1126,6 @@ function PlanSetupFields({
             onChange={(value) => onFormChange({ capAmount: value })}
           />
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label className="text-sm font-medium">Deal Types</Label>
-        <DealTypeMultiSelect
-          selectedTypes={form.dealTypes}
-          onChange={(dealTypes) => onFormChange({ dealTypes })}
-        />
-        {errors.dealTypes && <p className="text-xs text-destructive">{errors.dealTypes}</p>}
       </div>
     </>
   );
@@ -1370,7 +1333,7 @@ function AddPlanDialog({
   onSave: () => void;
 }) {
   const splitTotal = numericValue(form.agentSplit) + numericValue(form.teamSplit);
-  const feeLabel = form.feeType === "flat" ? "Flat Fee" : "Fee Percentage";
+  const feeLabel = "Fixed Fee";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1814,7 +1777,6 @@ export function CDASettings() {
 
   function validatePlanForm() {
     const nextErrors: PlanErrors = {};
-    const hasDealType = Object.values(state.form.dealTypes).some(Boolean);
 
     if (!state.form.planName.trim()) nextErrors.planName = "Plan Name required";
 
@@ -1835,8 +1797,6 @@ export function CDASettings() {
       if (Object.keys(tierErrors).length > 0) nextErrors.tiers = tierErrors;
     }
 
-    if (!hasDealType) nextErrors.dealTypes = "At least one deal type selected";
-
     if (state.form.applyAsDefault && state.form.defaultMode === "specific" && state.form.selectedAgentIds.length === 0) {
       nextErrors.selectedAgentIds = "Select at least one agent";
     }
@@ -1846,20 +1806,15 @@ export function CDASettings() {
   }
 
   function createPlanFromForm(): CommissionPlan {
-    const selectedDealTypes = Object.entries(state.form.dealTypes)
-      .filter(([, selected]) => selected)
-      .map(([dealType]) => dealType.charAt(0).toUpperCase() + dealType.slice(1));
-
     return {
       id: state.form.editingPlanId ?? crypto.randomUUID(),
       name: state.form.planName.trim(),
       type: state.form.planType,
       agentSplit: numericValue(state.form.agentSplit),
       teamSplit: numericValue(state.form.teamSplit),
-      feeType: state.form.feeType,
-      feeAmount: numericValue(state.form.feeAmount || (state.form.feeType === "flat" ? "495" : "2.5")),
+      feeType: "flat",
+      feeAmount: numericValue(state.form.feeAmount || "495"),
       capAmount: numericValue(state.form.capAmount),
-      dealTypes: selectedDealTypes,
       assignedAgentsCount: state.form.applyAsDefault ? selectedDefaultAgents.length : 0,
       resetPeriod: state.form.resetPeriod,
       basedOn: state.form.basedOn,
@@ -1924,17 +1879,11 @@ export function CDASettings() {
         planType: plan.type,
         agentSplit: String(plan.agentSplit),
         teamSplit: String(plan.teamSplit),
-        feeType: plan.feeType,
+        feeType: "flat",
         feeAmount: String(plan.feeAmount),
         capAmount: String(plan.capAmount),
         resetPeriod: plan.resetPeriod,
         basedOn: plan.basedOn,
-        dealTypes: {
-          buyer: plan.dealTypes.includes("Buyer"),
-          seller: plan.dealTypes.includes("Seller"),
-          lease: plan.dealTypes.includes("Lease"),
-          landlord: plan.dealTypes.includes("Landlord"),
-        },
         tiers: plan.tiers.map((tier) => ({ ...tier })),
       },
     }));
@@ -1961,17 +1910,11 @@ export function CDASettings() {
         planType: plan.type,
         agentSplit: String(plan.agentSplit),
         teamSplit: String(plan.teamSplit),
-        feeType: plan.feeType,
+        feeType: "flat",
         feeAmount: String(plan.feeAmount),
         capAmount: String(plan.capAmount),
         resetPeriod: plan.resetPeriod,
         basedOn: plan.basedOn,
-        dealTypes: {
-          buyer: plan.dealTypes.includes("Buyer"),
-          seller: plan.dealTypes.includes("Seller"),
-          lease: plan.dealTypes.includes("Lease"),
-          landlord: plan.dealTypes.includes("Landlord"),
-        },
         tiers: plan.tiers.map((tier) => ({ ...tier })),
       },
     }));
@@ -2298,7 +2241,8 @@ export function CDASettings() {
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Fee Name</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Type</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Timing</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Applies To</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Fee Payer</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Visible on CDA</TableHead>
                 <TableHead className="w-[50px] pr-6"></TableHead>
               </TableRow>
             </TableHeader>
@@ -2339,6 +2283,10 @@ export function CDASettings() {
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-medium border-primary/20 text-primary bg-primary/5">
                           Team
                         </Badge>
+                      ) : fee.appliesToMode === "both" ? (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-medium border-violet-200 text-violet-700 bg-violet-50">
+                          Both
+                        </Badge>
                       ) : (
                         <AgentAvatarStack
                           agents={assignedAgents.map((agent) => ({ id: agent.id, name: agent.name, avatarUrl: agent.avatarUrl }))}
@@ -2350,6 +2298,11 @@ export function CDASettings() {
                           onUnassignDefaults={() => requestUnassignFeeDefaults(fee)}
                         />
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn("text-xs font-semibold", fee.visibleOnCda ? "text-emerald-600" : "text-muted-foreground/40")}>
+                        {fee.visibleOnCda ? "Yes" : "Hidden"}
+                      </span>
                     </TableCell>
                     <TableCell className="pr-6 text-right">
                       <DropdownMenu>
@@ -2364,7 +2317,7 @@ export function CDASettings() {
                               <Edit3 className="size-4" />
                               Edit
                             </DropdownMenuItem>
-                            {fee.appliesToMode !== "team" && (
+                            {fee.appliesToMode === "agent" && (
                               <DropdownMenuItem onClick={() => openFeeDefaults(fee, hasAssignedAgents ? "edit" : "assign")}>
                                 <UserCheck className="size-4" />
                                 {hasAssignedAgents ? "Edit Defaults" : "Assign"}
