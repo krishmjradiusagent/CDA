@@ -803,11 +803,11 @@ export function CommissionBreakdown() {
                   {canEditAll && txStatus !== "approved" && (
                     <button
                       onClick={() => setShowRadiusFeeDialog(true)}
-                      className="mt-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/80"
-                      style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
+                      className="mt-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-[#5A5FF2]/15"
+                      style={{ color: "#5A5FF2", backgroundColor: "rgb(90 95 242 / 0.08)" }}
                     >
                       <Plus className="size-3.5" />
-                      Add Radius fee
+                      Radius fee
                     </button>
                   )}
 
