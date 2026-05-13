@@ -2188,6 +2188,177 @@ export function CDASettings() {
       feeDraft: { ...fee },
     }));
   }
+  /* ── Payment Routing ── */
+  type RoutingMode = "all_to_radius" | "radius_and_team" | "direct_to_all";
+  const [routingMode, setRoutingMode] = useState<RoutingMode>("radius_and_team");
+
+  const routingOptions: { id: RoutingMode; title: string; description: string; breakdown: { recipient: string; items: string }[] }[] = [
+    {
+      id: "all_to_radius",
+      title: "Pay All to Radius",
+      description: "Title company transfers the entire check to Radius. Radius distributes to team and agents.",
+      breakdown: [
+        { recipient: "Radius", items: "Radius Fees + Team Share + Agent Commissions" },
+      ],
+    },
+    {
+      id: "radius_and_team",
+      title: "Pay Radius & Team",
+      description: "Title company sends Radius fees to Radius and the remainder to the team. Team distributes agent commissions.",
+      breakdown: [
+        { recipient: "Radius", items: "Radius Fees" },
+        { recipient: "Team", items: "Team Share + Agent Commissions" },
+      ],
+    },
+    {
+      id: "direct_to_all",
+      title: "Direct Payments to All",
+      description: "Title company pays each party directly — Radius fees to Radius, team share to team, and agent commission to agent.",
+      breakdown: [
+        { recipient: "Radius", items: "Radius Fees" },
+        { recipient: "Team", items: "Team Share" },
+        { recipient: "Agent", items: "Agent Commission" },
+      ],
+    },
+  ];
+
+  function renderPaymentRouting() {
+    return (
+      <section className="flex flex-col gap-4">
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="text-base font-medium leading-6 text-foreground">Payment Routing</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Define how the title company distributes funds. Each CDA line item will follow this routing.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {routingOptions.map((opt) => {
+            const isActive = routingMode === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setRoutingMode(opt.id)}
+                className={cn(
+                  "relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all",
+                  isActive
+                    ? "border-primary bg-primary/[0.03] ring-1 ring-primary"
+                    : "border-border bg-card hover:border-muted-foreground/30"
+                )}
+              >
+                {/* Radio indicator */}
+                <div className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  isActive ? "border-primary" : "border-muted-foreground/40"
+                )}>
+                  {isActive && <div className="size-2 rounded-full bg-primary" />}
+                </div>
+
+                <div>
+                  <p className={cn("text-sm font-medium", isActive ? "text-primary" : "text-foreground")}>{opt.title}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{opt.description}</p>
+                </div>
+
+                {/* Breakdown chips */}
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {opt.breakdown.map((b) => (
+                    <span key={b.recipient} className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      <span className={cn(
+                        "size-1.5 rounded-full",
+                        b.recipient === "Radius" ? "bg-purple-500" : b.recipient === "Team" ? "bg-amber-500" : "bg-blue-500"
+                      )} />
+                      {b.recipient}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Preview table */}
+        <div className="rounded-lg border">
+          <div className="flex items-center justify-between border-b px-4 py-2.5">
+            <p className="text-xs font-medium text-muted-foreground">Payment Distribution Preview</p>
+            <Badge variant="secondary" className="text-[10px]">
+              {routingOptions.find((o) => o.id === routingMode)?.title}
+            </Badge>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="text-[11px] font-medium">Line Item</TableHead>
+                <TableHead className="text-[11px] font-medium">Paid To</TableHead>
+                <TableHead className="text-right text-[11px] font-medium">Example Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {routingMode === "all_to_radius" && (
+                <>
+                  <TableRow>
+                    <TableCell className="text-xs">Radius Fees (RERM, E&O, etc.)</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-purple-500" />Radius</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$1,250</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs">Team Share</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-purple-500" />Radius</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$3,500</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs">Agent Commission</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-purple-500" />Radius</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$8,750</TableCell>
+                  </TableRow>
+                </>
+              )}
+              {routingMode === "radius_and_team" && (
+                <>
+                  <TableRow>
+                    <TableCell className="text-xs">Radius Fees (RERM, E&O, etc.)</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-purple-500" />Radius</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$1,250</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs">Team Share + Agent Commissions</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-amber-500" />Team</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$12,250</TableCell>
+                  </TableRow>
+                </>
+              )}
+              {routingMode === "direct_to_all" && (
+                <>
+                  <TableRow>
+                    <TableCell className="text-xs">Radius Fees (RERM, E&O, etc.)</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-purple-500" />Radius</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$1,250</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs">Team Share</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-amber-500" />Team</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$3,500</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs">Agent Commission</TableCell>
+                    <TableCell><span className="inline-flex items-center gap-1 text-xs"><span className="size-1.5 rounded-full bg-blue-500" />Agent</span></TableCell>
+                    <TableCell className="text-right text-xs tabular-nums">$8,750</TableCell>
+                  </TableRow>
+                </>
+              )}
+              {/* Total row */}
+              <TableRow className="border-t bg-muted/30 font-medium hover:bg-muted/30">
+                <TableCell className="text-xs font-semibold">Total to Title Company</TableCell>
+                <TableCell />
+                <TableCell className="text-right text-xs font-semibold tabular-nums">$13,500</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+    );
+  }
 
   function renderFeeTypes() {
     if (state.fees.length === 0) {
@@ -2424,6 +2595,7 @@ export function CDASettings() {
         <div className="flex flex-col gap-8 px-4 py-9">
           {renderCommissionPlans()}
           {renderFeeTypes()}
+          {renderPaymentRouting()}
           {/* 
           {state.defaultAssignments.length === 0 ? (
             <EmptySection
