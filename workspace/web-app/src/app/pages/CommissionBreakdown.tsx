@@ -79,6 +79,14 @@ import {
   TooltipProvider,
 } from "../components/v4/ui/tooltip";
 import { Checkbox } from "../components/v4/ui/checkbox";
+import { Label } from "../components/v4/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/v4/ui/select";
 
 import { cn } from "../../lib/utils";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
@@ -355,6 +363,8 @@ export function CommissionBreakdown() {
   const [pendingPlanChange, setPendingPlanChange] = useState<{ agentId: string; plan: typeof COMMISSION_PLANS[0] } | null>(null);
   const [showAwardDialog, setShowAwardDialog] = useState(false);
   const [awardValues, setAwardValues] = useState<Record<SideId, number>>({ listing: 1, buying: 0 });
+  const [showEditPlanDialog, setShowEditPlanDialog] = useState(false);
+  const [editPlanForm, setEditPlanForm] = useState({ planName: "", agentSplit: "80", teamSplit: "20", feeType: "flat" as "flat" | "percentage", feeAmount: "495", capAmount: "18000" });
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
   const [addAgentSideId, setAddAgentSideId] = useState<SideId | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
@@ -1008,9 +1018,6 @@ export function CommissionBreakdown() {
                     <div className="flex shrink-0 items-center gap-1.5">
                       {!isAgent && !isLocked && (
                         <>
-                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs text-primary border-primary">
-                            <Pencil className="size-3" />Edit
-                          </Button>
                           <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs text-primary border-primary" onClick={() => setShowAwardDialog(true)}>
                             <Sliders className="size-3" />Award allocation
                           </Button>
@@ -1543,6 +1550,69 @@ export function CommissionBreakdown() {
       </Dialog>
 
       {/* Award Distribution dialog */}
+      {/* Edit Plan dialog */}
+      <Dialog open={showEditPlanDialog} onOpenChange={setShowEditPlanDialog}>
+        <DialogContent className="gap-0 p-0 sm:max-w-md">
+          <DialogHeader className="border-b px-6 pb-4 pt-5">
+            <DialogTitle>Edit Commission Plan</DialogTitle>
+            <DialogDescription>Modify plan details for this side.</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex flex-col gap-4 px-6 py-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium">Plan Name</Label>
+                <Input value={editPlanForm.planName} onChange={(e) => setEditPlanForm((f) => ({ ...f, planName: e.target.value }))} className="h-10" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm font-medium">Agent Split %</Label>
+                  <Input value={editPlanForm.agentSplit} inputMode="numeric" onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ""); setEditPlanForm((f) => ({ ...f, agentSplit: v, teamSplit: String(100 - (Number(v) || 0)) })); }} className="h-10" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm font-medium">Team Split %</Label>
+                  <Input value={editPlanForm.teamSplit} inputMode="numeric" onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ""); setEditPlanForm((f) => ({ ...f, teamSplit: v, agentSplit: String(100 - (Number(v) || 0)) })); }} className="h-10" />
+                </div>
+              </div>
+              <p className={`text-xs ${Number(editPlanForm.agentSplit) + Number(editPlanForm.teamSplit) !== 100 ? "text-destructive" : "text-muted-foreground"}`}>
+                Split total: {Number(editPlanForm.agentSplit) + Number(editPlanForm.teamSplit)}%{Number(editPlanForm.agentSplit) + Number(editPlanForm.teamSplit) !== 100 ? " — must equal 100%" : ""}
+              </p>
+              <Separator />
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium">Fee</Label>
+                <Select value={editPlanForm.feeType} onValueChange={(v) => setEditPlanForm((f) => ({ ...f, feeType: v as "flat" | "percentage" }))}>
+                  <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="flat">Flat</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm font-medium">{editPlanForm.feeType === "flat" ? "Fixed Fee" : "Fee Percentage"}</Label>
+                  <div className="relative">
+                    {editPlanForm.feeType === "flat" && <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>}
+                    <Input value={editPlanForm.feeAmount} inputMode="decimal" className={`h-10 ${editPlanForm.feeType === "flat" ? "pl-7" : "pr-7"}`} onChange={(e) => setEditPlanForm((f) => ({ ...f, feeAmount: e.target.value }))} />
+                    {editPlanForm.feeType === "percentage" && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm font-medium">Cap Amount</Label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                    <Input value={editPlanForm.capAmount} inputMode="decimal" className="h-10 pl-7" onChange={(e) => setEditPlanForm((f) => ({ ...f, capAmount: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setShowEditPlanDialog(false)}>Cancel</Button>
+            <Button onClick={() => { toast.success(`Plan "${editPlanForm.planName}" updated`); setShowEditPlanDialog(false); }}>Save Plan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showAwardDialog} onOpenChange={setShowAwardDialog}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
