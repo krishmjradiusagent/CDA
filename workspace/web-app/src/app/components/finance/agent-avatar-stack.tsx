@@ -92,7 +92,6 @@ export function AgentAvatarStack({
                 "ml-1.5",
                 "rounded-full bg-background/95 text-muted-foreground shadow-sm ring-1 ring-border",
               )}
-              onClick={(event) => event.stopPropagation()}
               aria-label="Agent defaults menu"
             >
               <MoreVertical className="size-3" />
