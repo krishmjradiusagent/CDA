@@ -44,7 +44,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "deal-terms",
-        Component: TransactionDetail,
+        Component: DealTermsEntry,
+      },
+      {
+        path: "cda/commission-settings",
+        Component: CDASettings,
       },
       {
         path: "agent-confirmation",

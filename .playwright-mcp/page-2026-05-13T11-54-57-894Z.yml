@@ -1,0 +1,202 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e11]: RADIUS
+    - generic [ref=e14]:
+      - generic [ref=e15]: Vanessa Brown
+      - generic [ref=e16]: Radius Agent
+  - complementary [ref=e18]:
+    - navigation [ref=e21]:
+      - button "Users" [ref=e22]:
+        - img
+      - button "Documents" [ref=e23]:
+        - img
+      - button "Reports" [ref=e24]:
+        - img
+    - navigation [ref=e25]:
+      - button "Office" [ref=e26]:
+        - img
+      - button "Briefcase" [ref=e27]:
+        - img
+      - button "Gifts" [ref=e28]:
+        - img
+    - navigation [ref=e29]:
+      - button "Feed" [ref=e30]:
+        - img
+      - button "Work" [ref=e31]:
+        - img
+      - button "Team" [ref=e32]:
+        - img
+      - button "Marketing" [ref=e33]:
+        - img
+      - button "Notifications" [ref=e34]:
+        - img
+      - button "Help" [ref=e35]:
+        - img
+      - button "Settings" [ref=e36]:
+        - img
+  - main [ref=e37]:
+    - heading "Settings" [level=1] [ref=e39]
+    - generic [ref=e40]:
+      - button "Accounts" [ref=e41]
+      - button "Billing" [ref=e42]
+      - button "Finances" [ref=e43]
+      - button "CDA Settings" [ref=e44]
+      - button "Team settings" [ref=e45]
+      - button "Agents" [ref=e46]
+      - button "Transaction settings" [ref=e47]
+      - button "Pods" [ref=e48]
+      - button "Automations" [ref=e49]
+      - button "Integrations" [ref=e50]
+      - button "Phone Numbers" [ref=e51]
+      - button "Notification settings" [ref=e52]
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - heading "Commission Plans" [level=2] [ref=e57]
+            - paragraph [ref=e58]: Create default split structures for agents and teams.
+          - button "Add Plan" [ref=e59]:
+            - img
+            - text: Add Plan
+        - table [ref=e62]:
+          - rowgroup [ref=e63]:
+            - row "Commission Plan Type Agents Associated" [ref=e64]:
+              - columnheader "Commission Plan" [ref=e65]
+              - columnheader "Type" [ref=e66]
+              - columnheader "Agents Associated" [ref=e67]
+              - columnheader [ref=e68]
+          - rowgroup [ref=e69]:
+            - row "80/20 Standard Standard Ila Corcoran Sarah Jenkins James Miller Olivia Taylor Agent defaults menu 80/20 Standard menu" [ref=e70]:
+              - cell "80/20 Standard" [ref=e71]
+              - cell "Standard" [ref=e72]:
+                - generic [ref=e73]: Standard
+              - cell "Ila Corcoran Sarah Jenkins James Miller Olivia Taylor Agent defaults menu" [ref=e74]:
+                - generic [ref=e75]:
+                  - img "Ila Corcoran" [ref=e78]
+                  - img "Sarah Jenkins" [ref=e81]
+                  - img "James Miller" [ref=e84]
+                  - img "Olivia Taylor" [ref=e87]
+                  - button "Agent defaults menu" [ref=e88]:
+                    - img
+              - cell "80/20 Standard menu" [ref=e89]:
+                - button "80/20 Standard menu" [ref=e90]:
+                  - img
+            - row "70/30 Standard Standard Michael Tran Emma Wilson Noah Garcia Agent defaults menu 70/30 Standard menu" [ref=e91]:
+              - cell "70/30 Standard" [ref=e92]
+              - cell "Standard" [ref=e93]:
+                - generic [ref=e94]: Standard
+              - cell "Michael Tran Emma Wilson Noah Garcia Agent defaults menu" [ref=e95]:
+                - generic [ref=e96]:
+                  - img "Michael Tran" [ref=e99]
+                  - img "Emma Wilson" [ref=e102]
+                  - img "Noah Garcia" [ref=e105]
+                  - button "Agent defaults menu" [ref=e106]:
+                    - img
+              - cell "70/30 Standard menu" [ref=e107]:
+                - button "70/30 Standard menu" [ref=e108]:
+                  - img
+            - row "Keystone Tiered Tiered David Chen Sophia Brown Agent defaults menu Keystone Tiered menu" [ref=e109]:
+              - cell "Keystone Tiered" [ref=e110]
+              - cell "Tiered" [ref=e111]:
+                - generic [ref=e112]: Tiered
+              - cell "David Chen Sophia Brown Agent defaults menu" [ref=e113]:
+                - generic [ref=e114]:
+                  - img "David Chen" [ref=e117]
+                  - img "Sophia Brown" [ref=e120]
+                  - button "Agent defaults menu" [ref=e121]:
+                    - img
+              - cell "Keystone Tiered menu" [ref=e122]:
+                - button "Keystone Tiered menu" [ref=e123]:
+                  - img
+            - row "Lease Referral Plan Standard Assign Lease Referral Plan menu" [ref=e124]:
+              - cell "Lease Referral Plan" [ref=e125]
+              - cell "Standard" [ref=e126]:
+                - generic [ref=e127]: Standard
+              - cell "Assign" [ref=e128]:
+                - button "Assign" [ref=e129]
+              - cell "Lease Referral Plan menu" [ref=e130]:
+                - button "Lease Referral Plan menu" [ref=e131]:
+                  - img
+      - generic [ref=e132]:
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - heading "Fee Types" [level=2] [ref=e135]
+            - paragraph [ref=e136]: Define reusable deductions for CDA calculations.
+          - button "Add Fee" [ref=e137]:
+            - img
+            - text: Add Fee
+        - table [ref=e140]:
+          - rowgroup [ref=e141]:
+            - row "Fee Name Type Timing Applies To" [ref=e142]:
+              - columnheader "Fee Name" [ref=e143]
+              - columnheader "Type" [ref=e144]
+              - columnheader "Timing" [ref=e145]
+              - columnheader "Applies To" [ref=e146]
+              - columnheader [ref=e147]
+          - rowgroup [ref=e148]:
+            - row "TC Fee Flat Pre-Split Team" [ref=e149]:
+              - cell "TC Fee" [ref=e150]
+              - cell "Flat" [ref=e151]:
+                - generic [ref=e152]: Flat
+              - cell "Pre-Split" [ref=e153]
+              - cell "Team" [ref=e154]:
+                - generic [ref=e155]: Team
+              - cell [ref=e156]:
+                - button [ref=e157]:
+                  - img
+            - row "RM Fee Flat Post-Split Ila Corcoran Sarah Jenkins Emma Wilson Noah Garcia Agent defaults menu" [ref=e158]:
+              - cell "RM Fee" [ref=e159]
+              - cell "Flat" [ref=e160]:
+                - generic [ref=e161]: Flat
+              - cell "Post-Split" [ref=e162]
+              - cell "Ila Corcoran Sarah Jenkins Emma Wilson Noah Garcia Agent defaults menu" [ref=e163]:
+                - generic [ref=e164]:
+                  - img "Ila Corcoran" [ref=e167]
+                  - img "Sarah Jenkins" [ref=e170]
+                  - img "Emma Wilson" [ref=e173]
+                  - img "Noah Garcia" [ref=e176]
+                  - button "Agent defaults menu" [ref=e177]:
+                    - img
+              - cell [ref=e178]:
+                - button [ref=e179]:
+                  - img
+            - row "E&O Fee Flat Post-Split Michael Tran Sarah Jenkins Olivia Taylor Sophia Brown Agent defaults menu" [ref=e180]:
+              - cell "E&O Fee" [ref=e181]
+              - cell "Flat" [ref=e182]:
+                - generic [ref=e183]: Flat
+              - cell "Post-Split" [ref=e184]
+              - cell "Michael Tran Sarah Jenkins Olivia Taylor Sophia Brown Agent defaults menu" [ref=e185]:
+                - generic [ref=e186]:
+                  - img "Michael Tran" [ref=e189]
+                  - img "Sarah Jenkins" [ref=e192]
+                  - img "Olivia Taylor" [ref=e195]
+                  - img "Sophia Brown" [ref=e198]
+                  - button "Agent defaults menu" [ref=e199]:
+                    - img
+              - cell [ref=e200]:
+                - button [ref=e201]:
+                  - img
+            - row "Compliance Review Flat Pre-Split Team" [ref=e202]:
+              - cell "Compliance Review" [ref=e203]
+              - cell "Flat" [ref=e204]:
+                - generic [ref=e205]: Flat
+              - cell "Pre-Split" [ref=e206]
+              - cell "Team" [ref=e207]:
+                - generic [ref=e208]: Team
+              - cell [ref=e209]:
+                - button [ref=e210]:
+                  - img
+  - region "Notifications alt+T"
+  - generic [ref=e213]:
+    - link [ref=e214] [cursor=pointer]:
+      - /url: /deal-terms
+      - button [ref=e215]:
+        - img
+    - link [ref=e216] [cursor=pointer]:
+      - /url: /cda/commission-breakdown
+      - button [ref=e217]:
+        - img
+    - link [ref=e218] [cursor=pointer]:
+      - /url: /
+      - button [ref=e219]:
+        - img

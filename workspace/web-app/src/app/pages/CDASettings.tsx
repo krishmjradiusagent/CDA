@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import {
   Archive,
   Bell,
@@ -22,6 +23,8 @@ import {
   X,
   UserCheck,
   Users,
+  ChevronRight,
+  Library,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -78,6 +81,14 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "../components/ui/breadcrumb";
 import { Toaster } from "../components/ui/sonner";
 import { 
   FeeBadge, 
@@ -85,7 +96,7 @@ import {
   FeeBuilderModal, 
   AgentAvatarStack 
 } from "../components/finance";
-import { CDAFlowSwitcher } from "../components/finance/cda-flow-switcher";
+import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 
 type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
@@ -2575,8 +2586,31 @@ export function CDASettings() {
         </nav>
       </aside>
 
-      <main className="pl-[72px] pt-[68px]">
-        <div className="flex h-[92px] items-center px-8">
+      <main className="pl-[72px]">
+        {/* Universal CDA Navigation Header */}
+        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b px-6 py-2.5">
+          <div className="flex items-center justify-between">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/" className="flex items-center gap-1.5 text-xs">
+                      <Library className="size-3.5" />
+                      Financials
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="text-xs">CDA Settings</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+            <CDAFlowSwitcher />
+          </div>
+        </div>
+
+        <div className="flex h-[92px] items-center px-6">
           <h1 className="text-2xl font-semibold leading-tight text-[#373758]">Settings</h1>
         </div>
         <div className="flex h-10 items-center overflow-hidden border-y px-4">
@@ -2916,7 +2950,7 @@ export function CDASettings() {
       })()}
 
       <Toaster />
-      <CDAFlowSwitcher />
+      {/* Removed old floating switcher */}
     </div>
   );
 }

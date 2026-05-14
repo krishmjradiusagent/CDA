@@ -18,6 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "../components/ui/breadcrumb";
 import { Textarea } from "../components/ui/textarea";
 import {
   ArrowLeft,
@@ -38,7 +46,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { cn } from "../components/ui/utils";
-import { CDAFlowSwitcher } from "../components/finance/cda-flow-switcher";
+import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 
 export function DealTermsEntry() {
   const [purchasePrice, setPurchasePrice] = useState("1000000");
@@ -72,21 +80,30 @@ export function DealTermsEntry() {
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-background border-b px-8 py-4">
-        <div className="max-w-[1320px] mx-auto">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-            <Link to="/" className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-              <Library className="size-3.5" />
-              Components
-            </Link>
-            <ChevronRight className="size-3" />
-            <span className="text-xs text-muted-foreground">Transactions</span>
-            <ChevronRight className="size-3" />
-            <span className="text-foreground font-medium">Deal Terms</span>
-          </div>
+      <header className="sticky top-0 z-20 bg-background border-b">
+        {/* Universal CDA Navigation Header */}
+        <div className="flex items-center justify-between border-b bg-background px-6 py-2.5">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Library className="size-3.5" />
+                    Financials
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-xs">Deal Terms</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <CDAFlowSwitcher />
+        </div>
 
-          {/* Title Row */}
+        {/* Title Row */}
+        <div className="max-w-[1320px] mx-auto px-6 py-4">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
               <Link to="/">
@@ -103,13 +120,7 @@ export function DealTermsEntry() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 mr-2 pr-2 border-r">
-                <Link to="/cda/commission-breakdown">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs">
-                    <Calculator className="size-3 mr-1.5" />
-                    Commission Breakdown
-                  </Button>
-                </Link>
+            <div className="flex items-center gap-3 pr-3 border-r mr-3">
                 <Link to="/team-lead-review">
                   <Button variant="ghost" size="sm" className="h-7 text-xs">
                     <ExternalLink className="size-3 mr-1.5" />
@@ -120,12 +131,6 @@ export function DealTermsEntry() {
                   <Button variant="ghost" size="sm" className="h-7 text-xs">
                     <ExternalLink className="size-3 mr-1.5" />
                     Auditor
-                  </Button>
-                </Link>
-                <Link to="/cda-settings">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs">
-                    <Settings className="size-3 mr-1.5" />
-                    Settings
                   </Button>
                 </Link>
               </div>
@@ -141,7 +146,7 @@ export function DealTermsEntry() {
 
       {/* Transaction Context Strip */}
       <div className="border-b bg-background">
-        <div className="max-w-[1320px] mx-auto px-8 py-3">
+        <div className="max-w-[1320px] mx-auto px-6 py-3">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
               <Building2 className="size-4 text-muted-foreground" />
@@ -180,7 +185,7 @@ export function DealTermsEntry() {
         </div>
       </div>
 
-      <div className="max-w-[1320px] mx-auto px-8 py-6">
+      <div className="max-w-[1320px] mx-auto px-6 py-6">
         {/* Main Two-Column Layout */}
         <div className="grid grid-cols-[68%_32%] gap-6">
           {/* Left Form Content */}
@@ -574,7 +579,6 @@ export function DealTermsEntry() {
           </div>
         </div>
       </div>
-      <CDAFlowSwitcher />
     </div>
   );
 }

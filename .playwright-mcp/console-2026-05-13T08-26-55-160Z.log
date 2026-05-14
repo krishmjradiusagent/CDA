@@ -1,0 +1,8 @@
+[     -88ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:5173/?token=Hj_uXspvKEFn' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/@vite/client:801
+[     -78ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:5173/?token=Hj_uXspvKEFn' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/@vite/client:814
+[     -77ms] [ERROR] [vite] failed to connect to websocket.
+your current setup:
+  (browser) 127.0.0.1:5173/ <--[HTTP]--> 127.0.0.1:5173/ (server)
+  (browser) 127.0.0.1:5173/ <--[WebSocket (failing)]--> 127.0.0.1:5173/ (server)
+Check out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr . @ http://127.0.0.1:5173/@vite/client:829
+[     341ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-NXESFFTV.js?v=1a862b9d:21608

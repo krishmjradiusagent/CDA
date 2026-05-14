@@ -1,0 +1,4 @@
+[    6235ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://www.google.com'). @ https://www.youtube.com/s/player/74be5b62/www-widgetapi.vflset/www-widgetapi.js:209
+[   11957ms] [ERROR] Access to fetch at 'https://va.tawk.to/log-performance/v3' from origin 'https://shadcnspace.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://shadcnspace.com/components/card:0
+[   11958ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://va.tawk.to/log-performance/v3:0
+[   11958ms] [ERROR] true @ https://embed.tawk.to/_s/v4/app/6a0445ead9b/js/twk-chunk-common.js:1

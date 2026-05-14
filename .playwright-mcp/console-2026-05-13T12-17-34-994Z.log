@@ -1,0 +1,237 @@
+[     323ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=a9fa0870:21608
+[ 3613362ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:963
+[ 3615739ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:21608
+[ 4207590ms] ReferenceError: showCDCDialog is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678862357:1322:44)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4207595ms] ReferenceError: showCDCDialog is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678862357:1322:44)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4207597ms] [ERROR] The above error occurred in the <CommissionBreakdown> component:
+
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678862357:209:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7080:26)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at RenderErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6209:5)
+    at DataRoutes (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6997:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7089:13)
+    at RouterProvider (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6763:3)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14079
+[ 4207597ms] [ERROR] React Router caught the following error during render ReferenceError: showCDCDialog is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678862357:1322:44)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19806:22)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19169:15)
+    at recoverFromConcurrentError (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18786:28)
+    at performSyncWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18932:28) @ http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6236
+[ 4213821ms] ReferenceError: showCDCDialog is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678868541:1311:44)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4213823ms] ReferenceError: showCDCDialog is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678868541:1311:44)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4213824ms] [ERROR] The above error occurred in the <CommissionBreakdown> component:
+
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678868541:209:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7080:26)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at RenderErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6209:5)
+    at DataRoutes (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6997:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7089:13)
+    at RouterProvider (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6763:3)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14079
+[ 4213825ms] [ERROR] React Router caught the following error during render ReferenceError: showCDCDialog is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778678868541:1311:44)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19806:22)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19169:15)
+    at recoverFromConcurrentError (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18786:28)
+    at performSyncWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18932:28) @ http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6236
+[ 4460251ms] ReferenceError: cdcTags is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679115024:1340:11)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4460252ms] ReferenceError: cdcTags is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679115024:1340:11)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4460256ms] [ERROR] The above error occurred in the <CommissionBreakdown> component:
+
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679115024:209:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7080:26)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at RenderErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6209:5)
+    at DataRoutes (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6997:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7089:13)
+    at RouterProvider (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6763:3)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14079
+[ 4460256ms] [ERROR] React Router caught the following error during render ReferenceError: cdcTags is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679115024:1340:11)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19806:22)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19169:15)
+    at recoverFromConcurrentError (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18786:28)
+    at performSyncWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18932:28) @ http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6236
+[ 4469003ms] ReferenceError: cdcTags is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679123733:1352:11)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4469007ms] ReferenceError: cdcTags is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679123733:1352:11)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 4469006ms] [ERROR] The above error occurred in the <CommissionBreakdown> component:
+
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679123733:209:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7080:26)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at RenderErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6209:5)
+    at DataRoutes (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6997:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7089:13)
+    at RouterProvider (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6763:3)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14079
+[ 4469006ms] [ERROR] React Router caught the following error during render ReferenceError: cdcTags is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778679123733:1352:11)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14974:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15962:22)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19806:22)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19169:15)
+    at recoverFromConcurrentError (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18786:28)
+    at performSyncWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18932:28) @ http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6236
+[ 7308645ms] ReferenceError: Trophy is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778681963290:1252:42)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14630:28)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15972:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 7308645ms] ReferenceError: Trophy is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778681963290:1252:42)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14630:28)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15972:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3680:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3705:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:3739:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19818:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+[ 7308642ms] [ERROR] The above error occurred in the <CommissionBreakdown> component:
+
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778681963290:285:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7080:26)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at RenderErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6209:5)
+    at DataRoutes (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6997:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7089:13)
+    at RouterProvider (http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6763:3)
+    at App
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14079
+[ 7308642ms] [ERROR] React Router caught the following error during render ReferenceError: Trophy is not defined
+    at CommissionBreakdown (http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778681963290:1252:42)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:11596:26)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:14630:28)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:15972:22)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19806:22)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19251:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19190:13)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:19169:15)
+    at recoverFromConcurrentError (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18786:28)
+    at performSyncWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:18932:28) @ http://localhost:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6236
+[ 7852259ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778682506960:0
+[ 7852264ms] [ERROR] [vite] Failed to reload /src/app/pages/CommissionBreakdown.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881
+[ 7879932ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/src/app/pages/CommissionBreakdown.tsx?t=1778682534634:0
+[ 7879934ms] [ERROR] [vite] Failed to reload /src/app/pages/CommissionBreakdown.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:881

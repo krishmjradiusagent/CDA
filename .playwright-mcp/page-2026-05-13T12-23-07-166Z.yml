@@ -1,0 +1,168 @@
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - link [ref=e7] [cursor=pointer]:
+      - /url: /deal-terms
+      - button [ref=e8]:
+        - img
+    - link [ref=e9] [cursor=pointer]:
+      - /url: /cda/commission-breakdown
+      - button [ref=e10]:
+        - img
+    - link [ref=e11] [cursor=pointer]:
+      - /url: /
+      - button [ref=e12]:
+        - img
+  - main [ref=e13]:
+    - navigation "breadcrumb" [ref=e15]:
+      - list [ref=e16]:
+        - listitem [ref=e17]:
+          - link "Transaction" [ref=e18] [cursor=pointer]:
+            - /url: /deal-terms
+        - listitem [ref=e19]:
+          - img [ref=e20]
+        - listitem [ref=e22]:
+          - link "Commission breakdown" [disabled] [ref=e23]
+    - generic [ref=e25]:
+      - button "Agent" [ref=e26]
+      - button "TL" [ref=e27]
+      - button "Radius" [ref=e28]
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - link "Back" [ref=e31] [cursor=pointer]:
+          - /url: /deal-terms
+          - img
+          - text: Back
+        - generic [ref=e32]: Commission Breakdown for 1284 Willow Creek Dr
+        - generic [ref=e33]: May 13, 2026
+      - button "Submit approval" [ref=e35]
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e41]:
+          - img [ref=e43]
+          - generic [ref=e45]:
+            - generic [ref=e46]: Total gross
+            - generic [ref=e47]:
+              - generic [ref=e48]: $99,000
+              - button "What is total gross commission" [ref=e49]:
+                - img [ref=e50]
+            - generic [ref=e52]:
+              - generic [ref=e53]: Draft v25
+              - generic [ref=e54]: Commission basis locked
+        - generic [ref=e57]:
+          - img [ref=e59]
+          - generic [ref=e63]:
+            - generic [ref=e64]: Price sold
+            - generic [ref=e65]: $4,950,000
+            - generic [ref=e66]: 2 sides, 1 active payout lane
+      - button "Actions" [ref=e67]:
+        - text: Actions
+        - img
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - button "LISTING SIDE Active Circle Real Estate Side total $9,900 Award 1% Gross $49,500 1 agent MP Mark Perez Primary agent Payout $39,451 Add agent Add note" [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - generic [ref=e75]:
+                  - generic [ref=e76]:
+                    - heading "LISTING SIDE" [level=4] [ref=e77]
+                    - generic [ref=e78]: Active
+                  - button "Circle Real Estate" [ref=e79]
+                - generic [ref=e80]:
+                  - generic [ref=e81]: Side total
+                  - generic [ref=e82]: $9,900
+              - generic [ref=e83]:
+                - generic [ref=e84]: Award 1%
+                - generic [ref=e85]: Gross $49,500
+                - generic [ref=e86]:
+                  - img
+                  - text: 1 agent
+            - generic [ref=e87]:
+              - generic [ref=e88]:
+                - generic [ref=e89]:
+                  - generic [ref=e91]: MP
+                  - generic [ref=e92]:
+                    - generic [ref=e93]: Mark Perez
+                    - paragraph [ref=e94]: Primary agent
+                - generic [ref=e95]:
+                  - generic [ref=e96]: Payout
+                  - generic [ref=e97]: $39,451
+              - generic [ref=e98]:
+                - button "Add agent" [ref=e99]:
+                  - img
+                  - text: Add agent
+                - button "Add note" [ref=e100]:
+                  - img
+                  - text: Add note
+        - button "BUYING SIDE Jeanne Gould Side total $0 Award 0% Gross $0 0 agents No agent assigned Add buyer-side agent. Add agent Add note" [ref=e102]:
+          - generic [ref=e103]:
+            - generic [ref=e104]:
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - heading "BUYING SIDE" [level=4] [ref=e108]
+                  - button "Jeanne Gould" [ref=e109]
+                - generic [ref=e110]:
+                  - generic [ref=e111]: Side total
+                  - generic [ref=e112]: $0
+              - generic [ref=e113]:
+                - generic [ref=e114]: Award 0%
+                - generic [ref=e115]: Gross $0
+                - generic [ref=e116]:
+                  - img
+                  - text: 0 agents
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - generic [ref=e119]: No agent assigned
+                - paragraph [ref=e120]: Add buyer-side agent.
+              - generic [ref=e121]:
+                - button "Add agent" [ref=e122]:
+                  - img
+                  - text: Add agent
+                - button "Add note" [ref=e123]:
+                  - img
+                  - text: Add note
+      - complementary [ref=e124]:
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - generic [ref=e128]: LISTING SIDE
+              - generic [ref=e129]: Circle Real Estate
+            - generic [ref=e130]: 1 assigned
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - generic [ref=e133]: Gross
+              - generic [ref=e134]: $49,500
+            - generic [ref=e135]:
+              - generic [ref=e136]: Agent share
+              - generic [ref=e137]: $39,451
+            - generic [ref=e138]:
+              - generic [ref=e139]: Office share
+              - generic [ref=e140]: $10,049
+          - generic [ref=e141]:
+            - button "Edit" [ref=e142]
+            - button "Award allocation" [ref=e143]
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]:
+                - generic [ref=e147]: GROSS INCOME
+                - generic [ref=e148]: $49,500
+              - button "add pre-commission deduction" [ref=e150]:
+                - img
+                - text: add pre-commission deduction
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e153]: COMMISSIONS TO AGENTS
+                - generic [ref=e154]: $39,600
+              - generic [ref=e155]:
+                - button "add post-commission deduction" [ref=e156]:
+                  - img
+                  - text: add post-commission deduction
+                - button "add office income" [ref=e157]:
+                  - img
+                  - text: add office income
+        - generic [ref=e159]:
+          - generic [ref=e160]: OFFICE NET
+          - generic [ref=e161]: $9,900
+        - button "NEED HELP?" [ref=e163]:
+          - img
+          - text: NEED HELP?

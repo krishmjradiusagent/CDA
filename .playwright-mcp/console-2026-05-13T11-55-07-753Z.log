@@ -1,0 +1,21 @@
+[     103ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:21608
+[     139ms] [ERROR] Warning: validateDOMNesting(...): %s cannot appear as a descendant of <%s>.%s <button> button 
+    at button
+    at div
+    at div
+    at div
+    at button
+    at div
+    at section
+    at div
+    at main
+    at div
+    at CommissionBreakdown (http://127.0.0.1:5173/src/app/pages/CommissionBreakdown.tsx:88:27)
+    at RenderedRoute (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at Outlet (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7080:26)
+    at RenderedRoute (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6299:26)
+    at RenderErrorBoundary (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6209:5)
+    at DataRoutes (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6997:3)
+    at Router (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:7089:13)
+    at RouterProvider (http://127.0.0.1:5173/node_modules/.vite/deps/react-router.js?v=d0e271d3:6763:3)
+    at App @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=d0e271d3:520
