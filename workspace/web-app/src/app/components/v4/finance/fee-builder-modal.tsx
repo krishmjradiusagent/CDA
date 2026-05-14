@@ -54,6 +54,10 @@ export interface FeeBuilderModalProps {
   onOpenChange: (open: boolean) => void;
   initialData?: Partial<FeeTypeDraft>;
   onSave: (data: FeeTypeDraft) => void;
+  /** Hide the "When Applied" dropdown (timing already known from context) */
+  hideTimingField?: boolean;
+  /** Hide "Post-Split Amount" from "Percentage Based On" options */
+  hidePostSplitBase?: boolean;
 }
 
 function createDraft(initialData?: Partial<FeeTypeDraft>): FeeTypeDraft {
@@ -155,7 +159,7 @@ function TierRows({
           {draft.tiers.map((tier) => (
             <div
               key={tier.id}
-              className={`grid grid-cols-[1fr_1fr_auto] gap-2 rounded-md border p-2 transition-all duration-300 ${
+              className={`grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-md border p-2 transition-all duration-300 ${
                 flashTierId === tier.id ? "bg-primary/10" : "bg-background"
               }`}
             >
@@ -174,6 +178,21 @@ function TierRows({
                   value={tier.to}
                   onChange={(event) => updateTier(tier.id, { to: event.target.value })}
                 />
+              </div>
+              <div className="relative">
+                {draft.type === "flat" && (
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                )}
+                <Input
+                  className={`h-9 text-xs ${draft.type === "flat" ? "pl-6" : "pr-6"}`}
+                  placeholder={draft.type === "flat" ? "0.00" : "0"}
+                  inputMode="decimal"
+                  value={tier.fee}
+                  onChange={(event) => updateTier(tier.id, { fee: event.target.value })}
+                />
+                {draft.type === "percentage" && (
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -201,6 +220,8 @@ export function FeeBuilderModal({
   onOpenChange,
   initialData,
   onSave,
+  hideTimingField,
+  hidePostSplitBase,
 }: FeeBuilderModalProps) {
   const [draft, setDraft] = useState<FeeTypeDraft>(() => createDraft(initialData));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -245,7 +266,7 @@ export function FeeBuilderModal({
           <DialogDescription>Configure fee type details.</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-4 px-6 py-4">
 
             {/* Fee Name */}
@@ -301,13 +322,16 @@ export function FeeBuilderModal({
                   <SelectContent>
                     <SelectItem value="property-value">Property Value</SelectItem>
                     <SelectItem value="pre-split">Pre-Split Amount (Gross Commission)</SelectItem>
-                    <SelectItem value="post-split">Post-Split Amount</SelectItem>
+                    {!hidePostSplitBase && (
+                      <SelectItem value="post-split">Post-Split Amount</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
             )}
 
-            {/* When Applied */}
+            {/* When Applied — hidden when timing is pre-selected from context */}
+            {!hideTimingField && (
             <div className="space-y-1.5">
               <Label>When Applied</Label>
               <Select value={draft.timing} onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}>
@@ -320,6 +344,7 @@ export function FeeBuilderModal({
                 </SelectContent>
               </Select>
             </div>
+            )}
 
             {/* Fee Payer */}
             <div className="space-y-1.5">
@@ -437,7 +462,7 @@ export function FeeBuilderModal({
             </div>
 
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="shrink-0 border-t bg-background px-6 py-[14px]">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

@@ -896,12 +896,24 @@ export function CommissionBreakdown() {
                         <Plus className="size-3.5 mr-1" />Post-split deduction
                       </Button>
                     )}
-                    {canEditAll && !isLocked && (
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("post-split")}>
-                        <Plus className="size-3.5 mr-1" />Radius fee
-                      </Button>
-                    )}
                   </div>
+
+                  {/* Radius fee nudge strip */}
+                  {canEditAll && !isLocked && !(postSplitDeductions[selectedAgent.agent.id] ?? []).some((d) => d.isRadiusFee) && (
+                    <button
+                      onClick={() => setFeeDialogTiming("post-split")}
+                      className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[#5A5FF2]/15 bg-[#5A5FF2]/[0.04] px-3.5 py-2.5 text-left transition-all hover:border-[#5A5FF2]/30 hover:bg-[#5A5FF2]/[0.08]"
+                    >
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#5A5FF2]/10">
+                        <Plus className="size-3.5 text-[#5A5FF2]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground">Add Radius Fee</p>
+                        <p className="text-[11px] text-muted-foreground truncate">Apply standard Radius fees to this agent</p>
+                      </div>
+                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/40" />
+                    </button>
+                  )}
 
                   <Separator className="my-3" />
 
@@ -1453,6 +1465,8 @@ export function CommissionBreakdown() {
         onOpenChange={(open) => { if (!open) setFeeDialogTiming(null); }}
         initialData={{ timing: feeDialogTiming ?? "pre-split" }}
         onSave={handleFeeAdded}
+        hideTimingField={feeDialogTiming === "pre-split"}
+        hidePostSplitBase={feeDialogTiming === "pre-split"}
       />
 
       {/* Company Dollar Contribution dialog */}
