@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router";
 import {
   Calculator,
-  FileText,
   Settings,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -27,23 +26,6 @@ export function CDAFlowSwitcher() {
       <Card className="shadow-xl border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <CardContent className="p-2 flex items-center gap-1">
           <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link to="/deal-terms">
-                  <Button 
-                    variant={isActive("/deal-terms") ? "secondary" : "ghost"} 
-                    size="icon" 
-                    className="size-9 rounded-md"
-                  >
-                    <FileText className={isActive("/deal-terms") ? "size-4.5 text-primary" : "size-4.5 text-muted-foreground"} />
-                  </Button>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="top">Deal Terms</TooltipContent>
-            </Tooltip>
-
-            <Separator orientation="vertical" className="h-4 mx-1" />
-
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link to="/cda/commission-breakdown">

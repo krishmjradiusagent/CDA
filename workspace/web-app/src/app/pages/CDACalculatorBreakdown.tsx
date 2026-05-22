@@ -221,7 +221,7 @@ export function CDACalculatorBreakdown() {
                   <div>
                     <h2 className="text-base font-medium">Finance Breakdown</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Automatic estimate generated from deal terms and assigned defaults.
+                      Automatic estimate generated from transaction details and assigned defaults.
                     </p>
                   </div>
                 </div>
@@ -596,7 +596,7 @@ export function CDACalculatorBreakdown() {
                     </div>
                   </CardHeader>
                   <CardContent className="text-xs text-blue-900 dark:text-blue-100 space-y-2">
-                    <p>• CDA estimate auto-generates from Deal Terms</p>
+                    <p>• CDA estimate auto-generates from transaction details</p>
                     <p>• Commission plans and fee defaults come from CDA Settings</p>
                     <p>• Changing defaults can trigger recalculation</p>
                     <p>• Agent only sees own payout</p>

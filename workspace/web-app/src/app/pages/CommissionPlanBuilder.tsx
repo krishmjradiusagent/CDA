@@ -218,12 +218,6 @@ export function CommissionPlanBuilder() {
                     Breakdown
                   </Button>
                 </Link>
-                <Link to="/deal-terms">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs">
-                    <ExternalLink className="size-3 mr-1.5" />
-                    Deal Terms
-                  </Button>
-                </Link>
               </div>
               <Button variant="outline" size="sm">
                 Save Draft

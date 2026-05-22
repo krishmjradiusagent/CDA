@@ -3,7 +3,6 @@ import { BreakdownPage } from "./pages/BreakdownPage";
 import { TeamLeadReview } from "./pages/TeamLeadReview";
 import { AuditorVerification } from "./pages/AuditorVerification";
 import { CDASettings } from "./pages/CDASettings";
-import { DealTermsEntry } from "./pages/DealTermsEntry";
 import { AgentConfirmation } from "./pages/AgentConfirmation";
 import { CommissionPlanBuilder } from "./pages/CommissionPlanBuilder";
 import { FeeTypeBuilder } from "./pages/FeeTypeBuilder";
@@ -41,10 +40,6 @@ export const router = createBrowserRouter([
       {
         path: "cda-settings",
         Component: CDASettings,
-      },
-      {
-        path: "deal-terms",
-        Component: DealTermsEntry,
       },
       {
         path: "cda/commission-settings",

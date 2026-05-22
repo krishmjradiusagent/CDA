@@ -134,12 +134,6 @@ export function EdgeCasesPage() {
                       Components
                     </Button>
                   </Link>
-                  <Link to="/deal-terms">
-                    <Button variant="outline" size="sm">
-                      <ExternalLink className="size-4 mr-2" />
-                      Deal Terms
-                    </Button>
-                  </Link>
                   <Link to="/breakdown">
                     <Button variant="outline" size="sm">
                       <ExternalLink className="size-4 mr-2" />
@@ -176,7 +170,7 @@ export function EdgeCasesPage() {
                   {/* A. CDA Not Started */}
                   <StateCard
                     title="CDA Not Started"
-                    trigger="Deal Terms has enough data but CDA not opened."
+                    trigger="Transaction has enough data but CDA not opened."
                     behavior="Show CTA 'Open CDA Breakdown'."
                     primaryAction="Open CDA Breakdown"
                   />
@@ -187,7 +181,7 @@ export function EdgeCasesPage() {
                     trigger="Purchase price empty."
                     behavior="Disable CDA Breakdown."
                     variant="error"
-                    primaryAction="Complete Deal Terms"
+                    primaryAction="Complete Transaction"
                   />
 
                   {/* C. Missing Commission Rate */}

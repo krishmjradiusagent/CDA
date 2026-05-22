@@ -2639,7 +2639,7 @@ export function CDASettings() {
         <div className="flex flex-col gap-8 px-4 py-9">
           {renderCommissionPlans()}
           {renderFeeTypes()}
-          {renderPaymentRouting()}
+          {/* {renderPaymentRouting()} */}
           {/* 
           {state.defaultAssignments.length === 0 ? (
             <EmptySection

@@ -95,7 +95,7 @@ import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
 
 type SideId = "listing" | "buyer";
 type Role = "agent" | "team_lead" | "radius_auditing";
-type Agent = { id: string; name: string; role: string; payout: number };
+type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string };
 type Side = {
   id: SideId;
   title: string;
@@ -104,6 +104,41 @@ type Side = {
   gross: number;
   agents: Agent[];
   active: boolean;
+};
+
+type PlanType = "standard" | "tiered";
+type FeeType = "flat" | "percentage";
+type ResetPeriod = "yearly" | "quarterly" | "monthly";
+type BasedOn = "units" | "gci" | "sales-volume";
+
+type TierRow = {
+  id: string;
+  from: string;
+  to: string;
+  agentSplit: string;
+  teamSplit: string;
+};
+
+type PlanForm = {
+  editingPlanId: string | null;
+  planName: string;
+  planType: PlanType;
+  agentSplit: string;
+  teamSplit: string;
+  resetPeriod: ResetPeriod;
+  basedOn: BasedOn;
+  feeType: FeeType;
+  feeAmount: string;
+  capAmount: string;
+  applyAsDefault: boolean;
+  selectedAgentIds: string[];
+  tiers: TierRow[];
+};
+
+type PlanErrors = Partial<
+  Record<"planName" | "splitTotal" | "selectedAgentIds", string>
+> & {
+  tiers?: Record<string, string>;
 };
 
 const CONTACTS = [
@@ -189,6 +224,35 @@ const roleMeta: Record<string, { label: string; badge: string; avatar: string }>
   team_lead: { label: "Team Lead", badge: "bg-amber-50 text-amber-700 border-amber-200", avatar: "bg-amber-100 text-amber-700" },
   radius_auditing: { label: "Admin", badge: "bg-purple-50 text-purple-700 border-purple-200", avatar: "bg-purple-100 text-purple-700" },
 };
+
+function numericValue(value: string) {
+  return Number(value.replace(/[^0-9.]/g, "")) || 0;
+}
+
+const defaultTiers: TierRow[] = [
+  { id: "tier-1", from: "1", to: "5", agentSplit: "80", teamSplit: "20" },
+  { id: "tier-2", from: "6", to: "10", agentSplit: "85", teamSplit: "15" },
+  { id: "tier-3", from: "11", to: "25", agentSplit: "90", teamSplit: "10" },
+  { id: "tier-4", from: "26", to: "", agentSplit: "95", teamSplit: "5" },
+];
+
+function getFreshPlanForm(): PlanForm {
+  return {
+    editingPlanId: null,
+    planName: "",
+    planType: "standard",
+    agentSplit: "80",
+    teamSplit: "20",
+    resetPeriod: "yearly",
+    basedOn: "units",
+    feeType: "flat",
+    feeAmount: "",
+    capAmount: "18000",
+    applyAsDefault: true,
+    selectedAgentIds: [],
+    tiers: defaultTiers.map((tier) => ({ ...tier })),
+  };
+}
 
 /** Editable value for deduction rows — no clear X (row has its own delete) */
 function DeductionValue({ value, onChange, readOnly }: { value: number; onChange: (v: number) => void; readOnly?: boolean }) {
@@ -466,6 +530,10 @@ export function CommissionBreakdown() {
   const activeSideOfficeShare = Math.max(grossIncome - totalAgentPayout, 0);
 
   // Permission helpers
+  const [showAddPlanDialog, setShowAddPlanDialog] = useState(false);
+  const [planForm, setPlanForm] = useState<PlanForm>(getFreshPlanForm());
+  const [planErrors, setPlanErrors] = useState<PlanErrors>({});
+
   const isAgent = role === "agent";
   const isTL = role === "team_lead";
   const canEditAll = role === "radius_auditing";
@@ -493,10 +561,6 @@ export function CommissionBreakdown() {
           <div className="flex items-center gap-4">
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild><Link to="/deal-terms" className="text-xs">Transaction</Link></BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
                 <BreadcrumbItem>
                   <BreadcrumbPage className="text-xs">Commission Breakdown</BreadcrumbPage>
                 </BreadcrumbItem>
@@ -532,7 +596,7 @@ export function CommissionBreakdown() {
         <div className="flex items-center justify-between gap-4 border-b bg-background px-6 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <Button variant="ghost" size="icon" asChild className="size-8 text-muted-foreground hover:text-foreground">
-              <Link to="/deal-terms"><ChevronRight className="size-4 rotate-180" /></Link>
+              <Link to="/"><ChevronRight className="size-4 rotate-180" /></Link>
             </Button>
             <Separator orientation="vertical" className="h-4" />
             <h1 className="min-w-0 truncate text-sm font-semibold">Commission Breakdown — 1284 Willow Creek Dr</h1>
@@ -648,13 +712,13 @@ export function CommissionBreakdown() {
                             <span className="text-base font-semibold">{side.title}</span>
                             <div className="flex items-center gap-3 mt-1" data-testid={`${side.id}-meta-row`}>
                               <span className="text-xs text-muted-foreground">{side.subline}</span>
-                              
+
                               <Separator
                                 orientation="vertical"
                                 data-testid={`${side.id}-separator-1`}
                                 className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
                               />
-                              
+
                               <Badge
                                 variant="outline"
                                 className={cn(
@@ -665,24 +729,24 @@ export function CommissionBreakdown() {
                               >
                                 Award {side.award}%
                               </Badge>
-                              
+
                               <Separator
                                 orientation="vertical"
                                 data-testid={`${side.id}-separator-2`}
                                 className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
                               />
-                              
+
                               {!isAgent && !isLocked && (
-                                <Badge 
+                                <Badge
                                   variant="secondary"
                                   className="border border-[#5A5FF2] text-[#5A5FF2] bg-[#5A5FF210] hover:bg-[#5A5FF214] cursor-pointer px-2 py-0 text-[11px] font-medium h-5 flex items-center justify-center rounded-md shadow-none"
-                                  onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    setAddAgentSideId(side.id); 
-                                    setAgentSearch(""); 
-                                    setPendingAgent(null); 
-                                    setAgentAllocations({}); 
-                                    setShowAddAgentDialog(true); 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAddAgentSideId(side.id);
+                                    setAgentSearch("");
+                                    setPendingAgent(null);
+                                    setAgentAllocations({});
+                                    setShowAddAgentDialog(true);
                                   }}
                                 >
                                   + Agent
@@ -695,14 +759,14 @@ export function CommissionBreakdown() {
                               <p className="text-xs font-medium text-muted-foreground">Side total</p>
                               <p className="text-xl font-bold tracking-tight tabular-nums">{currency(side.agents.reduce((s, a) => s + a.payout, 0))}</p>
                             </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="size-8 p-0 hover:bg-muted"
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                setSelectedSide(side.id); 
-                                setSelectedAgentId(null); 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedSide(side.id);
+                                setSelectedAgentId(null);
                               }}
                             >
                               <ChevronRight className="size-4 text-muted-foreground/50" />
@@ -813,6 +877,22 @@ export function CommissionBreakdown() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : null}
+                    {!appliedPlans[selectedAgent.agent.id] && role !== "agent" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 rounded-lg border-primary/40 px-3 text-xs text-primary hover:bg-primary/[0.03]"
+                        onClick={() => {
+                          setPlanForm({
+                            ...getFreshPlanForm(),
+                            selectedAgentIds: [selectedAgent.agent.id]
+                          });
+                          setShowAddPlanDialog(true);
+                        }}
+                      >
+                        <Plus className="size-3" /> Commission plan
+                      </Button>
+                    )}
                     {!isAgent && !isLocked && (
                       <Button
                         variant="outline"
@@ -827,7 +907,36 @@ export function CommissionBreakdown() {
                   </div>
                 </div>
 
-                {/* Agent ledger */}
+                {/* Agent empty state or ledger */}
+                {!appliedPlans[selectedAgent.agent.id] ? (
+                  <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-center bg-muted/5">
+                    <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <CircleDollarSign className="size-6" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground">No commission plan selected</h3>
+                    <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
+                      Apply an existing plan or create a new one to calculate splits and deductions for this agent.
+                    </p>
+                    {role !== "agent" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-5 border-primary text-primary hover:bg-primary/[0.03] rounded-lg"
+                        onClick={() => {
+                          setPlanForm({
+                            ...getFreshPlanForm(),
+                            selectedAgentIds: [selectedAgent.agent.id]
+                          });
+                          setShowAddPlanDialog(true);
+                        }}
+                      >
+                        <Plus className="size-4" /> Create commission plan
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Agent ledger */}
                 <div className="px-5 py-4">
                   {/* Tentative notice */}
                   <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
@@ -1000,8 +1109,10 @@ export function CommissionBreakdown() {
                       <HelpCircle className="size-4" />Need help?
                     </Button>
                   </div>
-                </div>
-              </motion.div>
+                  </div>
+                </>
+              )}
+            </motion.div>
             ) : (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <div className="shrink-0 border-b px-5 py-4 bg-[#5A5FF2]/[0.035]">
@@ -1792,5 +1903,401 @@ export function CommissionBreakdown() {
 
       </div>
     </TooltipProvider>
+  );
+}
+
+function AddPlanDialog({
+  open,
+  title,
+  form,
+  errors,
+  onFormChange,
+  onAgentSplitChange,
+  onTeamSplitChange,
+  onUpdateTier,
+  onAddTier,
+  onRemoveTier,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  title: string;
+  form: PlanForm;
+  errors: PlanErrors;
+  onFormChange: (patch: Partial<PlanForm>) => void;
+  onAgentSplitChange: (value: string) => void;
+  onTeamSplitChange: (value: string) => void;
+  onUpdateTier: (tierId: string, patch: Partial<TierRow>) => void;
+  onAddTier: () => void;
+  onRemoveTier: (tierId: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onSave: () => void;
+}) {
+  const splitTotal = numericValue(form.agentSplit) + numericValue(form.teamSplit);
+  const feeLabel = "Fixed Fee";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!flex !h-auto !max-h-[82vh] !w-[560px] !max-w-[calc(100vw-48px)] !flex-col !gap-0 !overflow-hidden !rounded-[12px] !p-0 sm:!max-w-[560px] [&>button[data-slot=dialog-close]]:hidden">
+        <DialogHeader className="border-b px-6 pt-6 pb-4 !text-left">
+          <div className="flex items-start justify-between">
+            <div>
+              <DialogTitle className="text-base font-semibold leading-5">{title}</DialogTitle>
+              <DialogDescription className="mt-1 text-xs text-muted-foreground">
+                Define split rules, caps, and transaction types for this plan.
+              </DialogDescription>
+            </div>
+            <button
+              type="button"
+              aria-label="Close"
+              className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </DialogHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+          <PlanSetupFields
+            form={form}
+            errors={errors}
+            feeLabel={feeLabel}
+            splitTotal={splitTotal}
+            onFormChange={onFormChange}
+            onAgentSplitChange={onAgentSplitChange}
+            onTeamSplitChange={onTeamSplitChange}
+            onUpdateTier={onUpdateTier}
+            onAddTier={onAddTier}
+            onRemoveTier={onRemoveTier}
+          />
+
+          <Separator />
+
+          <div className="flex flex-col gap-3">
+            <Label className="text-sm font-medium">Assign To</Label>
+            <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20">
+              {form.selectedAgentIds.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No agents selected</p>
+              )}
+              {form.selectedAgentIds.map(id => {
+                const name = id.startsWith("a")
+                  ? initialSides.flatMap(s => s.agents).find(a => a.id === id)?.name
+                  : CONTACTS.find(c => c.id === id)?.name;
+                return (
+                  <Badge key={id} variant="secondary" className="gap-1 pl-2 pr-1 h-6">
+                    {name || id}
+                    <button onClick={() => onFormChange({ selectedAgentIds: form.selectedAgentIds.filter(aid => aid !== id) })}>
+                      <X className="size-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 rounded-full p-0">
+                    <Plus className="size-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">Select Agent</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {initialSides.flatMap(s => s.agents).map(agent => (
+                    <DropdownMenuItem
+                      key={agent.id}
+                      disabled={form.selectedAgentIds.includes(agent.id)}
+                      onClick={() => onFormChange({ selectedAgentIds: [...form.selectedAgentIds, agent.id] })}
+                    >
+                      {agent.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={onSave} className="bg-[#5A5FF2] hover:bg-[#5A5FF2]/90">Save Plan</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PlanSetupFields({
+  form,
+  errors,
+  feeLabel,
+  splitTotal,
+  onFormChange,
+  onAgentSplitChange,
+  onTeamSplitChange,
+  onUpdateTier,
+  onAddTier,
+  onRemoveTier,
+}: {
+  form: PlanForm;
+  errors: PlanErrors;
+  feeLabel: string;
+  splitTotal: number;
+  onFormChange: (patch: Partial<PlanForm>) => void;
+  onAgentSplitChange: (value: string) => void;
+  onTeamSplitChange: (value: string) => void;
+  onUpdateTier: (tierId: string, patch: Partial<TierRow>) => void;
+  onAddTier: () => void;
+  onRemoveTier: (tierId: string) => void;
+}) {
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="plan-name" className="text-sm font-medium">Plan Name</Label>
+        <Input
+          id="plan-name"
+          value={form.planName}
+          placeholder="e.g., 80/20 Standard"
+          className="h-10 w-full"
+          onChange={(event) => onFormChange({ planName: event.target.value })}
+        />
+        {errors.planName && <p className="text-xs text-destructive">{errors.planName}</p>}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm font-medium">Plan Type</Label>
+        <Select value={form.planType} onValueChange={(value) => onFormChange({ planType: value as PlanType })}>
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="standard">Standard</SelectItem>
+            <SelectItem value="tiered">Tiered</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {form.planType === "standard" ? (
+        <>
+          <div className="grid w-full grid-cols-2 gap-4">
+            <div className="flex w-full flex-col gap-2">
+              <Label htmlFor="agent-split" className="text-sm font-medium">Agent Split %</Label>
+              <Input
+                id="agent-split"
+                value={form.agentSplit}
+                inputMode="numeric"
+                className="h-10 w-full"
+                onChange={(event) => onAgentSplitChange(event.target.value)}
+              />
+            </div>
+            <div className="flex w-full flex-col gap-2">
+              <Label htmlFor="team-split" className="text-sm font-medium">Team Split %</Label>
+              <Input
+                id="team-split"
+                value={form.teamSplit}
+                inputMode="numeric"
+                className="h-10 w-full"
+                onChange={(event) => onTeamSplitChange(event.target.value)}
+              />
+            </div>
+          </div>
+          <p className={errors.splitTotal ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+            {errors.splitTotal ?? `Split total must equal 100%. Current: ${splitTotal}%`}
+          </p>
+        </>
+      ) : (
+        <div className="grid w-full grid-cols-2 gap-4">
+          <div className="flex w-full flex-col gap-2">
+            <Label className="text-sm font-medium">Reset Period</Label>
+            <Select value={form.resetPeriod} onValueChange={(value) => onFormChange({ resetPeriod: value as ResetPeriod })}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yearly">Yearly</SelectItem>
+                <SelectItem value="quarterly">Quarterly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex w-full flex-col gap-2">
+            <Label className="text-sm font-medium">Based On</Label>
+            <Select value={form.basedOn} onValueChange={(value) => onFormChange({ basedOn: value as BasedOn })}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="units">Units</SelectItem>
+                <SelectItem value="gci">Gross Commission</SelectItem>
+                <SelectItem value="sales-volume">Sales Volume</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {form.planType === "tiered" && (
+        <>
+          <Separator />
+          <TierBuilder
+            form={form}
+            errors={errors}
+            onUpdateTier={onUpdateTier}
+            onAddTier={onAddTier}
+            onRemoveTier={onRemoveTier}
+          />
+        </>
+      )}
+
+      <Separator />
+
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm font-medium">Fee</Label>
+        <Select value={form.feeType ?? "flat"} onValueChange={(value) => onFormChange({ feeType: value as "flat" | "percentage" })}>
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="flat">Flat</SelectItem>
+            <SelectItem value="percentage">Percentage</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid w-full grid-cols-2 gap-4">
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="fee-amount" className="text-sm font-medium">
+            {(form.feeType ?? "flat") === "flat" ? "Fixed Fee" : "Fee Percentage"}
+          </Label>
+          <AdornedInput
+            id="fee-amount"
+            value={form.feeAmount}
+            placeholder={(form.feeType ?? "flat") === "flat" ? "495" : "2.5"}
+            adornment={(form.feeType ?? "flat") === "flat" ? "$" : "%"}
+            adornmentSide={(form.feeType ?? "flat") === "flat" ? "start" : "end"}
+            onChange={(value) => onFormChange({ feeAmount: value })}
+          />
+        </div>
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="cap" className="text-sm font-medium">Cap Amount</Label>
+          <AdornedInput
+            id="cap"
+            value={form.capAmount}
+            placeholder="18000"
+            adornment="$"
+            onChange={(value) => onFormChange({ capAmount: value })}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TierBuilder({
+  form,
+  errors,
+  onUpdateTier,
+  onAddTier,
+  onRemoveTier,
+}: {
+  form: PlanForm;
+  errors: PlanErrors;
+  onUpdateTier: (id: string, patch: Partial<TierRow>) => void;
+  onAddTier: () => void;
+  onRemoveTier: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">Tiers ({form.basedOn === "units" ? "Units" : form.basedOn === "gci" ? "GCI" : "Volume"})</Label>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary" onClick={onAddTier}>
+          <Plus className="size-3 mr-1" /> Add Tier
+        </Button>
+      </div>
+      <div className="space-y-3">
+        {form.tiers.map((tier, idx) => (
+          <div key={tier.id} className="flex items-start gap-3">
+            <div className="grid grid-cols-2 gap-2 flex-1">
+              <AdornedInput
+                id={`tier-from-${tier.id}`}
+                value={tier.from}
+                adornment="From"
+                onChange={(v) => onUpdateTier(tier.id, { from: v })}
+              />
+              <AdornedInput
+                id={`tier-to-${tier.id}`}
+                value={tier.to}
+                adornment="To"
+                onChange={(v) => onUpdateTier(tier.id, { to: v })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 flex-1">
+              <AdornedInput
+                id={`tier-agent-${tier.id}`}
+                value={tier.agentSplit}
+                adornment="Agent"
+                adornmentSide="end"
+                onChange={(v) => onUpdateTier(tier.id, { agentSplit: v })}
+              />
+              <AdornedInput
+                id={`tier-team-${tier.id}`}
+                value={tier.teamSplit}
+                adornment="Team"
+                adornmentSide="end"
+                onChange={(v) => onUpdateTier(tier.id, { teamSplit: v })}
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-destructive"
+              onClick={() => onRemoveTier(tier.id)}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdornedInput({
+  id,
+  value,
+  placeholder,
+  adornment,
+  adornmentSide = "start",
+  invalid,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  placeholder?: string;
+  adornment: string;
+  adornmentSide?: "start" | "end";
+  invalid?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative w-full">
+      {adornmentSide === "start" && (
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground/60">
+          {adornment}
+        </span>
+      )}
+      <Input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        className={cn(
+          "h-10 w-full",
+          adornmentSide === "start" ? "pl-12" : "pr-8"
+        )}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {adornmentSide === "end" && (
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground/60">
+          {adornment}
+        </span>
+      )}
+    </div>
   );
 }

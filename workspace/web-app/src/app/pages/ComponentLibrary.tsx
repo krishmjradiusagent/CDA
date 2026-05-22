@@ -189,12 +189,6 @@ export function ComponentLibrary() {
                       Open CDA Settings
                     </Button>
                   </Link>
-                  <Link to="/deal-terms">
-                    <Button variant="outline" size="sm">
-                      <ExternalLink className="size-4 mr-2" />
-                      Open Deal Terms Entry
-                    </Button>
-                  </Link>
                   <Link to="/agent-confirmation">
                     <Button variant="outline" size="sm">
                       <ExternalLink className="size-4 mr-2" />
@@ -752,7 +746,7 @@ export function ComponentLibrary() {
                       </Button>
                     </div>
                     <p className="text-xs text-center text-muted-foreground mt-3">
-                      Defaults apply when deal terms are filled.
+                      Defaults apply when transaction details are filled.
                     </p>
                   </CardContent>
                 </Card>

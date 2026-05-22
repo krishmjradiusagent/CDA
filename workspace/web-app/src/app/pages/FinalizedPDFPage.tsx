@@ -92,12 +92,6 @@ export function FinalizedPDFPage() {
                       CDA Breakdown
                     </Button>
                   </Link>
-                  <Link to="/deal-terms">
-                    <Button variant="outline" size="sm">
-                      <ExternalLink className="size-4 mr-2" />
-                      Deal Terms
-                    </Button>
-                  </Link>
                 </div>
               </div>
             </div>

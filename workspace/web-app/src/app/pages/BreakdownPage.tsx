@@ -98,8 +98,6 @@ export function BreakdownPage() {
               Components
             </Link>
             <ChevronRight className="size-3" />
-            <span className="text-xs text-muted-foreground">Deal Terms</span>
-            <ChevronRight className="size-3" />
             <span className="text-foreground font-medium">CDA Breakdown</span>
           </div>
 
@@ -109,7 +107,7 @@ export function BreakdownPage() {
               <Link to="/">
                 <Button variant="ghost" size="sm" className="h-8 px-2">
                   <ArrowLeft className="size-4 mr-1.5" />
-                  Back to Deal Terms
+                  Back to Components
                 </Button>
               </Link>
               <div>

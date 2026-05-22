@@ -72,10 +72,6 @@ export function AgentConfirmation() {
               Components
             </Link>
             <ChevronRight className="size-3" />
-            <Link to="/deal-terms" className="hover:text-foreground transition-colors">
-              Deal Terms
-            </Link>
-            <ChevronRight className="size-3" />
             <Link to="/breakdown" className="hover:text-foreground transition-colors">
               CDA
             </Link>
@@ -86,10 +82,10 @@ export function AgentConfirmation() {
           {/* Title Row */}
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
-              <Link to="/deal-terms">
+              <Link to="/breakdown">
                 <Button variant="ghost" size="sm" className="h-8 px-2">
                   <ArrowLeft className="size-4 mr-1.5" />
-                  Back to Deal Terms
+                  Back to CDA Breakdown
                 </Button>
               </Link>
               <div>

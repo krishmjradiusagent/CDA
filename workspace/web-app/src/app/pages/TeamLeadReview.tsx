@@ -119,8 +119,6 @@ export function TeamLeadReview() {
               Components
             </Link>
             <ChevronRight className="size-3" />
-            <span className="text-xs text-muted-foreground">Deal Terms</span>
-            <ChevronRight className="size-3" />
             <Link to="/breakdown" className="hover:text-foreground transition-colors">
               CDA
             </Link>
@@ -134,7 +132,7 @@ export function TeamLeadReview() {
               <Link to="/breakdown">
                 <Button variant="ghost" size="sm" className="h-8 px-2">
                   <ArrowLeft className="size-4 mr-1.5" />
-                  Back to Deal Terms
+                  Back to CDA Breakdown
                 </Button>
               </Link>
               <div>

@@ -150,12 +150,12 @@ export function CDAInsertionMap() {
                     <div className="space-y-2 text-xs">
                       <div className="p-3 bg-muted/30 rounded-lg">
                         <p className="text-foreground">
-                          <strong>CDA estimate auto-generates from Deal Terms</strong>
+                          <strong>CDA estimate auto-generates from transaction details</strong>
                         </p>
                       </div>
                       <div className="p-3 bg-muted/30 rounded-lg">
                         <p className="text-foreground">
-                          <strong>No manual Start CDA flow</strong> — Opens automatically when deal terms complete
+                          <strong>No manual Start CDA flow</strong> — Opens automatically when transaction details are complete
                         </p>
                       </div>
                       <div className="p-3 bg-muted/30 rounded-lg">
@@ -548,7 +548,7 @@ export function CDAInsertionMap() {
                       <AlertCircle className="size-5 text-blue-600 dark:text-blue-400 mb-2" />
                       <p className="font-medium mb-1">Auto-generation</p>
                       <p className="text-xs text-muted-foreground">
-                        CDA estimate auto-generates from Deal Terms when required fields complete
+                        CDA estimate auto-generates from transaction details when required fields complete
                       </p>
                     </CardContent>
                   </Card>

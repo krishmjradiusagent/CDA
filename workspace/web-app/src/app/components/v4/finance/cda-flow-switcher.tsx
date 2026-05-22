@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router";
 import {
   Calculator,
-  FileText,
   Settings,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -16,7 +15,6 @@ export function CDAFlowSwitcher() {
   };
 
   const navs = [
-    { path: "/deal-terms", label: "Deal Terms", icon: FileText },
     { path: "/cda/commission-breakdown", label: "Commission Breakdown", icon: Calculator },
     { path: "/cda-settings", label: "Settings", icon: Settings },
   ];
