@@ -386,11 +386,12 @@ export function CommissionBreakdown() {
   const [statementNotes, setStatementNotes] = useState("");
   const [includeProgressInfo, setIncludeProgressInfo] = useState(false);
   const [appliedPlans, setAppliedPlans] = useState<Record<string, string | null>>({});
-  // txStatus drives approval flow: agent submits → TL approves/rejects
-  const [txStatus, setTxStatus] = useState<"draft" | "submitted" | "approved" | "rejected">("draft");
+  type TxStatus = "draft" | "agent_confirmed" | "team_lead_confirmed" | "processed" | "rejected";
+  // txStatus drives confirmation flow: Agent confirms → Team Lead confirms → Admin processes
+  const [txStatus, setTxStatus] = useState<TxStatus>("draft");
   const [rejectionNote, setRejectionNote] = useState("");
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [rejectInput, setRejectInput] = useState("");
@@ -537,19 +538,67 @@ export function CommissionBreakdown() {
   const isAgent = role === "agent";
   const isTL = role === "team_lead";
   const canEditAll = role === "radius_auditing";
-  const isLocked = txStatus === "submitted" || txStatus === "approved";
-  const STATUS_LABELS: Record<typeof txStatus, string> = {
-    draft: "Draft",
-    submitted: "Pending approval",
-    approved: "Approved",
+  const isLocked = txStatus === "processed" && role !== "radius_auditing";
+  const STATUS_LABELS: Record<TxStatus, string> = {
+    draft: "Awaiting Agent confirmation",
+    agent_confirmed: "Confirmed by Agent",
+    team_lead_confirmed: "Confirmed by Team Lead",
+    processed: "CDA generated",
     rejected: "Returned for edits",
   };
-  const STATUS_COLORS: Record<typeof txStatus, React.ComponentProps<typeof Badge>["variant"]> = {
+  const STATUS_COLORS: Record<TxStatus, React.ComponentProps<typeof Badge>["variant"]> = {
     draft: "outline",
-    submitted: "secondary", // amber in theme?
-    approved: "default",    // emerald in theme?
+    agent_confirmed: "secondary",
+    team_lead_confirmed: "secondary",
+    processed: "secondary",
     rejected: "destructive",
   };
+  const flowNote =
+    role === "agent"
+      ? "Agent confirms first. Team Lead confirms next."
+      : role === "team_lead"
+        ? "Agent confirms first. Team Lead confirms next."
+        : "Confirm CDA after Agent and Team Lead confirm. Any edit restarts flow.";
+  const confirmActionLabel =
+    role === "radius_auditing" ? "Confirm CDA" : "Confirm";
+  const confirmDialogTitle =
+    role === "radius_auditing"
+      ? "Confirm CDA?"
+      : role === "team_lead"
+        ? "Confirm by Team Lead?"
+        : "Confirm by Agent?";
+  const confirmDialogBody =
+    role === "radius_auditing"
+      ? "Confirm and generate CDA after Agent and Team Lead confirm. Any edit after this restarts confirmation."
+      : role === "team_lead"
+        ? "Confirm the numbers after Agent confirmation. If anything changes later, Agent must confirm again."
+        : "Confirm the numbers. Team Lead confirms next before CDA processing.";
+  const canConfirmNow =
+    (role === "agent" && txStatus === "draft") ||
+    (role === "team_lead" && txStatus === "agent_confirmed") ||
+    (role === "radius_auditing" && txStatus === "team_lead_confirmed");
+
+  const editableSnapshot = useMemo(
+    () => JSON.stringify({
+      sidesData,
+      fieldOverrides,
+      sideGrossDeductions,
+      postSplitDeductions,
+      appliedPlans,
+      awardValues,
+      preSplitDeductions,
+    }),
+    [sidesData, fieldOverrides, sideGrossDeductions, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
+  );
+  const previousEditableSnapshot = useRef(editableSnapshot);
+  useEffect(() => {
+    if (previousEditableSnapshot.current === editableSnapshot) return;
+    previousEditableSnapshot.current = editableSnapshot;
+    if (txStatus !== "draft") {
+      setTxStatus("draft");
+      setRejectionNote("");
+    }
+  }, [editableSnapshot, txStatus]);
 
   return (
     <TooltipProvider>
@@ -573,7 +622,7 @@ export function CommissionBreakdown() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-2 rounded-lg px-3 text-xs">
                 {role === "agent" ? <User className="size-3.5" /> : role === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
-                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : "Admin view"}
+                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : "Auditor view"}
                 <ChevronRight className="size-3 rotate-90" />
               </Button>
             </DropdownMenuTrigger>
@@ -584,7 +633,7 @@ export function CommissionBreakdown() {
                 <DropdownMenuItem key={r} onClick={() => setRole(r)} className={cn(role === r && "bg-accent")}>
                   <div className="flex items-center gap-2">
                     {r === "agent" ? <User className="size-3.5" /> : r === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
-                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : "Admin view"}</span>
+                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : "Auditor view"}</span>
                   </div>
                 </DropdownMenuItem>
               ))}
@@ -604,7 +653,7 @@ export function CommissionBreakdown() {
             <span className="shrink-0 text-xs text-muted-foreground">May 13, 2026</span>
           </div>
           <div className="flex items-center gap-2">
-            {txStatus !== "draft" && (
+            {role !== "agent" && (
               <Badge variant={STATUS_COLORS[txStatus]} className="rounded-full px-3">
                 {STATUS_LABELS[txStatus]}
               </Badge>
@@ -619,14 +668,38 @@ export function CommissionBreakdown() {
                 <TooltipContent className="max-w-64">{rejectionNote}</TooltipContent>
               </Tooltip>
             )}
-            {/* Agent: submit when draft */}
-            {isAgent && txStatus === "draft" && (
-              <Button size="sm" className="h-8 shrink-0 rounded-lg px-4 text-xs" onClick={() => setShowSubmitDialog(true)}>
-                Submit for approval
+            {/* Role action */}
+            {role === "agent" && (
+              <Button
+                size="sm"
+                className="h-8 shrink-0 rounded-lg px-4 text-xs"
+                disabled={!canConfirmNow}
+                onClick={() => setShowConfirmDialog(true)}
+              >
+                Confirm
               </Button>
             )}
-            {/* Download CDA — visible to all when approved */}
-            {txStatus === "approved" && (
+            {role === "team_lead" && (
+              <Button
+                size="sm"
+                className="h-8 shrink-0 rounded-lg px-4 text-xs"
+                disabled={!canConfirmNow}
+                onClick={() => setShowConfirmDialog(true)}
+              >
+                Confirm
+              </Button>
+            )}
+            {role === "radius_auditing" && (
+              <Button
+                size="sm"
+                className="h-8 shrink-0 rounded-lg px-4 text-xs"
+                onClick={() => setShowProcessDialog(true)}
+              >
+                Confirm CDA
+              </Button>
+            )}
+            {/* Download CDA — visible to all when processed */}
+            {txStatus === "processed" && (
               <Button
                 size="sm"
                 variant="outline"
@@ -635,17 +708,14 @@ export function CommissionBreakdown() {
                 onClick={() => setShowPdfPreview(true)}
               >
                 <Download className="size-3.5" />
-                Download CDA
+                CDA
               </Button>
             )}
-            {/* TL/Radius: approve or reject when submitted */}
-            {!isAgent && txStatus === "submitted" && (
+            {/* Admin / TL: return when review needs edits */}
+            {!isAgent && txStatus === "agent_confirmed" && (
               <>
                 <Button size="sm" variant="outline" className="h-8 rounded-lg px-4 text-xs text-destructive border-destructive/40 hover:bg-destructive/5" onClick={() => setShowRejectDialog(true)}>
                   Return
-                </Button>
-                <Button size="sm" className="h-8 rounded-lg px-4 text-xs bg-primary" onClick={() => setShowApproveDialog(true)}>
-                  Approve
                 </Button>
               </>
             )}
@@ -941,7 +1011,7 @@ export function CommissionBreakdown() {
                   {/* Tentative notice */}
                   <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
                     <Info className="size-3.5 text-blue-500" />
-                    <span>Breakdown is tentative until confirmed by the Team Lead.</span>
+                    <span>{flowNote}</span>
                   </div>
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
@@ -1157,7 +1227,7 @@ export function CommissionBreakdown() {
                   {/* Tentative notice */}
                   <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
                     <Info className="size-3.5 text-blue-500" />
-                    <span>Breakdown is tentative until confirmed by the Team Lead.</span>
+                    <span>{flowNote}</span>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -1311,37 +1381,42 @@ export function CommissionBreakdown() {
         </div>
       </main>
 
-      {/* Submit for approval */}
-      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+      {/* Confirm / Process */}
+      <AlertDialog
+        open={showConfirmDialog || showProcessDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowConfirmDialog(false);
+            setShowProcessDialog(false);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Submit for approval?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your team lead will review this commission breakdown. You won't be able to edit it while it's pending.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{confirmDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialogBody}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-primary" onClick={() => { setTxStatus("submitted"); setRejectionNote(""); setShowSubmitDialog(false); toast.success("Submitted for approval"); }}>
-              Submit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Approve */}
-      <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Approve commission breakdown?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will finalize the breakdown. The agent will be notified and no further edits will be allowed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-primary" onClick={() => { setTxStatus("approved"); setShowApproveDialog(false); toast.success("Breakdown approved"); }}>
-              Approve
+            <AlertDialogAction
+              className="bg-primary"
+              onClick={() => {
+                if (showProcessDialog) {
+                  setTxStatus("processed");
+                  toast.success("CDA generated");
+                } else if (role === "team_lead") {
+                  setTxStatus("team_lead_confirmed");
+                  toast.success("Confirmed by Team Lead");
+                } else {
+                  setTxStatus("agent_confirmed");
+                  toast.success("Confirmed by Agent");
+                }
+                setRejectionNote("");
+                setShowConfirmDialog(false);
+                setShowProcessDialog(false);
+              }}
+            >
+              {confirmActionLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
