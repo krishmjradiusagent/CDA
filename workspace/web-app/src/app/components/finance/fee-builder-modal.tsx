@@ -287,15 +287,11 @@ export function FeeBuilderModal({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fee Type</Label>
-                <Select value={draft.type} onValueChange={(value) => updateField("type", value as FeeTypeDraft["type"])}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="flat">Flat Fee</SelectItem>
-                    <SelectItem value="percentage">Percentage</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  value={draft.type === "flat" ? "Flat Fee" : "Percentage"}
+                  readOnly
+                  className="h-10 bg-muted/30 text-foreground"
+                />
               </div>
 
               <div className="space-y-1.5">
