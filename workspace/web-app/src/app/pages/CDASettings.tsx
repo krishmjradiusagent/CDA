@@ -1110,19 +1110,6 @@ function PlanSetupFields({
 
       <Separator />
 
-      <div className="flex flex-col gap-2">
-        <Label className="text-sm font-medium">Fee</Label>
-        <Select value={form.feeType ?? "flat"} onValueChange={(value) => onFormChange({ feeType: value as "flat" | "percentage" })}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="flat">Flat</SelectItem>
-            <SelectItem value="percentage">Percentage</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="grid w-full grid-cols-2 gap-4">
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="fee-amount" className="text-sm font-medium">

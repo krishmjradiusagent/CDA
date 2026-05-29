@@ -1763,16 +1763,6 @@ export function CommissionBreakdown() {
                 Split total: {Number(editPlanForm.agentSplit) + Number(editPlanForm.teamSplit)}%{Number(editPlanForm.agentSplit) + Number(editPlanForm.teamSplit) !== 100 ? " — must equal 100%" : ""}
               </p>
               <Separator />
-              <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">Fee</Label>
-                <Select value={editPlanForm.feeType} onValueChange={(v) => setEditPlanForm((f) => ({ ...f, feeType: v as "flat" | "percentage" }))}>
-                  <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="flat">Flat</SelectItem>
-                    <SelectItem value="percentage">Percentage</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
                   <Label className="text-sm font-medium">{editPlanForm.feeType === "flat" ? "Fixed Fee" : "Fee Percentage"}</Label>
@@ -2225,15 +2215,11 @@ function PlanSetupFields({
 
       <div className="flex flex-col gap-2">
         <Label className="text-sm font-medium">Fee</Label>
-        <Select value={form.feeType ?? "flat"} onValueChange={(value) => onFormChange({ feeType: value as "flat" | "percentage" })}>
-          <SelectTrigger className="h-10 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="flat">Flat</SelectItem>
-            <SelectItem value="percentage">Percentage</SelectItem>
-          </SelectContent>
-        </Select>
+        <Input
+          value={(form.feeType ?? "flat") === "flat" ? "Flat" : "Percentage"}
+          readOnly
+          className="h-10 w-full bg-muted/30 text-foreground"
+        />
       </div>
 
       <div className="grid w-full grid-cols-2 gap-4">
