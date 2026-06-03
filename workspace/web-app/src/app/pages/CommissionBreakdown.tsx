@@ -524,11 +524,25 @@ export function CommissionBreakdown() {
   type ActivityView = "comments" | "activity" | "all";
   type CollapsedActivityEntry = ActivityEntry & { count?: number };
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
-    { id: "ch1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount — it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM", kind: "comment" },
-    { id: "ch2", author: "Mark Perez", role: "agent", text: "Updated. The RERM was adjusted per the new schedule effective May 1.", timestamp: "May 12, 2026 · 4:02 PM", kind: "comment" },
+    { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: "CDA draft created for 1284 Willow Creek Dr.", timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
+    { id: "ac2", author: "Jessica Hall", role: "radius_auditing", text: "Award allocation updated for Listing Side to 1%.", timestamp: "May 12, 2026 · 10:14 AM", kind: "activity" },
+    { id: "ac3", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-commission deduction Credits on Listing Side at $200.", timestamp: "May 12, 2026 · 10:16 AM", kind: "activity" },
+    { id: "ac4", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-commission deduction Referrals on Listing Side at $50.", timestamp: "May 12, 2026 · 10:18 AM", kind: "activity" },
+    { id: "ac5", author: "Jessica Hall", role: "radius_auditing", text: "Applied commission plan 80/20 Standard to Mark Perez.", timestamp: "May 12, 2026 · 10:24 AM", kind: "activity" },
+    { id: "ac6", author: "Jessica Hall", role: "radius_auditing", text: "Updated Radius Fee for Listing Side to $495.", timestamp: "May 12, 2026 · 10:31 AM", kind: "activity" },
+    { id: "cm1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount, it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM", kind: "comment" },
+    { id: "cm2", author: "Mark Perez", role: "agent", text: "Updated. The RERM was adjusted per the new schedule effective May 1.", timestamp: "May 12, 2026 · 4:02 PM", kind: "comment" },
+    { id: "ac7", author: "Mark Perez", role: "agent", text: "Confirmed CDA as Agent.", timestamp: "May 12, 2026 · 4:05 PM", kind: "activity" },
+    { id: "cm3", author: "Sarah Kim", role: "team_lead", text: "Numbers look good now. I am confirming the listing side.", timestamp: "May 12, 2026 · 4:18 PM", kind: "comment" },
+    { id: "ac8", author: "Sarah Kim", role: "team_lead", text: "Confirmed CDA as Team Lead.", timestamp: "May 12, 2026 · 4:19 PM", kind: "activity" },
+    { id: "ac9", author: "Jessica Hall", role: "radius_auditing", text: "Added Olivia Chen to Buying Side.", timestamp: "May 13, 2026 · 8:42 AM", kind: "activity" },
+    { id: "ac10", author: "Jessica Hall", role: "radius_auditing", text: "Added post-commission deduction E&O on Buying Side.", timestamp: "May 13, 2026 · 8:49 AM", kind: "activity" },
+    { id: "cm4", author: "Jessica Hall", role: "radius_auditing", text: "Adding external agent details for buyer side. Please verify payout split before final CDA.", timestamp: "May 13, 2026 · 8:53 AM", kind: "comment" },
+    { id: "ac11", author: "Jessica Hall", role: "radius_auditing", text: "Updated Radius Fee for Buying Side to $495.", timestamp: "May 13, 2026 · 8:58 AM", kind: "activity" },
+    { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: "Confirmed CDA and generated final output.", timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
-  const [activityView, setActivityView] = useState<ActivityView>("comments");
+  const [activityView, setActivityView] = useState<ActivityView>("all");
   const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You" };
   function makeTimestamp() {
     return new Intl.DateTimeFormat("en-US", {
