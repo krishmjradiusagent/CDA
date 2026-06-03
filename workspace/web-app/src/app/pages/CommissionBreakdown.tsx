@@ -98,7 +98,7 @@ import {
 import { cn } from "../../lib/utils";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { FeeBuilderModal } from "../components/finance/fee-builder-modal";
-import type { FeeTier, FeeTypeDraft } from "../components/finance/fee-builder-modal";
+import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
 
 type SideId = "listing" | "buyer";
 type Role = "agent" | "team_lead" | "radius_auditing";
@@ -124,21 +124,6 @@ type TierRow = {
   to: string;
   agentSplit: string;
   teamSplit: string;
-};
-
-type LimitRule = {
-  enabled: boolean;
-  amount: string;
-};
-
-type SidePostSplitDeduction = {
-  id: string;
-  name: string;
-  amount: number;
-  slidingScale: boolean;
-  tiers: FeeTier[];
-  notLessThan: LimitRule;
-  notToExceed: LimitRule;
 };
 
 type PlanForm = {
@@ -219,9 +204,6 @@ const initialSides: Side[] = [
     gross: 49500,
     agents: [
       { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
-      { id: "a2", name: "Sarah Kim", role: "Co-agent", payout: 10000 },
-      { id: "a4", name: "Taylor Brooks", role: "Showing agent", payout: 5000 },
-      { id: "a5", name: "Nina Patel", role: "Referral partner", payout: 3000 },
     ],
     active: true,
   },
@@ -231,12 +213,7 @@ const initialSides: Side[] = [
     subline: "Jeanne Gould",
     award: 0,
     gross: 49500,
-    agents: [
-      { id: "a3", name: "Ryan Torres", role: "Primary agent", payout: 35000 },
-      { id: "a6", name: "Olivia Chen", role: "Co-agent", payout: 9000 },
-      { id: "a7", name: "Marcus Lee", role: "ISA partner", payout: 4500 },
-      { id: "a8", name: "Jade Foster", role: "Referral partner", payout: 1000 },
-    ],
+    agents: [],
     active: false,
   },
 ];
@@ -394,71 +371,6 @@ function InlineDeductionDraftRow({
   );
 }
 
-function SlidingScaleTierRows({
-  tiers,
-  onChange,
-}: {
-  tiers: FeeTier[];
-  onChange: (tiers: FeeTier[]) => void;
-}) {
-  function updateTier(tierId: string, patch: Partial<FeeTier>) {
-    onChange(tiers.map((tier) => (tier.id === tierId ? { ...tier, ...patch } : tier)));
-  }
-
-  function addTier() {
-    onChange([...tiers, { id: crypto.randomUUID(), from: "", to: "", fee: "" }]);
-  }
-
-  function removeTier(tierId: string) {
-    onChange(tiers.filter((tier) => tier.id !== tierId));
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="space-y-2">
-        {tiers.map((tier) => (
-          <div key={tier.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-md border p-2">
-            <Input
-              className="h-9 text-xs"
-              placeholder="Over"
-              value={tier.from}
-              onChange={(event) => updateTier(tier.id, { from: event.target.value })}
-            />
-            <Input
-              className="h-9 text-xs"
-              placeholder="Up to"
-              value={tier.to}
-              onChange={(event) => updateTier(tier.id, { to: event.target.value })}
-            />
-            <div className="relative">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-              <Input
-                className="h-9 pl-6 text-xs"
-                placeholder="0.00"
-                inputMode="decimal"
-                value={tier.fee}
-                onChange={(event) => updateTier(tier.id, { fee: event.target.value })}
-              />
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-9 text-muted-foreground hover:text-foreground"
-              onClick={() => removeTier(tier.id)}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
-      <Button variant="outline" size="sm" onClick={addTier} className="w-full">
-        <Plus className="size-4" />
-        Add Tier
-      </Button>
-    </div>
-  );
-}
-
 /** Inline editable dollar value — click to edit, X on hover to clear */
 function EditableValue({
   value,
@@ -526,8 +438,8 @@ export function CommissionBreakdown() {
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
     { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: "CDA draft created for 1284 Willow Creek Dr.", timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
     { id: "ac2", author: "Jessica Hall", role: "radius_auditing", text: "Award allocation updated for Listing Side to 1%.", timestamp: "May 12, 2026 · 10:14 AM", kind: "activity" },
-    { id: "ac3", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-commission deduction Credits on Listing Side at $200.", timestamp: "May 12, 2026 · 10:16 AM", kind: "activity" },
-    { id: "ac4", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-commission deduction Referrals on Listing Side at $50.", timestamp: "May 12, 2026 · 10:18 AM", kind: "activity" },
+    { id: "ac3", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-split deduction Credits on Listing Side at $200.", timestamp: "May 12, 2026 · 10:16 AM", kind: "activity" },
+    { id: "ac4", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-split deduction Referrals on Listing Side at $50.", timestamp: "May 12, 2026 · 10:18 AM", kind: "activity" },
     { id: "ac5", author: "Jessica Hall", role: "radius_auditing", text: "Applied commission plan 80/20 Standard to Mark Perez.", timestamp: "May 12, 2026 · 10:24 AM", kind: "activity" },
     { id: "ac6", author: "Jessica Hall", role: "radius_auditing", text: "Updated Radius Fee for Listing Side to $495.", timestamp: "May 12, 2026 · 10:31 AM", kind: "activity" },
     { id: "cm1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount, it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM", kind: "comment" },
@@ -536,7 +448,7 @@ export function CommissionBreakdown() {
     { id: "cm3", author: "Sarah Kim", role: "team_lead", text: "Numbers look good now. I am confirming the listing side.", timestamp: "May 12, 2026 · 4:18 PM", kind: "comment" },
     { id: "ac8", author: "Sarah Kim", role: "team_lead", text: "Confirmed CDA as Team Lead.", timestamp: "May 12, 2026 · 4:19 PM", kind: "activity" },
     { id: "ac9", author: "Jessica Hall", role: "radius_auditing", text: "Added Olivia Chen to Buying Side.", timestamp: "May 13, 2026 · 8:42 AM", kind: "activity" },
-    { id: "ac10", author: "Jessica Hall", role: "radius_auditing", text: "Added post-commission deduction E&O on Buying Side.", timestamp: "May 13, 2026 · 8:49 AM", kind: "activity" },
+    { id: "ac10", author: "Jessica Hall", role: "radius_auditing", text: "Added post-split deduction E&O on Buying Side.", timestamp: "May 13, 2026 · 8:49 AM", kind: "activity" },
     { id: "cm4", author: "Jessica Hall", role: "radius_auditing", text: "Adding external agent details for buyer side. Please verify payout split before final CDA.", timestamp: "May 13, 2026 · 8:53 AM", kind: "comment" },
     { id: "ac11", author: "Jessica Hall", role: "radius_auditing", text: "Updated Radius Fee for Buying Side to $495.", timestamp: "May 13, 2026 · 8:58 AM", kind: "activity" },
     { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: "Confirmed CDA and generated final output.", timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
@@ -608,14 +520,6 @@ export function CommissionBreakdown() {
   const [showInlineSidePreSplitDraft, setShowInlineSidePreSplitDraft] = useState(false);
   const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
   const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
-  const [showInlineSidePostSplitDraft, setShowInlineSidePostSplitDraft] = useState(false);
-  const [inlineSidePostSplitLabel, setInlineSidePostSplitLabel] = useState("");
-  const [inlineSidePostSplitAmount, setInlineSidePostSplitAmount] = useState("");
-  const [showSlidingScaleDialog, setShowSlidingScaleDialog] = useState(false);
-  const [inlineSidePostSplitSlidingScale, setInlineSidePostSplitSlidingScale] = useState(false);
-  const [inlineSidePostSplitTiers, setInlineSidePostSplitTiers] = useState<FeeTier[]>([]);
-  const [inlineSidePostSplitNotLessThan, setInlineSidePostSplitNotLessThan] = useState<LimitRule>({ enabled: false, amount: "0.00" });
-  const [inlineSidePostSplitNotToExceed, setInlineSidePostSplitNotToExceed] = useState<LimitRule>({ enabled: false, amount: "0.00" });
   const [showInlineAgentPreSplitDraft, setShowInlineAgentPreSplitDraft] = useState(false);
   const [inlineAgentPreSplitLabel, setInlineAgentPreSplitLabel] = useState("");
   const [inlineAgentPreSplitAmount, setInlineAgentPreSplitAmount] = useState("");
@@ -635,15 +539,11 @@ export function CommissionBreakdown() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [rejectInput, setRejectInput] = useState("");
+  const [expandedSideAgentId, setExpandedSideAgentId] = useState<string | null>(null);
   // Simple pre-split deduction for agent role (Credits / Referral Fees)
   const [showAgentPreSplitDialog, setShowAgentPreSplitDialog] = useState(false);
   const [agentPreSplitLabel, setAgentPreSplitLabel] = useState("");
   const [agentPreSplitAmount, setAgentPreSplitAmount] = useState("");
-
-
-  // Sliding scale dialog
-
-
   const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>({});
 
   // Side-level gross deductions (Credits, Referrals) — keyed by SideId
@@ -653,10 +553,6 @@ export function CommissionBreakdown() {
       { id: "sg1", name: "Credits", amount: 200 },
       { id: "sg2", name: "Referrals", amount: 50 },
     ],
-    buyer: [],
-  });
-  const [sidePostSplitDeductions, setSidePostSplitDeductions] = useState<Record<SideId, SidePostSplitDeduction[]>>({
-    listing: [],
     buyer: [],
   });
   const [sideRadiusFees, setSideRadiusFees] = useState<Record<SideId, number>>({
@@ -758,6 +654,29 @@ export function CommissionBreakdown() {
   const selectedPlan = selectedAgentId
     ? COMMISSION_PLANS.find((plan) => plan.id === appliedPlans[selectedAgentId])
     : null;
+  const activeSideAgentSummaries = useMemo(
+    () =>
+      activeSide.agents.map((agent) => {
+        const overrides = fieldOverrides[agent.id] ?? {};
+        const commissionBasis = overrides.commissionBasis ?? agent.payout;
+        const split = overrides.split ?? 0;
+        const planId = appliedPlans[agent.id];
+        const plan = COMMISSION_PLANS.find((entry) => entry.id === planId) ?? null;
+        const planFixedFee = plan?.feeType === "flat" ? plan.feeAmount : 0;
+        const totalPreSplitDeductions = (preSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+        const totalPostSplitDeductions = (postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+        const netCommission = commissionBasis - split - planFixedFee - totalPostSplitDeductions;
+
+        return {
+          agent,
+          split,
+          totalPreSplitDeductions,
+          totalPostSplitDeductions,
+          netCommission,
+        };
+      }),
+    [activeSide.agents, appliedPlans, fieldOverrides, postSplitDeductions, preSplitDeductions]
+  );
   const selectedAgentIsExternal = Boolean(selectedAgent?.agent.external);
   const selectedCapAmount = selectedPlan?.capAmount ?? 0;
   const selectedCapUsed = selectedAgentId ? (AGENT_CAP_PROGRESS[selectedAgentId] ?? 0) : 0;
@@ -828,17 +747,6 @@ export function CommissionBreakdown() {
     setInlineSidePreSplitAmount("");
   }
 
-  function resetInlineSidePostSplitDraft() {
-    setShowInlineSidePostSplitDraft(false);
-    setInlineSidePostSplitLabel("");
-    setInlineSidePostSplitAmount("");
-    setInlineSidePostSplitSlidingScale(false);
-    setInlineSidePostSplitTiers([]);
-    setInlineSidePostSplitNotLessThan({ enabled: false, amount: "0.00" });
-    setInlineSidePostSplitNotToExceed({ enabled: false, amount: "0.00" });
-    setShowSlidingScaleDialog(false);
-  }
-
   function resetInlineAgentPreSplitDraft() {
     setShowInlineAgentPreSplitDraft(false);
     setInlineAgentPreSplitLabel("");
@@ -858,30 +766,6 @@ export function CommissionBreakdown() {
     resetInlineSidePreSplitDraft();
   }
 
-  function handleInlineSidePostSplitSave() {
-    const name = inlineSidePostSplitLabel.trim();
-    const amount = Math.round(Number(inlineSidePostSplitAmount) || 0);
-    if (!name || (!amount && !(inlineSidePostSplitSlidingScale && inlineSidePostSplitTiers.length > 0))) return;
-    setSidePostSplitDeductions((prev) => ({
-      ...prev,
-      [activeSide.id]: [
-        ...(prev[activeSide.id] ?? []),
-        {
-          id: `sp-${Date.now()}`,
-          name,
-          amount,
-          slidingScale: inlineSidePostSplitSlidingScale,
-          tiers: inlineSidePostSplitTiers,
-          notLessThan: inlineSidePostSplitNotLessThan,
-          notToExceed: inlineSidePostSplitNotToExceed,
-        },
-      ],
-    }));
-    logActivity(`Added ${name} post-commission deduction for ${activeSide.title}.`);
-    toast.success(`"${name}" added`);
-    resetInlineSidePostSplitDraft();
-  }
-
   function handleInlineAgentPreSplitSave() {
     const agentId = selectedAgent?.agent.id;
     const name = inlineAgentPreSplitLabel.trim();
@@ -891,7 +775,7 @@ export function CommissionBreakdown() {
       ...prev,
       [agentId]: [...(prev[agentId] ?? []), { id: `pre-${Date.now()}`, name, amount }],
     }));
-    logActivity(`Added ${name} pre-commission deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
+    logActivity(`Added ${name} pre-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
     toast.success(`"${name}" added`);
     resetInlineAgentPreSplitDraft();
   }
@@ -904,7 +788,7 @@ export function CommissionBreakdown() {
         ...prev,
         [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount }],
       }));
-      logActivity(`Added ${fee.name} pre-commission deduction for ${activeSide.title}.`);
+      logActivity(`Added ${fee.name} pre-split deduction for ${activeSide.title}.`);
     } else if (fee.timing === "post-split" && selectedAgentId) {
       // Post-split → agent-level deductions
       setPostSplitDeductions((prev) => ({
@@ -919,9 +803,10 @@ export function CommissionBreakdown() {
 
   const grossIncome = activeSide.gross;
   const totalAgentPayout = activeSide.agents.reduce((s, a) => s + a.payout, 0);
-  const totalSidePostSplitDeductions = (sidePostSplitDeductions[activeSide.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-  const officeNet = grossIncome - totalAgentPayout - totalSidePostSplitDeductions;
-  const activeSideOfficeShare = Math.max(grossIncome - totalAgentPayout, 0);
+  const totalSideGrossDeductions = (sideGrossDeductions[activeSide.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+  const grossCommissionAfterDeductions = Math.max(grossIncome - totalSideGrossDeductions, 0);
+  const officeNet = Math.max(grossCommissionAfterDeductions - totalAgentPayout, 0);
+  const activeSideOfficeShare = officeNet;
   const activeSideRadiusFee = sideRadiusFees[activeSide.id] ?? 0;
   const radiusFeeRequiredForApproval = sides.some((side) => side.agents.length > 0 && (sideRadiusFees[side.id] ?? 0) <= 0);
 
@@ -1027,14 +912,13 @@ export function CommissionBreakdown() {
       sidesData,
       fieldOverrides,
       sideGrossDeductions,
-      sidePostSplitDeductions,
       sideRadiusFees,
       postSplitDeductions,
       appliedPlans,
       awardValues,
       preSplitDeductions,
     }),
-    [sidesData, fieldOverrides, sideGrossDeductions, sidePostSplitDeductions, sideRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
+    [sidesData, fieldOverrides, sideGrossDeductions, sideRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
   );
   const previousEditableSnapshot = useRef(editableSnapshot);
   useEffect(() => {
@@ -1554,7 +1438,7 @@ export function CommissionBreakdown() {
                   )}
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineAgentPreSplitDraft(true)}>
-                      <Plus className="size-3.5 mr-1" />Pre-commission deduction
+                      <Plus className="size-3.5 mr-1" />Pre-split deduction
                     </Button>
                   </div>
                   </>
@@ -1754,11 +1638,12 @@ export function CommissionBreakdown() {
                     <div className="flex shrink-0 items-center gap-1.5">
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
                     {[
                       { label: "Gross", value: currency(activeSide.gross), icon: TrendingUp, gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)", muted: "#6366f1", strong: "#1e1b4b" },
-                      { label: "Agent", value: currency(totalAgentPayout), icon: User, gradient: "linear-gradient(135deg, #bbf7d0, #86efac)", muted: "#16a34a", strong: "#14532d" },
-                      { label: "Office", value: currency(activeSideOfficeShare), icon: Building2, gradient: "linear-gradient(135deg, #fef3c7, #fde68a)", muted: "#d97706", strong: "#451a03" },
+                      { label: "After Deductions", value: currency(grossCommissionAfterDeductions), icon: CircleDollarSign, gradient: "linear-gradient(135deg, #ddd6fe, #c4b5fd)", muted: "#7c3aed", strong: "#2e1065" },
+                      { label: "To Agents", value: currency(totalAgentPayout), icon: User, gradient: "linear-gradient(135deg, #bbf7d0, #86efac)", muted: "#16a34a", strong: "#14532d" },
+                      { label: "To Office", value: currency(activeSideOfficeShare), icon: Building2, gradient: "linear-gradient(135deg, #fef3c7, #fde68a)", muted: "#d97706", strong: "#451a03" },
                     ].map(({ label, value, icon: Icon, gradient, muted, strong }) => (
                       <div key={label} className="rounded-lg px-3 py-2.5" style={{ background: gradient }}>
                         <div className="flex items-center gap-1.5">
@@ -1773,7 +1658,7 @@ export function CommissionBreakdown() {
 
                 <div className="px-5 py-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Income</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Commission</p>
                     <div className="min-w-[120px] text-right">
                       <p className="text-base font-bold text-foreground tabular-nums">{currency(grossIncome)}</p>
                     </div>
@@ -1842,116 +1727,67 @@ export function CommissionBreakdown() {
                   {!isAgent && !isLocked && (
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePreSplitDraft(true)}>
-                      <Plus className="size-3.5 mr-1" />Pre-commission deduction
+                      <Plus className="size-3.5 mr-1" />Pre-split deduction
                     </Button>
                   </div>
                   )}
 
-                  <Separator className="my-4" />
-
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent Commissions</p>
+                  <div className="flex items-center justify-between border-t pt-3 mt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Commission After Deductions</p>
                     <div className="min-w-[120px] text-right">
-                      <p className="text-base font-bold text-foreground tabular-nums">{currency(totalAgentPayout)}</p>
+                      <p className="text-base font-bold text-foreground tabular-nums">{currency(grossCommissionAfterDeductions)}</p>
                     </div>
                   </div>
-                  {(sidePostSplitDeductions[activeSide.id] ?? []).map((ded) => (
-                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>
-                        {ded.slidingScale && (
-                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Sliding scale</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <DeductionValue
-                          value={ded.amount}
-                          readOnly={isAgent || isLocked}
-                          onChange={(v) => {
-                            setSidePostSplitDeductions((prev) => ({
-                              ...prev,
-                              [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
-                            }));
-                            logActivity(`Updated ${ded.name} on ${activeSide.title} to ${currency(v)}.`);
-                          }}
-                        />
-                        {!isAgent && !isLocked && (
-                          <button
-                            onClick={() => {
-                              setSidePostSplitDeductions((prev) => ({
-                                ...prev,
-                                [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
-                              }));
-                              logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
-                            }}
-                            className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
-                            tabIndex={-1}
-                          >
-                            <X className="size-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {showInlineSidePostSplitDraft && (
-                    <div className="pt-2">
-                      <div className="rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={inlineSidePostSplitLabel}
-                            onChange={(e) => setInlineSidePostSplitLabel(e.target.value)}
-                            placeholder="Fee name"
-                            className="h-8 border-input bg-background text-xs"
-                          />
-                          <div className="relative w-28 shrink-0">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-                            <Input
-                              value={inlineSidePostSplitAmount}
-                              onChange={(e) => setInlineSidePostSplitAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                              placeholder="0"
-                              inputMode="decimal"
-                              className="h-8 border-input bg-background pl-6 text-right text-xs"
-                            />
-                          </div>
-                          <Button size="sm" className="h-8 shrink-0 px-3 text-xs" disabled={!inlineSidePostSplitLabel.trim() || (!inlineSidePostSplitAmount.trim() && !(inlineSidePostSplitSlidingScale && inlineSidePostSplitTiers.length > 0))} onClick={handleInlineSidePostSplitSave}>
-                            Add
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-xs" onClick={resetInlineSidePostSplitDraft}>
-                            Cancel
-                          </Button>
-                        </div>
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowSlidingScaleDialog(true)}
-                            className="text-[11px] font-medium text-[#5A5FF2] underline underline-offset-2"
-                          >
-                            {inlineSidePostSplitSlidingScale ? "Sliding scale configured" : "Sliding scale"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {!isLocked && (
-                    <div className="pt-1">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePostSplitDraft(true)}>
-                        <Plus className="size-3.5 mr-1" />Post-commission deduction
-                      </Button>
-                    </div>
-                  )}
 
                   <Separator className="my-4" />
 
-                  {/* Office Net card */}
-                  <div className="rounded-xl border bg-card px-4 py-3.5">
-                    <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-2 pt-1">
+                    {activeSideAgentSummaries.map(({ agent, netCommission, totalPreSplitDeductions, totalPostSplitDeductions }) => {
+                      const isExpanded = expandedSideAgentId === agent.id;
+                      return (
+                        <div
+                          key={agent.id}
+                          className={cn(
+                            "rounded-xl border bg-card transition-colors",
+                            isExpanded ? "border-border bg-muted/30 shadow-sm" : "border-border"
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setExpandedSideAgentId((prev) => (prev === agent.id ? null : agent.id))}
+                            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">{agent.name} commissions</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">Net amount only</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <p className="text-base font-bold tabular-nums text-foreground">{currency(netCommission)}</p>
+                              <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="border-t px-4 py-3">
+                              <div className="flex items-center justify-between py-1.5">
+                                <p className="text-xs font-medium text-muted-foreground">Pre-split amount</p>
+                                <p className="text-sm font-semibold tabular-nums text-foreground">{currency(totalPreSplitDeductions)}</p>
+                              </div>
+                              <div className="flex items-center justify-between py-1.5">
+                                <p className="text-xs font-medium text-muted-foreground">Post-split amount</p>
+                                <p className="text-sm font-semibold tabular-nums text-foreground">{currency(totalPostSplitDeductions)}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground">Office Net</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground/60">After agent commissions &amp; deductions</p>
+                        <p className="text-sm font-semibold text-foreground">Office income</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">After pre-split deductions and agent payouts</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold tracking-tight text-foreground">{currency(officeNet)}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{Math.round((officeNet / (grossIncome || 1)) * 100)}% of gross</p>
+                        <p className="text-base font-bold tabular-nums text-foreground">{currency(officeNet)}</p>
                       </div>
                     </div>
                   </div>
@@ -2320,82 +2156,6 @@ export function CommissionBreakdown() {
         hidePostSplitBase={feeDialogTiming === "pre-split"}
       />
 
-      <Dialog open={showSlidingScaleDialog} onOpenChange={setShowSlidingScaleDialog}>
-        <DialogContent className="gap-0 p-0 sm:max-w-xl">
-          <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Sliding scale</DialogTitle>
-            <DialogDescription>Configure tiered fee values for this post-commission deduction.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 px-6 py-4">
-            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-              <div className="space-y-0.5">
-                <Label htmlFor="inline-sliding-scale" className="text-sm">Enable sliding scale</Label>
-                <p className="text-xs text-muted-foreground">Use different fee amounts by range.</p>
-              </div>
-              <Checkbox
-                id="inline-sliding-scale"
-                checked={inlineSidePostSplitSlidingScale}
-                onCheckedChange={(checked) => setInlineSidePostSplitSlidingScale(Boolean(checked))}
-              />
-            </div>
-            {inlineSidePostSplitSlidingScale && (
-              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
-                <SlidingScaleTierRows
-                  tiers={inlineSidePostSplitTiers}
-                  onChange={setInlineSidePostSplitTiers}
-                />
-                <div className="flex items-center gap-4 pt-1">
-                  <div className="flex flex-1 items-center gap-2">
-                    <Checkbox
-                      id="inline-not-less-than"
-                      checked={inlineSidePostSplitNotLessThan.enabled}
-                      onCheckedChange={(checked) => setInlineSidePostSplitNotLessThan((prev) => ({ ...prev, enabled: Boolean(checked) }))}
-                    />
-                    <Label htmlFor="inline-not-less-than" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
-                      Not less than
-                    </Label>
-                    <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                      <Input
-                        className="h-9 pl-7 text-sm"
-                        value={inlineSidePostSplitNotLessThan.amount}
-                        inputMode="decimal"
-                        disabled={!inlineSidePostSplitNotLessThan.enabled}
-                        onChange={(e) => setInlineSidePostSplitNotLessThan((prev) => ({ ...prev, amount: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-1 items-center gap-2">
-                    <Checkbox
-                      id="inline-not-to-exceed"
-                      checked={inlineSidePostSplitNotToExceed.enabled}
-                      onCheckedChange={(checked) => setInlineSidePostSplitNotToExceed((prev) => ({ ...prev, enabled: Boolean(checked) }))}
-                    />
-                    <Label htmlFor="inline-not-to-exceed" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
-                      Not to exceed
-                    </Label>
-                    <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                      <Input
-                        className="h-9 pl-7 text-sm"
-                        value={inlineSidePostSplitNotToExceed.amount}
-                        inputMode="decimal"
-                        disabled={!inlineSidePostSplitNotToExceed.enabled}
-                        onChange={(e) => setInlineSidePostSplitNotToExceed((prev) => ({ ...prev, amount: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowSlidingScaleDialog(false)}>Close</Button>
-            <Button onClick={() => setShowSlidingScaleDialog(false)}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Company Dollar Contribution dialog */}
       <Dialog open={showCDCDialog} onOpenChange={setShowCDCDialog}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
@@ -2564,7 +2324,7 @@ export function CommissionBreakdown() {
           <DialogHeader className="border-b px-6 pb-4 pt-5">
             <DialogTitle>Add agent</DialogTitle>
             {pendingAgent
-              ? <DialogDescription>Allocation of the {addAgentSideId} side gross commission between multiple agents.</DialogDescription>
+              ? <DialogDescription>Allocation of {addAgentSideId} side gross commission between multiple agents.</DialogDescription>
               : <DialogDescription>Search for an agent to add to this side.</DialogDescription>
             }
           </DialogHeader>
@@ -2637,7 +2397,7 @@ export function CommissionBreakdown() {
                         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">of shared gross income</p>
+                        <p className="text-xs text-muted-foreground">of shared gross commission</p>
                         <p className="text-xs font-medium">{pct}% of deal price</p>
                       </div>
                     </div>
@@ -2728,18 +2488,6 @@ export function CommissionBreakdown() {
                 <Label htmlFor="external-brokerage-zip">Brokerage Zip Code</Label>
                 <Input id="external-brokerage-zip" value={externalAgentForm.brokerageZip} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageZip: e.target.value }))} placeholder="94105" className="h-10" />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="external-representing">Representing</Label>
-                <Select value={externalAgentForm.representing} onValueChange={(value) => setExternalAgentForm((prev) => ({ ...prev, representing: value }))}>
-                  <SelectTrigger id="external-representing" className="h-10">
-                    <SelectValue placeholder="Select side" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Buyer">Buyer</SelectItem>
-                    <SelectItem value="Seller">Seller</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
           <DialogFooter className="border-t px-6 py-4">
@@ -2760,7 +2508,7 @@ export function CommissionBreakdown() {
                   brokerageCity: externalAgentForm.brokerageCity.trim(),
                   brokerageState: externalAgentForm.brokerageState.trim(),
                   brokerageZip: externalAgentForm.brokerageZip.trim(),
-                  representing: externalAgentForm.representing,
+                  representing: addAgentSideId === "buyer" ? "Buyer" : "Seller",
                   external: true,
                 };
                 seedPendingAgent(agent);
