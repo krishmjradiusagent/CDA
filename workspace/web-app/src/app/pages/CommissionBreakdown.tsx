@@ -5,8 +5,8 @@ import {
   Building2,
   ChevronRight,
   Download,
-  Mail,
   Info,
+  MessageCircleMore,
   Pencil,
   Printer,
   Plus,
@@ -58,12 +58,6 @@ import {
   DialogTitle,
 } from "../components/v4/ui/dialog";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "../components/v4/ui/accordion";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -87,6 +81,7 @@ import {
   SelectValue,
 } from "../components/v4/ui/select";
 import {
+  SheetClose,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -452,11 +447,7 @@ export function CommissionBreakdown() {
     { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: "Confirmed CDA and generated final output.", timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
-  const [showHelpSheet, setShowHelpSheet] = useState(false);
-  const [showContactTeamDialog, setShowContactTeamDialog] = useState(false);
   const [activityView, setActivityView] = useState<ActivityView>("all");
-  const [supportTopic, setSupportTopic] = useState("Commission question");
-  const [supportMessage, setSupportMessage] = useState("");
   const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You" };
   function makeTimestamp() {
     return new Intl.DateTimeFormat("en-US", {
@@ -486,13 +477,6 @@ export function CommissionBreakdown() {
     logActivity(text, "comment");
     setAgentComment("");
     toast.success("Comment sent");
-  }
-  function handleSendSupportMessage() {
-    if (!supportMessage.trim()) return;
-    toast.success("Message sent to support team");
-    setShowContactTeamDialog(false);
-    setSupportTopic("Commission question");
-    setSupportMessage("");
   }
   const latestFeed = [...activityFeed].reverse();
   const commentFeed = latestFeed.filter((entry) => entry.kind === "comment");
@@ -791,6 +775,7 @@ export function CommissionBreakdown() {
   }
 
   const grossIncome = activeSide.gross;
+  const totalGrossCommission = sidesData.reduce((sum, side) => sum + side.gross, 0);
   const totalAgentPayout = activeSide.agents.reduce((s, a) => s + a.payout, 0);
   const totalSideGrossDeductions = (sideGrossDeductions[activeSide.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
   const grossCommissionAfterDeductions = Math.max(grossIncome - totalSideGrossDeductions, 0);
@@ -849,16 +834,6 @@ export function CommissionBreakdown() {
   const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
 
   function getActivityNode(entry: ActivityEntry) {
-    if (entry.kind === "comment") {
-      return (
-        <Avatar className="size-8 border border-border/70 bg-background shadow-sm">
-          <AvatarFallback className={`text-[11px] font-semibold ${(roleMeta[entry.role] ?? roleMeta.agent).avatar}`}>
-            {initials(entry.author)}
-          </AvatarFallback>
-        </Avatar>
-      );
-    }
-
     const iconClassName = entry.text.toLowerCase().includes("confirmed")
       ? "bg-emerald-50 text-emerald-600 border-emerald-100"
       : entry.text.toLowerCase().includes("updated")
@@ -878,40 +853,55 @@ export function CommissionBreakdown() {
     );
   }
 
-  function renderTimelineItems(items: ActivityEntry[]) {
+  function renderTimelineItems(items: ActivityEntry[], options?: { compact?: boolean; dense?: boolean; commentsOnly?: boolean }) {
+    const compact = options?.compact ?? false;
+    const dense = options?.dense ?? false;
+    const commentsOnly = options?.commentsOnly ?? false;
+
     return items.map((entry, index) => {
       const meta = roleMeta[entry.role] ?? roleMeta.agent;
       const isComment = entry.kind === "comment";
 
       return (
-        <div key={entry.id} className="relative flex gap-4">
-          <div className="relative flex w-10 shrink-0 justify-center">
-            {getActivityNode(entry)}
-            {index < items.length - 1 && (
-              <div className="absolute top-9 bottom-[-16px] w-px bg-border/80" />
-            )}
-          </div>
+        <div key={entry.id} className={cn("relative flex", compact ? "gap-2.5" : "gap-3")}>
+          {!commentsOnly && (
+            <div className={cn("relative flex shrink-0 justify-center", compact ? "w-7" : "w-8")}>
+              {!isComment && getActivityNode(entry)}
+              {index < items.length - 1 && (
+                <div className={cn("absolute w-px bg-border/80", isComment ? "top-0" : "top-9", compact ? "bottom-[-8px]" : "bottom-[-12px]")} />
+              )}
+            </div>
+          )}
 
-          <div className="min-w-0 flex-1 pb-4">
+          <div className={cn("min-w-0 flex-1", compact ? "pb-2" : dense ? "pb-2.5" : "pb-3")}>
             {isComment ? (
-              <div className="rounded-[22px] border border-border/80 bg-background px-5 py-4 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground">{entry.author}</span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.badge}`}>
-                    {meta.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">{entry.timestamp}</span>
+              <div className={cn("border border-border/80 bg-background shadow-[0_1px_0_rgba(15,23,42,0.03)]", compact ? "rounded-xl px-3 py-2.5" : dense ? "rounded-2xl px-3.5 py-2.5" : "rounded-2xl px-4 py-3")}>
+                <div className={cn("flex items-start", compact ? "gap-2.5" : "gap-3")}>
+                  <Avatar className={cn("shrink-0 border border-border/70 bg-background shadow-sm", compact ? "mt-0 size-7" : dense ? "mt-0.5 size-7.5" : "mt-0.5 size-8")}>
+                    <AvatarFallback className={`text-[11px] font-semibold ${(roleMeta[entry.role] ?? roleMeta.agent).avatar}`}>
+                      {initials(entry.author)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className={cn("font-semibold text-foreground", compact ? "text-[13px]" : dense ? "text-[13px]" : "text-sm")}>{entry.author}</span>
+                      <span className={cn(`rounded-full border font-medium ${meta.badge}`, compact || dense ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]")}>
+                        {meta.label}
+                      </span>
+                      <span className={cn("text-muted-foreground", compact || dense ? "text-[11px]" : "text-xs")}>·</span>
+                      <span className={cn("text-muted-foreground", compact || dense ? "text-[11px]" : "text-xs")}>{entry.timestamp}</span>
+                    </div>
+                    <p className={cn("text-foreground/85", compact ? "mt-1.5 line-clamp-2 text-[13px] leading-5" : dense ? "mt-1.5 text-[13px] leading-5" : "mt-2 text-sm leading-6")}>{entry.text}</p>
+                  </div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-foreground/85">{entry.text}</p>
               </div>
             ) : (
-              <div className="pt-1">
-                <p className="text-sm leading-6 text-foreground">
+              <div className={cn(compact ? "pt-0.5" : "pt-1")}>
+                <p className={cn("text-foreground", compact ? "line-clamp-2 text-[13px] leading-5" : dense ? "text-[13px] leading-5" : "text-sm leading-6")}>
                   <span className="font-semibold">{entry.author}</span>{" "}
                   <span className="text-foreground/80">{entry.text}</span>
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className={cn("text-muted-foreground", compact ? "mt-0.5 text-xs" : dense ? "mt-0.5 text-[11px]" : "mt-1 text-xs")}>
                   {meta.label} · {entry.timestamp}
                 </p>
               </div>
@@ -925,25 +915,24 @@ export function CommissionBreakdown() {
   function renderActivitySurface(options?: { preview?: boolean; inSheet?: boolean }) {
     const preview = options?.preview ?? false;
     const inSheet = options?.inSheet ?? false;
+    const dense = inSheet && !preview;
+    const commentsOnly = activityView === "comments";
     const items =
       activityView === "comments"
         ? commentFeed
         : activityView === "activity"
           ? activityOnlyFeed
           : latestFeed;
-    const visibleItems = preview ? items.slice(0, 2) : items;
+    const visibleItems = preview ? items.slice(0, 4) : items;
 
     return (
-      <div className={cn("space-y-3", inSheet ? "pt-1" : "pt-0")}>
+        <div className={cn(preview ? "space-y-2.5" : dense ? "space-y-2.5" : "space-y-3", inSheet ? "pt-1" : "pt-0", dense && "pb-2")}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold tracking-tight text-foreground">Comments</h3>
-            {!preview && (
-              <p className="mt-1 text-xs text-muted-foreground">Comments and CDA changes using current breakdown data.</p>
-            )}
+            {preview && <h3 className="text-sm font-semibold tracking-tight text-foreground">Comments</h3>}
           </div>
           <div className="flex items-center gap-2">
-            {!preview && (
+            {!preview && !inSheet && (
               <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
                 <SelectTrigger className="h-8 rounded-full border-border/80 bg-background px-3 text-xs">
                   <SelectValue />
@@ -956,7 +945,7 @@ export function CommissionBreakdown() {
               </Select>
             )}
             {preview && (
-              <Button variant="ghost" size="sm" className="h-8 rounded-full px-3 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
+              <Button variant="ghost" size="sm" className="h-7 rounded-full px-2.5 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
                 View all
               </Button>
             )}
@@ -964,14 +953,15 @@ export function CommissionBreakdown() {
         </div>
 
         {visibleItems.length > 0 ? (
-          <div className="space-y-0">{renderTimelineItems(visibleItems)}</div>
+          <div className="space-y-0">{renderTimelineItems(visibleItems, { compact: preview, dense, commentsOnly })}</div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border/80 bg-background px-4 py-6 text-sm text-muted-foreground">
             No history yet.
           </div>
         )}
 
-        <div className="rounded-xl border border-border/80 bg-background px-5 py-3.5 shadow-sm">
+        <div className={cn(dense && "sticky bottom-0 z-10 -mx-1 bg-gradient-to-t from-background via-background/95 to-transparent px-1 pt-3", !dense && "static")}>
+        <div className={cn("rounded-xl border border-border/80 bg-background shadow-sm", preview ? "px-4 py-3" : dense ? "px-3.5 py-2.5 shadow-lg" : "px-5 py-3.5")}>
           <div className="relative">
             <Textarea
               value={agentComment}
@@ -983,19 +973,20 @@ export function CommissionBreakdown() {
                 }
               }}
               placeholder="Add comment"
-              rows={3}
-              className="min-h-[88px] resize-none border-0 bg-transparent px-1 py-1 pr-12 text-sm shadow-none focus-visible:ring-0"
+              rows={preview ? 2 : 3}
+              className={cn("resize-none border-0 bg-transparent px-1 py-1 pr-12 shadow-none focus-visible:ring-0", preview ? "min-h-[68px] text-sm" : dense ? "min-h-[56px] text-[13px]" : "min-h-[88px] text-sm")}
             />
             <Button
               variant="ghost"
               size="icon"
-              className="absolute bottom-0 right-0 size-8 rounded-full text-lg text-muted-foreground"
+              className={cn("absolute right-0 rounded-full text-lg text-muted-foreground", dense ? "bottom-0.5 size-7" : "bottom-0 size-8")}
               disabled={!agentComment.trim()}
               onClick={handleSendComment}
             >
               <Send className="size-3.5" />
             </Button>
           </div>
+        </div>
         </div>
       </div>
     );
@@ -1085,9 +1076,17 @@ export function CommissionBreakdown() {
             {rejectionNote && txStatus === "draft" && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="rounded-full border border-destructive/30 bg-destructive/5 px-3 py-1 text-xs font-medium text-destructive cursor-default">
-                    Returned — see note
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowActivitySheet(true)}
+                    className="relative flex size-8 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label="Open comments"
+                  >
+                    <MessageCircleMore className="size-4" />
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
+                      1
+                    </span>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-64">{rejectionNote}</TooltipContent>
               </Tooltip>
@@ -1161,7 +1160,7 @@ export function CommissionBreakdown() {
                 <TooltipContent>Total before payouts &amp; deductions</TooltipContent>
               </Tooltip>
             </p>
-            <p className="mt-1 text-3xl font-bold tracking-tight">{currency(99000)}</p>
+            <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{currency(totalGrossCommission)}</p>
           </div>
           <div className="bg-border" />
           <div className="px-6 py-5">
@@ -1307,18 +1306,6 @@ export function CommissionBreakdown() {
                       {index === 0 && <Separator />}
                     </React.Fragment>
                   ))}
-                </div>
-              </Card>
-
-              <Card className="rounded-xl border bg-card p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Need help?</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">FAQs, payout rules, confirmation help, support contact.</p>
-                  </div>
-                  <Button variant="ghost" size="icon" className="size-8 rounded-lg text-muted-foreground" onClick={() => setShowHelpSheet(true)} aria-label="Open help">
-                    <ChevronRight className="size-4" />
-                  </Button>
                 </div>
               </Card>
             </div>
@@ -2567,106 +2554,36 @@ export function CommissionBreakdown() {
       </Dialog>
 
       <Sheet open={showActivitySheet} onOpenChange={setShowActivitySheet}>
-        <SheetContent side="right" className="w-full sm:max-w-xl">
-          <SheetHeader className="border-b px-5 py-4">
-            <div className="pr-8">
-              <SheetTitle className="text-base">CDA Comments & Activity</SheetTitle>
-              <SheetDescription>All notes and breakdown changes for this CDA.</SheetDescription>
+        <SheetContent side="right" showCloseButton={false} className="w-full gap-0 sm:max-w-xl">
+          <SheetHeader className="border-b px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <SheetTitle className="text-[15px] leading-6">CDA Comments & Activity</SheetTitle>
+                <SheetDescription className="mt-0.5 text-[13px]">All notes and breakdown changes for this CDA.</SheetDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
+                  <SelectTrigger className="h-9 rounded-full border-border/80 bg-background px-3 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comments">Comments</SelectItem>
+                    <SelectItem value="activity">Activity</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
+                  </SelectContent>
+                </Select>
+                <SheetClose className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <X className="size-4" />
+                  <span className="sr-only">Close</span>
+                </SheetClose>
+              </div>
             </div>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             {renderActivitySurface({ inSheet: true })}
           </div>
         </SheetContent>
       </Sheet>
-
-      <Sheet open={showHelpSheet} onOpenChange={setShowHelpSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl">
-          <SheetHeader className="border-b px-5 py-4">
-            <SheetTitle className="text-base">Need help?</SheetTitle>
-            <SheetDescription>Common CDA questions, review checks, support contact.</SheetDescription>
-          </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            <div className="space-y-5">
-              <Accordion type="single" collapsible className="rounded-xl border bg-card px-4">
-                <AccordionItem value="item-1">
-                  <AccordionTrigger className="text-sm font-medium">What is Listing Side vs Buying Side?</AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                    Listing Side covers the listing brokerage payout. Buying Side covers the buyer-side payout. Each side has its own gross amount, deductions, agent payouts, and office income.
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-2">
-                  <AccordionTrigger className="text-sm font-medium">What do per-agent cards show?</AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                    Each agent card shows that agent&apos;s net commission in the main view. Expand it to see pre-split amount and post-split amount before going deeper into full agent detail.
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-3">
-                  <AccordionTrigger className="text-sm font-medium">What is gross commission?</AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                    Gross commission is the total commission amount for that side before any credits, referrals, fees, or agent allocations are applied.
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-4">
-                  <AccordionTrigger className="text-sm font-medium">What is net commission?</AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                    Net commission is the final amount left after deductions and split logic are applied. On agent rows, the collapsed value is the agent&apos;s net take-home number.
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-5">
-                  <AccordionTrigger className="text-sm font-medium">What is pre-split vs post-split?</AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                    Pre-split deductions reduce gross commission before allocation. Post-split deductions reduce one agent&apos;s side after split. Office income should not drop from agent post-split items.
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-
-              <div className="rounded-xl border bg-card px-4 py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Contact team</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">Send payout issue, fee question, or approval blocker to support team.</p>
-                  </div>
-                  <Button size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={() => setShowContactTeamDialog(true)}>
-                    <Mail className="mr-1 size-3.5" />
-                    Message
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <Dialog open={showContactTeamDialog} onOpenChange={setShowContactTeamDialog}>
-        <DialogContent className="gap-0 p-0 sm:max-w-md">
-          <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Message support team</DialogTitle>
-            <DialogDescription>Send question or blocker to CDA ops team.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 px-6 py-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="support-topic">Topic</Label>
-              <Input id="support-topic" value={supportTopic} onChange={(e) => setSupportTopic(e.target.value)} className="h-10" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="support-message">Message</Label>
-              <Textarea
-                id="support-message"
-                rows={5}
-                value={supportMessage}
-                onChange={(e) => setSupportMessage(e.target.value)}
-                placeholder="Describe fee issue, payout mismatch, or confirmation blocker."
-                className="resize-none"
-              />
-            </div>
-          </div>
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowContactTeamDialog(false)}>Cancel</Button>
-            <Button onClick={handleSendSupportMessage} disabled={!supportMessage.trim()}>Send message</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Gross info dialog */}
       <Dialog open={showGrossInfo} onOpenChange={setShowGrossInfo}>
