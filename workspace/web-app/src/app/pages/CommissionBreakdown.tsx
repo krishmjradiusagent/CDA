@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronRight,
   Download,
+  Mail,
   Info,
   Pencil,
   Printer,
@@ -451,7 +452,11 @@ export function CommissionBreakdown() {
     { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: "Confirmed CDA and generated final output.", timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
+  const [showHelpSheet, setShowHelpSheet] = useState(false);
+  const [showContactTeamDialog, setShowContactTeamDialog] = useState(false);
   const [activityView, setActivityView] = useState<ActivityView>("all");
+  const [supportTopic, setSupportTopic] = useState("Commission question");
+  const [supportMessage, setSupportMessage] = useState("");
   const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You" };
   function makeTimestamp() {
     return new Intl.DateTimeFormat("en-US", {
@@ -481,6 +486,13 @@ export function CommissionBreakdown() {
     logActivity(text, "comment");
     setAgentComment("");
     toast.success("Comment sent");
+  }
+  function handleSendSupportMessage() {
+    if (!supportMessage.trim()) return;
+    toast.success("Message sent to support team");
+    setShowContactTeamDialog(false);
+    setSupportTopic("Commission question");
+    setSupportMessage("");
   }
   const latestFeed = [...activityFeed].reverse();
   const commentFeed = latestFeed.filter((entry) => entry.kind === "comment");
@@ -919,7 +931,7 @@ export function CommissionBreakdown() {
         : activityView === "activity"
           ? activityOnlyFeed
           : latestFeed;
-    const visibleItems = preview ? items.slice(0, 4) : items;
+    const visibleItems = preview ? items.slice(0, 2) : items;
 
     return (
       <div className={cn("space-y-3", inSheet ? "pt-1" : "pt-0")}>
@@ -931,16 +943,18 @@ export function CommissionBreakdown() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
-              <SelectTrigger className="h-8 rounded-full border-border/80 bg-background px-3 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="comments">Comments</SelectItem>
-                <SelectItem value="activity">Activity</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
+            {!preview && (
+              <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
+                <SelectTrigger className="h-8 rounded-full border-border/80 bg-background px-3 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comments">Comments</SelectItem>
+                  <SelectItem value="activity">Activity</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             {preview && (
               <Button variant="ghost" size="sm" className="h-8 rounded-full px-3 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
                 View all
@@ -957,9 +971,9 @@ export function CommissionBreakdown() {
           </div>
         )}
 
-        <div className="rounded-[24px] border border-border/80 bg-background px-4 py-2.5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <Input
+        <div className="rounded-xl border border-border/80 bg-background px-5 py-3.5 shadow-sm">
+          <div className="relative">
+            <Textarea
               value={agentComment}
               onChange={(e) => setAgentComment(e.target.value)}
               onKeyDown={(e) => {
@@ -969,17 +983,18 @@ export function CommissionBreakdown() {
                 }
               }}
               placeholder="Add comment"
-              className="h-10 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+              rows={3}
+              className="min-h-[88px] resize-none border-0 bg-transparent px-1 py-1 pr-12 text-sm shadow-none focus-visible:ring-0"
             />
-            <div className="flex shrink-0 items-center gap-1 text-muted-foreground">
-              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm">@</Button>
-              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm font-semibold">B</Button>
-              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm italic">I</Button>
-              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm underline">U</Button>
-              <Button variant="ghost" size="icon" className="size-8 rounded-full text-lg" disabled={!agentComment.trim()} onClick={handleSendComment}>
-                <Send className="size-3.5" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute bottom-0 right-0 size-8 rounded-full text-lg text-muted-foreground"
+              disabled={!agentComment.trim()}
+              onClick={handleSendComment}
+            >
+              <Send className="size-3.5" />
+            </Button>
           </div>
         </div>
       </div>
@@ -1173,130 +1188,144 @@ export function CommissionBreakdown() {
           )}
 
           {/* LEFT — unified side card */}
-          <section className="bg-muted/30 p-4">
-            <Card className="rounded-xl border bg-card overflow-hidden p-0 gap-0 block shadow-sm">
-              <div className="w-full">
-                {sides.map((side, index) => (
-                  <React.Fragment key={side.id}>
-                    <div className="border-none">
-                      <div
-                        data-connector-anchor={`${side.id}-side`}
-                        className={cn(
-                          "flex items-start justify-between px-5 py-4 transition-colors duration-150",
-                          index === 0 && "rounded-t-xl",
-                          selectedSide === side.id && "bg-[#5A5FF2]/[0.035]"
-                        )}>
-                        <div className="flex flex-1 items-start justify-between">
-                          <div className="min-w-0">
-                            <span className="text-base font-semibold">{side.title}</span>
-                            <div className="flex items-center gap-3 mt-1" data-testid={`${side.id}-meta-row`}>
-                              <span className="text-xs text-muted-foreground">{side.subline}</span>
+          <section className="bg-muted/30 p-4 lg:sticky lg:top-4 lg:self-start">
+            <div className="space-y-4">
+              <Card className="rounded-xl border bg-card overflow-hidden p-0 gap-0 block shadow-sm">
+                <div className="w-full">
+                  {sides.map((side, index) => (
+                    <React.Fragment key={side.id}>
+                      <div className="border-none">
+                        <div
+                          data-connector-anchor={`${side.id}-side`}
+                          className={cn(
+                            "flex items-start justify-between px-5 py-4 transition-colors duration-150",
+                            index === 0 && "rounded-t-xl",
+                            selectedSide === side.id && "bg-[#5A5FF2]/[0.035]"
+                          )}>
+                          <div className="flex flex-1 items-start justify-between">
+                            <div className="min-w-0">
+                              <span className="text-base font-semibold">{side.title}</span>
+                              <div className="flex items-center gap-3 mt-1" data-testid={`${side.id}-meta-row`}>
+                                <span className="text-xs text-muted-foreground">{side.subline}</span>
 
-                              <Separator
-                                orientation="vertical"
-                                data-testid={`${side.id}-separator-1`}
-                                className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
-                              />
+                                <Separator
+                                  orientation="vertical"
+                                  data-testid={`${side.id}-separator-1`}
+                                  className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
+                                />
 
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "rounded-full px-2 py-0 text-[11px] font-medium border-[#5A5FF2] text-[#5A5FF2] bg-transparent",
-                                  !isAgent && !isLocked && "cursor-pointer hover:opacity-80"
-                                )}
-                                onClick={!isAgent && !isLocked ? (e) => { e.stopPropagation(); setShowAwardDialog(true); } : undefined}
-                              >
-                                Award {side.award}%
-                              </Badge>
-
-                              <Separator
-                                orientation="vertical"
-                                data-testid={`${side.id}-separator-2`}
-                                className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
-                              />
-
-                              {!isAgent && !isLocked && (
                                 <Badge
-                                  variant="secondary"
-                                  className="border border-[#5A5FF2] text-[#5A5FF2] bg-[#5A5FF210] hover:bg-[#5A5FF214] cursor-pointer px-2 py-0 text-[11px] font-medium h-5 flex items-center justify-center rounded-md shadow-none"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setAddAgentSideId(side.id);
-                                    setAgentSearch("");
-                                    setPendingAgent(null);
-                                    setAgentAllocations({});
-                                    setShowAddAgentDialog(true);
-                                  }}
+                                  variant="outline"
+                                  className={cn(
+                                    "rounded-full px-2 py-0 text-[11px] font-medium border-[#5A5FF2] text-[#5A5FF2] bg-transparent",
+                                    !isAgent && !isLocked && "cursor-pointer hover:opacity-80"
+                                  )}
+                                  onClick={!isAgent && !isLocked ? (e) => { e.stopPropagation(); setShowAwardDialog(true); } : undefined}
                                 >
-                                  + Agent
+                                  Award {side.award}%
                                 </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 shrink-0 mr-1">
-                            <div className="text-right">
-                              <p className="text-xs font-medium text-muted-foreground">Side total</p>
-                              <p className="text-xl font-bold tracking-tight tabular-nums">{currency(side.agents.reduce((s, a) => s + a.payout, 0))}</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="size-8 p-0 hover:bg-muted"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedSide(side.id);
-                                setSelectedAgentId(null);
-                              }}
-                            >
-                              <ChevronRight className="size-4 text-muted-foreground/50" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="px-5 pb-4">
-                        <div className="mt-1 space-y-2">
-                          {side.agents.map((agent) => (
-                            <div
-                              data-connector-anchor={`agent-${agent.id}`}
-                              key={agent.id}
-                              role="button" tabIndex={0}
-                              onClick={(e) => { e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); }}
-                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); } }}
-                              className={cn(
-                                "flex cursor-pointer items-center justify-between gap-4 px-4 py-3 min-h-[64px] rounded-lg outline-none transition-colors",
-                                selectedAgentId === agent.id ? "bg-muted ring-1 ring-border shadow-sm" : "bg-muted/50 hover:bg-muted/80"
-                              )}
-                            >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <Avatar className="size-8 shrink-0 border">
-                                  <AvatarFallback className="bg-background text-xs font-semibold">{initials(agent.name)}</AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium">{agent.name}</p>
-                                  <p className="text-xs text-muted-foreground">{agent.role}</p>
-                                </div>
+
+                                <Separator
+                                  orientation="vertical"
+                                  data-testid={`${side.id}-separator-2`}
+                                  className="!h-4 w-px shrink-0 bg-[#D7DAE5] opacity-100"
+                                />
+
+                                {!isAgent && !isLocked && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="border border-[#5A5FF2] text-[#5A5FF2] bg-[#5A5FF210] hover:bg-[#5A5FF214] cursor-pointer px-2 py-0 text-[11px] font-medium h-5 flex items-center justify-center rounded-md shadow-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setAddAgentSideId(side.id);
+                                      setAgentSearch("");
+                                      setPendingAgent(null);
+                                      setAgentAllocations({});
+                                      setShowAddAgentDialog(true);
+                                    }}
+                                  >
+                                    + Agent
+                                  </Badge>
+                                )}
                               </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-right">
-                                  <p className="text-xs font-medium text-muted-foreground">Payout</p>
-                                  <p className="text-base font-bold tracking-tight tabular-nums">{currency(agent.payout)}</p>
-                                </div>
+                            </div>
+                            <div className="flex items-center gap-4 shrink-0 mr-1">
+                              <div className="text-right">
+                                <p className="text-xs font-medium text-muted-foreground">Side total</p>
+                                <p className="text-xl font-bold tracking-tight tabular-nums">{currency(side.agents.reduce((s, a) => s + a.payout, 0))}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="size-8 p-0 hover:bg-muted"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSide(side.id);
+                                  setSelectedAgentId(null);
+                                }}
+                              >
                                 <ChevronRight className="size-4 text-muted-foreground/50" />
-                              </div>
+                              </Button>
                             </div>
-                          ))}
+                          </div>
+                        </div>
+                        <div className="px-5 pb-4">
+                          <div className="mt-1 space-y-2">
+                            {side.agents.map((agent) => (
+                              <div
+                                data-connector-anchor={`agent-${agent.id}`}
+                                key={agent.id}
+                                role="button" tabIndex={0}
+                                onClick={(e) => { e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); }}
+                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); } }}
+                                className={cn(
+                                  "flex cursor-pointer items-center justify-between gap-4 px-4 py-3 min-h-[64px] rounded-lg outline-none transition-colors",
+                                  selectedAgentId === agent.id ? "bg-muted ring-1 ring-border shadow-sm" : "bg-muted/50 hover:bg-muted/80"
+                                )}
+                              >
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <Avatar className="size-8 shrink-0 border">
+                                    <AvatarFallback className="bg-background text-xs font-semibold">{initials(agent.name)}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">{agent.name}</p>
+                                    <p className="text-xs text-muted-foreground">{agent.role}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <div className="text-right">
+                                    <p className="text-xs font-medium text-muted-foreground">Payout</p>
+                                    <p className="text-base font-bold tracking-tight tabular-nums">{currency(agent.payout)}</p>
+                                  </div>
+                                  <ChevronRight className="size-4 text-muted-foreground/50" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {index === 0 && <Separator />}
-                  </React.Fragment>
-                ))}
-              </div>
-            </Card>
+                      {index === 0 && <Separator />}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Need help?</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">FAQs, payout rules, confirmation help, support contact.</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="size-8 rounded-lg text-muted-foreground" onClick={() => setShowHelpSheet(true)} aria-label="Open help">
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </Card>
+            </div>
           </section>
 
           {/* RIGHT — agent detail OR side breakdown */}
-          <aside className="py-4 pr-4 pl-1">
+          <aside className="py-4 pr-4 pl-1 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
            <Card
             className="rounded-xl border bg-card shadow-sm overflow-hidden p-0"
            >
@@ -2550,6 +2579,94 @@ export function CommissionBreakdown() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Sheet open={showHelpSheet} onOpenChange={setShowHelpSheet}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl">
+          <SheetHeader className="border-b px-5 py-4">
+            <SheetTitle className="text-base">Need help?</SheetTitle>
+            <SheetDescription>Common CDA questions, review checks, support contact.</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <div className="space-y-5">
+              <Accordion type="single" collapsible className="rounded-xl border bg-card px-4">
+                <AccordionItem value="item-1">
+                  <AccordionTrigger className="text-sm font-medium">What is Listing Side vs Buying Side?</AccordionTrigger>
+                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                    Listing Side covers the listing brokerage payout. Buying Side covers the buyer-side payout. Each side has its own gross amount, deductions, agent payouts, and office income.
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-2">
+                  <AccordionTrigger className="text-sm font-medium">What do per-agent cards show?</AccordionTrigger>
+                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                    Each agent card shows that agent&apos;s net commission in the main view. Expand it to see pre-split amount and post-split amount before going deeper into full agent detail.
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-3">
+                  <AccordionTrigger className="text-sm font-medium">What is gross commission?</AccordionTrigger>
+                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                    Gross commission is the total commission amount for that side before any credits, referrals, fees, or agent allocations are applied.
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-4">
+                  <AccordionTrigger className="text-sm font-medium">What is net commission?</AccordionTrigger>
+                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                    Net commission is the final amount left after deductions and split logic are applied. On agent rows, the collapsed value is the agent&apos;s net take-home number.
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-5">
+                  <AccordionTrigger className="text-sm font-medium">What is pre-split vs post-split?</AccordionTrigger>
+                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                    Pre-split deductions reduce gross commission before allocation. Post-split deductions reduce one agent&apos;s side after split. Office income should not drop from agent post-split items.
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <div className="rounded-xl border bg-card px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Contact team</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">Send payout issue, fee question, or approval blocker to support team.</p>
+                  </div>
+                  <Button size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={() => setShowContactTeamDialog(true)}>
+                    <Mail className="mr-1 size-3.5" />
+                    Message
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={showContactTeamDialog} onOpenChange={setShowContactTeamDialog}>
+        <DialogContent className="gap-0 p-0 sm:max-w-md">
+          <DialogHeader className="border-b px-6 pb-4 pt-5">
+            <DialogTitle>Message support team</DialogTitle>
+            <DialogDescription>Send question or blocker to CDA ops team.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-6 py-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="support-topic">Topic</Label>
+              <Input id="support-topic" value={supportTopic} onChange={(e) => setSupportTopic(e.target.value)} className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="support-message">Message</Label>
+              <Textarea
+                id="support-message"
+                rows={5}
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value)}
+                placeholder="Describe fee issue, payout mismatch, or confirmation blocker."
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setShowContactTeamDialog(false)}>Cancel</Button>
+            <Button onClick={handleSendSupportMessage} disabled={!supportMessage.trim()}>Send message</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Gross info dialog */}
       <Dialog open={showGrossInfo} onOpenChange={setShowGrossInfo}>
