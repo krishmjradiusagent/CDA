@@ -87,15 +87,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/v4/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/v4/ui/sheet";
 
 import { cn } from "../../lib/utils";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { FeeBuilderModal } from "../components/finance/fee-builder-modal";
-import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
+import type { FeeTier, FeeTypeDraft } from "../components/finance/fee-builder-modal";
 
 type SideId = "listing" | "buyer";
 type Role = "agent" | "team_lead" | "radius_auditing";
-type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string };
+type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string; external?: boolean; phone?: string; brokerageName?: string; brokerageLicenseNumber?: string; brokerageStreetAddress?: string; brokerageUnit?: string; brokerageCity?: string; brokerageState?: string; brokerageZip?: string; representing?: string };
 type Side = {
   id: SideId;
   title: string;
@@ -117,6 +124,21 @@ type TierRow = {
   to: string;
   agentSplit: string;
   teamSplit: string;
+};
+
+type LimitRule = {
+  enabled: boolean;
+  amount: string;
+};
+
+type SidePostSplitDeduction = {
+  id: string;
+  name: string;
+  amount: number;
+  slidingScale: boolean;
+  tiers: FeeTier[];
+  notLessThan: LimitRule;
+  notToExceed: LimitRule;
 };
 
 type PlanForm = {
@@ -141,6 +163,22 @@ type PlanErrors = Partial<
   tiers?: Record<string, string>;
 };
 
+type PendingAgent = {
+  id: string;
+  name: string;
+  email?: string;
+  external?: boolean;
+  phone?: string;
+  brokerageName?: string;
+  brokerageLicenseNumber?: string;
+  brokerageStreetAddress?: string;
+  brokerageUnit?: string;
+  brokerageCity?: string;
+  brokerageState?: string;
+  brokerageZip?: string;
+  representing?: string;
+};
+
 const CONTACTS = [
   { id: "c1", name: "Gabriel Morales" },
   { id: "c2", name: "Gabriel Navarro" },
@@ -155,11 +193,22 @@ const CONTACTS = [
 ];
 
 const COMMISSION_PLANS = [
-  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% office" },
-  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% office" },
-  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan" },
-  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% office" },
+  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% office", feeType: "flat" as const, feeAmount: 495, capAmount: 18000 },
+  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% office", feeType: "flat" as const, feeAmount: 495, capAmount: 15000 },
+  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat" as const, feeAmount: 0, capAmount: 0 },
+  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% office", feeType: "flat" as const, feeAmount: 0, capAmount: 0 },
 ];
+
+const AGENT_CAP_PROGRESS: Record<string, number> = {
+  a1: 17420,
+  a2: 13250,
+  a3: 18000,
+  a4: 9600,
+  a5: 4100,
+  a6: 8400,
+  a7: 3200,
+  a8: 1100,
+};
 
 const initialSides: Side[] = [
   {
@@ -296,6 +345,120 @@ function DeductionValue({ value, onChange, readOnly }: { value: number; onChange
   );
 }
 
+function InlineDeductionDraftRow({
+  label,
+  amount,
+  labelPlaceholder,
+  onLabelChange,
+  onAmountChange,
+  onSave,
+  onCancel,
+}: {
+  label: string;
+  amount: string;
+  labelPlaceholder: string;
+  onLabelChange: (value: string) => void;
+  onAmountChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const canSave = label.trim().length > 0 && amount.trim().length > 0;
+
+  return (
+    <div className="rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <Input
+          value={label}
+          onChange={(e) => onLabelChange(e.target.value)}
+          placeholder={labelPlaceholder}
+          className="h-8 border-input bg-background text-xs"
+        />
+        <div className="relative w-28 shrink-0">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+          <Input
+            value={amount}
+            onChange={(e) => onAmountChange(e.target.value.replace(/[^0-9.]/g, ""))}
+            placeholder="0"
+            inputMode="decimal"
+            className="h-8 border-input bg-background pl-6 text-right text-xs"
+          />
+        </div>
+        <Button size="sm" className="h-8 shrink-0 px-3 text-xs" disabled={!canSave} onClick={onSave}>
+          Add
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-xs" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SlidingScaleTierRows({
+  tiers,
+  onChange,
+}: {
+  tiers: FeeTier[];
+  onChange: (tiers: FeeTier[]) => void;
+}) {
+  function updateTier(tierId: string, patch: Partial<FeeTier>) {
+    onChange(tiers.map((tier) => (tier.id === tierId ? { ...tier, ...patch } : tier)));
+  }
+
+  function addTier() {
+    onChange([...tiers, { id: crypto.randomUUID(), from: "", to: "", fee: "" }]);
+  }
+
+  function removeTier(tierId: string) {
+    onChange(tiers.filter((tier) => tier.id !== tierId));
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-2">
+        {tiers.map((tier) => (
+          <div key={tier.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-md border p-2">
+            <Input
+              className="h-9 text-xs"
+              placeholder="Over"
+              value={tier.from}
+              onChange={(event) => updateTier(tier.id, { from: event.target.value })}
+            />
+            <Input
+              className="h-9 text-xs"
+              placeholder="Up to"
+              value={tier.to}
+              onChange={(event) => updateTier(tier.id, { to: event.target.value })}
+            />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+              <Input
+                className="h-9 pl-6 text-xs"
+                placeholder="0.00"
+                inputMode="decimal"
+                value={tier.fee}
+                onChange={(event) => updateTier(tier.id, { fee: event.target.value })}
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-9 text-muted-foreground hover:text-foreground"
+              onClick={() => removeTier(tier.id)}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <Button variant="outline" size="sm" onClick={addTier} className="w-full">
+        <Plus className="size-4" />
+        Add Tier
+      </Button>
+    </div>
+  );
+}
+
 /** Inline editable dollar value — click to edit, X on hover to clear */
 function EditableValue({
   value,
@@ -357,16 +520,40 @@ function EditableValue({
 
 export function CommissionBreakdown() {
   const [agentComment, setAgentComment] = useState("");
-  type CommentEntry = { id: string; author: string; role: Role; text: string; timestamp: string };
-  const [commentHistory, setCommentHistory] = useState<CommentEntry[]>([
-    { id: "ch1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount — it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM" },
-    { id: "ch2", author: "Mark Perez", role: "agent", text: "Updated. The RERM was adjusted per the new schedule effective May 1.", timestamp: "May 12, 2026 · 4:02 PM" },
+  type ActivityEntry = { id: string; author: string; role: Role; text: string; timestamp: string; kind: "comment" | "activity" };
+  const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
+    { id: "ch1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount — it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM", kind: "comment" },
+    { id: "ch2", author: "Mark Perez", role: "agent", text: "Updated. The RERM was adjusted per the new schedule effective May 1.", timestamp: "May 12, 2026 · 4:02 PM", kind: "comment" },
   ]);
+  const [showActivitySheet, setShowActivitySheet] = useState(false);
+  const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You" };
+  const activityPreview = activityFeed.slice(-4).reverse();
+  function makeTimestamp() {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date()).replace(",", " ·");
+  }
+  function logActivity(text: string, kind: "comment" | "activity" = "activity") {
+    setActivityFeed((prev) => [
+      ...prev,
+      {
+        id: `act-${Date.now()}-${prev.length}`,
+        author: roleNames[role],
+        role,
+        text,
+        timestamp: makeTimestamp(),
+        kind,
+      },
+    ]);
+  }
   function handleSendComment() {
     const text = agentComment.trim();
     if (!text) return;
-    const roleNames: Record<Role, string> = { agent: "You (Agent)", team_lead: "You (Team Lead)", radius_auditing: "You (Admin)" };
-    setCommentHistory((prev) => [...prev, { id: `ch-${Date.now()}`, author: roleNames[role], role, text, timestamp: "Just now" }]);
+    logActivity(text, "comment");
     setAgentComment("");
     toast.success("Comment sent");
   }
@@ -379,6 +566,20 @@ export function CommissionBreakdown() {
   const [showGrossInfo, setShowGrossInfo] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [feeDialogTiming, setFeeDialogTiming] = useState<"pre-split" | "post-split" | null>(null);
+  const [showInlineSidePreSplitDraft, setShowInlineSidePreSplitDraft] = useState(false);
+  const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
+  const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
+  const [showInlineSidePostSplitDraft, setShowInlineSidePostSplitDraft] = useState(false);
+  const [inlineSidePostSplitLabel, setInlineSidePostSplitLabel] = useState("");
+  const [inlineSidePostSplitAmount, setInlineSidePostSplitAmount] = useState("");
+  const [showSlidingScaleDialog, setShowSlidingScaleDialog] = useState(false);
+  const [inlineSidePostSplitSlidingScale, setInlineSidePostSplitSlidingScale] = useState(false);
+  const [inlineSidePostSplitTiers, setInlineSidePostSplitTiers] = useState<FeeTier[]>([]);
+  const [inlineSidePostSplitNotLessThan, setInlineSidePostSplitNotLessThan] = useState<LimitRule>({ enabled: false, amount: "0.00" });
+  const [inlineSidePostSplitNotToExceed, setInlineSidePostSplitNotToExceed] = useState<LimitRule>({ enabled: false, amount: "0.00" });
+  const [showInlineAgentPreSplitDraft, setShowInlineAgentPreSplitDraft] = useState(false);
+  const [inlineAgentPreSplitLabel, setInlineAgentPreSplitLabel] = useState("");
+  const [inlineAgentPreSplitAmount, setInlineAgentPreSplitAmount] = useState("");
   const feeDialogTitle = "Fee Type";
   const [showCDCDialog, setShowCDCDialog] = useState(false);
   const [showNetCommissionDialog, setShowNetCommissionDialog] = useState(false);
@@ -415,6 +616,14 @@ export function CommissionBreakdown() {
     ],
     buyer: [],
   });
+  const [sidePostSplitDeductions, setSidePostSplitDeductions] = useState<Record<SideId, SidePostSplitDeduction[]>>({
+    listing: [],
+    buyer: [],
+  });
+  const [sideRadiusFees, setSideRadiusFees] = useState<Record<SideId, number>>({
+    listing: 0,
+    buyer: 0,
+  });
 
 
   const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>>({
@@ -433,7 +642,23 @@ export function CommissionBreakdown() {
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
   const [addAgentSideId, setAddAgentSideId] = useState<SideId | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
-  const [pendingAgent, setPendingAgent] = useState<{ id: string; name: string } | null>(null);
+  const [pendingAgent, setPendingAgent] = useState<PendingAgent | null>(null);
+  const [showExternalAgentDialog, setShowExternalAgentDialog] = useState(false);
+  const [externalAgentForm, setExternalAgentForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    brokerageName: "",
+    agentLicenseNumber: "",
+    brokerageLicenseNumber: "",
+    brokerageStreetAddress: "",
+    brokerageUnit: "",
+    brokerageCity: "",
+    brokerageState: "",
+    brokerageZip: "",
+    representing: addAgentSideId === "buyer" ? "Buyer" : "Seller",
+  });
   const [agentAllocations, setAgentAllocations] = useState<Record<string, number>>({});
 
   // Compute connector top position from selected anchor
@@ -479,20 +704,43 @@ export function CommissionBreakdown() {
         const overrides = fieldOverrides[agent.id] ?? {};
         const commissionBasis = overrides.commissionBasis ?? agent.payout;
         const split = overrides.split ?? 0;
-        const netCommission = commissionBasis - split;
+        const planId = appliedPlans[agent.id];
+        const plan = COMMISSION_PLANS.find((entry) => entry.id === planId) ?? null;
+        const planFixedFee = plan?.feeType === "flat" ? plan.feeAmount : 0;
+        const totalPostSplitDeductions = (postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+        const netCommission = commissionBasis - split - planFixedFee - totalPostSplitDeductions;
         const companyDollar = Math.max(side.gross - commissionBasis, 0);
-        return { agent, side, commissionBasis, split, netCommission, companyDollar };
+        return { agent, side, commissionBasis, split, planFixedFee, totalPostSplitDeductions, netCommission, companyDollar };
       }
     }
     return null;
-  }, [selectedAgentId, sides, fieldOverrides]);
+  }, [selectedAgentId, sides, fieldOverrides, appliedPlans, postSplitDeductions]);
+
+  const selectedPlan = selectedAgentId
+    ? COMMISSION_PLANS.find((plan) => plan.id === appliedPlans[selectedAgentId])
+    : null;
+  const selectedAgentIsExternal = Boolean(selectedAgent?.agent.external);
+  const selectedCapAmount = selectedPlan?.capAmount ?? 0;
+  const selectedCapUsed = selectedAgentId ? (AGENT_CAP_PROGRESS[selectedAgentId] ?? 0) : 0;
+  const selectedCapRemaining = Math.max(selectedCapAmount - selectedCapUsed, 0);
+  const selectedCapRatio = selectedCapAmount > 0 ? selectedCapUsed / selectedCapAmount : 0;
+  const selectedCapStatus = selectedCapAmount <= 0
+    ? "none"
+    : selectedCapRemaining <= 0
+      ? "reached"
+      : selectedCapRatio >= 0.9
+        ? "near"
+        : "normal";
 
   function setAgentField(field: "commissionBasis" | "split", value: number) {
     if (!selectedAgentId) return;
+    const fieldLabel = field === "commissionBasis" ? "commission basis" : "split";
+    const agentName = selectedAgent?.agent.name ?? "agent";
     setFieldOverrides((prev) => ({
       ...prev,
       [selectedAgentId]: { ...(prev[selectedAgentId] ?? {}), [field]: value },
     }));
+    logActivity(`Updated ${fieldLabel} for ${agentName} to ${currency(value)}.`);
   }
 
   function handleDeleteAgent() {
@@ -503,7 +751,110 @@ export function CommissionBreakdown() {
     );
     setSelectedAgentId(null);
     setShowDeleteConfirm(false);
+    logActivity(`Removed ${agentName} from ${selectedAgent.side.title}.`);
     toast.success(`${agentName} removed`);
+  }
+
+  function resetExternalAgentForm() {
+    setExternalAgentForm({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      brokerageName: "",
+      agentLicenseNumber: "",
+      brokerageLicenseNumber: "",
+      brokerageStreetAddress: "",
+      brokerageUnit: "",
+      brokerageCity: "",
+      brokerageState: "",
+      brokerageZip: "",
+      representing: addAgentSideId === "buyer" ? "Buyer" : "Seller",
+    });
+  }
+
+  function seedPendingAgent(agent: PendingAgent) {
+    const sideAgents = sidesData.find((s) => s.id === addAgentSideId)?.agents ?? [];
+    const equal = Math.floor(100 / (sideAgents.length + 1));
+    const allocs: Record<string, number> = {};
+    sideAgents.forEach((a) => { allocs[a.id] = equal; });
+    allocs[agent.id] = 100 - equal * sideAgents.length;
+    setAgentAllocations(allocs);
+    setPendingAgent(agent);
+  }
+
+  function resetInlineSidePreSplitDraft() {
+    setShowInlineSidePreSplitDraft(false);
+    setInlineSidePreSplitLabel("");
+    setInlineSidePreSplitAmount("");
+  }
+
+  function resetInlineSidePostSplitDraft() {
+    setShowInlineSidePostSplitDraft(false);
+    setInlineSidePostSplitLabel("");
+    setInlineSidePostSplitAmount("");
+    setInlineSidePostSplitSlidingScale(false);
+    setInlineSidePostSplitTiers([]);
+    setInlineSidePostSplitNotLessThan({ enabled: false, amount: "0.00" });
+    setInlineSidePostSplitNotToExceed({ enabled: false, amount: "0.00" });
+    setShowSlidingScaleDialog(false);
+  }
+
+  function resetInlineAgentPreSplitDraft() {
+    setShowInlineAgentPreSplitDraft(false);
+    setInlineAgentPreSplitLabel("");
+    setInlineAgentPreSplitAmount("");
+  }
+
+  function handleInlineSidePreSplitSave() {
+    const name = inlineSidePreSplitLabel.trim();
+    const amount = Math.round(Number(inlineSidePreSplitAmount) || 0);
+    if (!name || !amount) return;
+    setSideGrossDeductions((prev) => ({
+      ...prev,
+      [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name, amount }],
+    }));
+    logActivity(`Added ${name} fee for ${activeSide.title} at ${currency(amount)}.`);
+    toast.success(`"${name}" added`);
+    resetInlineSidePreSplitDraft();
+  }
+
+  function handleInlineSidePostSplitSave() {
+    const name = inlineSidePostSplitLabel.trim();
+    const amount = Math.round(Number(inlineSidePostSplitAmount) || 0);
+    if (!name || (!amount && !(inlineSidePostSplitSlidingScale && inlineSidePostSplitTiers.length > 0))) return;
+    setSidePostSplitDeductions((prev) => ({
+      ...prev,
+      [activeSide.id]: [
+        ...(prev[activeSide.id] ?? []),
+        {
+          id: `sp-${Date.now()}`,
+          name,
+          amount,
+          slidingScale: inlineSidePostSplitSlidingScale,
+          tiers: inlineSidePostSplitTiers,
+          notLessThan: inlineSidePostSplitNotLessThan,
+          notToExceed: inlineSidePostSplitNotToExceed,
+        },
+      ],
+    }));
+    logActivity(`Added ${name} post-commission deduction for ${activeSide.title}.`);
+    toast.success(`"${name}" added`);
+    resetInlineSidePostSplitDraft();
+  }
+
+  function handleInlineAgentPreSplitSave() {
+    const agentId = selectedAgent?.agent.id;
+    const name = inlineAgentPreSplitLabel.trim();
+    const amount = Math.round(Number(inlineAgentPreSplitAmount) || 0);
+    if (!agentId || !name || !amount) return;
+    setPreSplitDeductions((prev) => ({
+      ...prev,
+      [agentId]: [...(prev[agentId] ?? []), { id: `pre-${Date.now()}`, name, amount }],
+    }));
+    logActivity(`Added ${name} pre-commission deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
+    toast.success(`"${name}" added`);
+    resetInlineAgentPreSplitDraft();
   }
 
   function handleFeeAdded(fee: FeeTypeDraft) {
@@ -514,12 +865,14 @@ export function CommissionBreakdown() {
         ...prev,
         [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount }],
       }));
+      logActivity(`Added ${fee.name} pre-commission deduction for ${activeSide.title}.`);
     } else if (fee.timing === "post-split" && selectedAgentId) {
       // Post-split → agent-level deductions
       setPostSplitDeductions((prev) => ({
         ...prev,
         [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount }],
       }));
+      logActivity(`Added ${fee.name} post-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
     }
     toast.success(`"${fee.name}" added`);
     setFeeDialogTiming(null);
@@ -527,8 +880,11 @@ export function CommissionBreakdown() {
 
   const grossIncome = activeSide.gross;
   const totalAgentPayout = activeSide.agents.reduce((s, a) => s + a.payout, 0);
-  const officeNet = grossIncome - totalAgentPayout;
+  const totalSidePostSplitDeductions = (sidePostSplitDeductions[activeSide.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+  const officeNet = grossIncome - totalAgentPayout - totalSidePostSplitDeductions;
   const activeSideOfficeShare = Math.max(grossIncome - totalAgentPayout, 0);
+  const activeSideRadiusFee = sideRadiusFees[activeSide.id] ?? 0;
+  const radiusFeeRequiredForApproval = sides.some((side) => side.agents.length > 0 && (sideRadiusFees[side.id] ?? 0) <= 0);
 
   // Permission helpers
   const [showAddPlanDialog, setShowAddPlanDialog] = useState(false);
@@ -577,18 +933,47 @@ export function CommissionBreakdown() {
     (role === "agent" && txStatus === "draft") ||
     (role === "team_lead" && txStatus === "agent_confirmed") ||
     (role === "radius_auditing" && txStatus === "team_lead_confirmed");
+  const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
+
+  function renderActivityItems(items: ActivityEntry[]) {
+    return items.map((entry) => (
+      <div key={entry.id} className="flex gap-2">
+        <Avatar className="size-6 shrink-0 mt-0.5">
+          <AvatarFallback className={`text-[10px] font-semibold ${(roleMeta[entry.role] ?? roleMeta.agent).avatar}`}>
+            {initials(entry.author)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-foreground">{entry.author}</span>
+            <span className={`rounded-full border px-1.5 py-0 text-[9px] font-medium ${(roleMeta[entry.role] ?? roleMeta.agent).badge}`}>
+              {(roleMeta[entry.role] ?? roleMeta.agent).label}
+            </span>
+            <span className="rounded-full border border-border bg-background px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
+              {entry.kind === "comment" ? "Comment" : "Change"}
+            </span>
+            <span className="text-[10px] text-muted-foreground">·</span>
+            <span className="text-[10px] text-muted-foreground">{entry.timestamp}</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{entry.text}</p>
+        </div>
+      </div>
+    ));
+  }
 
   const editableSnapshot = useMemo(
     () => JSON.stringify({
       sidesData,
       fieldOverrides,
       sideGrossDeductions,
+      sidePostSplitDeductions,
+      sideRadiusFees,
       postSplitDeductions,
       appliedPlans,
       awardValues,
       preSplitDeductions,
     }),
-    [sidesData, fieldOverrides, sideGrossDeductions, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
+    [sidesData, fieldOverrides, sideGrossDeductions, sidePostSplitDeductions, sideRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
   );
   const previousEditableSnapshot = useRef(editableSnapshot);
   useEffect(() => {
@@ -693,6 +1078,7 @@ export function CommissionBreakdown() {
               <Button
                 size="sm"
                 className="h-8 shrink-0 rounded-lg px-4 text-xs"
+                disabled={!canAuditorApprove}
                 onClick={() => setShowProcessDialog(true)}
               >
                 Confirm CDA
@@ -703,8 +1089,7 @@ export function CommissionBreakdown() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1.5 rounded-lg px-4 text-xs"
-                className="text-primary border-primary"
+                className="h-8 gap-1.5 rounded-lg border-primary px-4 text-xs text-primary"
                 onClick={() => setShowPdfPreview(true)}
               >
                 <Download className="size-3.5" />
@@ -912,7 +1297,7 @@ export function CommissionBreakdown() {
                     </div>
                     <div className="flex items-center gap-2">
                     {/* Apply plan — dropdown (team_lead + radius only) */}
-                    {role !== "agent" ? (
+                    {role !== "agent" && !selectedAgentIsExternal ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" size="sm" className={cn("h-7 rounded-lg px-3 text-xs gap-1", !appliedPlans[selectedAgent.agent.id] && "text-muted-foreground")}>
@@ -934,6 +1319,7 @@ export function CommissionBreakdown() {
                                   setPendingPlanChange({ agentId: selectedAgent.agent.id, plan });
                                 } else {
                                   setAppliedPlans((p) => ({ ...p, [selectedAgent.agent.id]: plan.id }));
+                                  logActivity(`Applied commission plan ${plan.name} to ${selectedAgent.agent.name}.`);
                                   toast.success(`"${plan.name}" applied to ${selectedAgent.agent.name}`);
                                 }
                               }}
@@ -947,7 +1333,27 @@ export function CommissionBreakdown() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : null}
-                    {!appliedPlans[selectedAgent.agent.id] && role !== "agent" && (
+                    {selectedAgentIsExternal && (
+                      <Badge variant="outline" className="h-7 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-[11px] font-medium text-primary">
+                        Manual agent
+                      </Badge>
+                    )}
+                    {selectedCapStatus !== "none" && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "h-7 rounded-lg px-2.5 text-[11px] font-medium",
+                          selectedCapStatus === "reached"
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : selectedCapStatus === "near"
+                              ? "border-orange-300 bg-orange-50 text-orange-800"
+                              : "border-border bg-background text-muted-foreground"
+                        )}
+                      >
+                        {selectedCapStatus === "reached" ? "Cap reached" : `${currency(selectedCapRemaining)} to cap`}
+                      </Badge>
+                    )}
+                    {!selectedAgentIsExternal && !appliedPlans[selectedAgent.agent.id] && role !== "agent" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -978,7 +1384,7 @@ export function CommissionBreakdown() {
                 </div>
 
                 {/* Agent empty state or ledger */}
-                {!appliedPlans[selectedAgent.agent.id] ? (
+                {!selectedAgentIsExternal && !appliedPlans[selectedAgent.agent.id] ? (
                   <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-center bg-muted/5">
                     <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <CircleDollarSign className="size-6" />
@@ -1013,6 +1419,30 @@ export function CommissionBreakdown() {
                     <Info className="size-3.5 text-blue-500" />
                     <span>{flowNote}</span>
                   </div>
+                  {selectedAgentIsExternal && (
+                    <Alert className="mb-4 border border-primary/15 bg-primary/[0.04] px-3 py-2">
+                      <AlertDescription className="text-[11px] leading-5 text-foreground/80">
+                        Manual external agent. No Radius commission plan or fee automation. Split and payout stay manual until Biju confirms rules.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {selectedCapStatus !== "none" && (
+                    <Alert className={cn(
+                      "mb-4 border px-3 py-2",
+                      selectedCapStatus === "reached"
+                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                        : "border-orange-200 bg-orange-50 text-orange-900"
+                    )}>
+                      <AlertDescription className="text-[11px] leading-5">
+                        <span className="font-semibold">
+                          {selectedCapStatus === "reached" ? "Cap reached." : "Cap almost reached."}
+                        </span>{" "}
+                        {selectedCapStatus === "reached"
+                          ? `This deal uses capped split logic, so payout may be lower than straight calculation. ${currency(selectedCapUsed)} used of ${currency(selectedCapAmount)} cap.`
+                          : `${currency(selectedCapRemaining)} remaining on ${currency(selectedCapAmount)} cap. If this deal crosses cap, split math adjusts automatically.`}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
                     <div className="min-w-[120px] text-right">
@@ -1020,24 +1450,88 @@ export function CommissionBreakdown() {
                     </div>
                   </div>
                   {!isAgent && !isLocked && (
+                  <>
+                  {(preSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => (
+                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <DeductionValue
+                            value={ded.amount}
+                            onChange={(v) => setPreSplitDeductions((prev) => ({
+                              ...prev,
+                              [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
+                            }))}
+                          />
+                        <button
+                          onClick={() => setPreSplitDeductions((prev) => ({
+                            ...prev,
+                            [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
+                          }))}
+                          className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                          tabIndex={-1}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {showInlineAgentPreSplitDraft && (
+                    <div className="pt-1">
+                      <InlineDeductionDraftRow
+                        label={inlineAgentPreSplitLabel}
+                        amount={inlineAgentPreSplitAmount}
+                        labelPlaceholder="Fee name"
+                        onLabelChange={setInlineAgentPreSplitLabel}
+                        onAmountChange={setInlineAgentPreSplitAmount}
+                        onSave={handleInlineAgentPreSplitSave}
+                        onCancel={resetInlineAgentPreSplitDraft}
+                      />
+                    </div>
+                  )}
                   <div className="pt-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineAgentPreSplitDraft(true)}>
                       <Plus className="size-3.5 mr-1" />Pre-commission deduction
                     </Button>
                   </div>
+                  </>
                   )}
                   <Separator className="my-3" />
 
                   <div className="flex items-start justify-between py-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Split</p>
-                      <p className="text-xs text-muted-foreground">0% of remaining balance</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCapStatus === "reached"
+                          ? "Adjusted by cap logic"
+                          : selectedCapStatus === "near"
+                            ? `Cap warning: ${currency(selectedCapRemaining)} left`
+                            : "0% of remaining balance"}
+                      </p>
                     </div>
                     <div className="min-w-[120px] text-right">
                       <EditableValue value={selectedAgent.split} onChange={(v) => setAgentField("split", v)} readOnly={isAgent || isLocked} />
                     </div>
                   </div>
-                  <Separator className="my-3" />
+                  {selectedAgent.planFixedFee > 0 && (
+                    <>
+                      <div className="group flex items-center justify-between py-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs text-muted-foreground">Plan fixed fee</p>
+                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">
+                            {selectedPlan?.name ?? "Plan"}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+                          {currency(selectedAgent.planFixedFee)}
+                        </span>
+                      </div>
+                      <Separator className="my-3" />
+                    </>
+                  )}
+                  {selectedAgent.planFixedFee <= 0 && <Separator className="my-3" />}
 
                   {/* Post-split deductions */}
                   <div className="py-2">
@@ -1056,17 +1550,23 @@ export function CommissionBreakdown() {
                           <DeductionValue
                             value={ded.amount}
                             readOnly={dedReadOnly}
-                            onChange={(v) => setPostSplitDeductions((prev) => ({
-                              ...prev,
-                              [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
-                            }))}
+                            onChange={(v) => {
+                              setPostSplitDeductions((prev) => ({
+                                ...prev,
+                                [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
+                              }));
+                              logActivity(`Updated ${ded.name} for ${selectedAgent.agent.name} to ${currency(v)}.`);
+                            }}
                           />
                           {canDelete && (
                             <button
-                              onClick={() => setPostSplitDeductions((prev) => ({
-                                ...prev,
-                                [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
-                              }))}
+                              onClick={() => {
+                                setPostSplitDeductions((prev) => ({
+                                  ...prev,
+                                  [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
+                                }));
+                                logActivity(`Removed ${ded.name} from ${selectedAgent.agent.name}.`);
+                              }}
                               className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
                               tabIndex={-1}
                             >
@@ -1133,26 +1633,16 @@ export function CommissionBreakdown() {
                       <p className="text-xs font-medium text-muted-foreground">Comment for Team Lead</p>
                     </div>
                     {/* Comment history */}
-                    {commentHistory.length > 0 && (
+                    {activityFeed.length > 0 && (
                       <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 max-h-[180px] overflow-y-auto">
-                        {commentHistory.map((c) => (
-                          <div key={c.id} className="flex gap-2">
-                            <Avatar className="size-6 shrink-0 mt-0.5">
-                              <AvatarFallback className={`text-[10px] font-semibold ${(roleMeta[c.role] ?? roleMeta.agent).avatar}`}>{initials(c.author)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
-                                <span className={`rounded-full border px-1.5 py-0 text-[9px] font-medium ${(roleMeta[c.role] ?? roleMeta.agent).badge}`}>{(roleMeta[c.role] ?? roleMeta.agent).label}</span>
-                                <span className="text-[10px] text-muted-foreground">·</span>
-                                <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
-                            </div>
-                          </div>
-                        ))}
+                        {renderActivityItems(activityPreview)}
                       </div>
                     )}
+                    <div className="flex justify-end">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
+                        View all
+                      </Button>
+                    </div>
                     <div className="relative">
                       <Textarea
                         value={agentComment}
@@ -1197,13 +1687,6 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      {!isAgent && !isLocked && (
-                        <>
-                          <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-xs text-primary border-primary" onClick={() => setShowAwardDialog(true)}>
-                            <Sliders className="size-3" />Award allocation
-                          </Button>
-                        </>
-                      )}
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
@@ -1224,12 +1707,6 @@ export function CommissionBreakdown() {
                 </div>
 
                 <div className="px-5 py-4">
-                  {/* Tentative notice */}
-                  <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
-                    <Info className="size-3.5 text-blue-500" />
-                    <span>{flowNote}</span>
-                  </div>
-
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Income</p>
                     <div className="min-w-[120px] text-right">
@@ -1248,20 +1725,26 @@ export function CommissionBreakdown() {
                           <DeductionValue
                             value={ded.amount}
                             readOnly={false}
-                            onChange={(v) => setSideGrossDeductions((prev) => ({
-                              ...prev,
-                              [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
-                            }))}
+                            onChange={(v) => {
+                              setSideGrossDeductions((prev) => ({
+                                ...prev,
+                                [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
+                              }));
+                              logActivity(`Updated ${ded.name} on ${activeSide.title} to ${currency(v)}.`);
+                            }}
                           />
                         ) : (
                           <span className="text-xs text-muted-foreground tabular-nums min-w-[80px] text-right">{currency(ded.amount)}</span>
                         )}
                         {!isAgent && !isLocked && (
                           <button
-                            onClick={() => setSideGrossDeductions((prev) => ({
-                              ...prev,
-                              [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
-                            }))}
+                            onClick={() => {
+                              setSideGrossDeductions((prev) => ({
+                                ...prev,
+                                [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
+                              }));
+                              logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
+                            }}
                             className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
                             tabIndex={-1}
                           >
@@ -1271,6 +1754,19 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                   ))}
+                  {showInlineSidePreSplitDraft && (
+                    <div className="pt-1">
+                      <InlineDeductionDraftRow
+                        label={inlineSidePreSplitLabel}
+                        amount={inlineSidePreSplitAmount}
+                        labelPlaceholder="Fee name"
+                        onLabelChange={setInlineSidePreSplitLabel}
+                        onAmountChange={setInlineSidePreSplitAmount}
+                        onSave={handleInlineSidePreSplitSave}
+                        onCancel={resetInlineSidePreSplitDraft}
+                      />
+                    </div>
+                  )}
                   {isAgent && (sideGrossDeductions[activeSide.id] ?? []).length === 0 && (
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
@@ -1280,7 +1776,7 @@ export function CommissionBreakdown() {
                   )}
                   {!isAgent && !isLocked && (
                   <div className="pt-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePreSplitDraft(true)}>
                       <Plus className="size-3.5 mr-1" />Pre-commission deduction
                     </Button>
                   </div>
@@ -1294,9 +1790,86 @@ export function CommissionBreakdown() {
                       <p className="text-base font-bold text-foreground tabular-nums">{currency(totalAgentPayout)}</p>
                     </div>
                   </div>
+                  {(sidePostSplitDeductions[activeSide.id] ?? []).map((ded) => (
+                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        {ded.slidingScale && (
+                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Sliding scale</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DeductionValue
+                          value={ded.amount}
+                          readOnly={isAgent || isLocked}
+                          onChange={(v) => {
+                            setSidePostSplitDeductions((prev) => ({
+                              ...prev,
+                              [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
+                            }));
+                            logActivity(`Updated ${ded.name} on ${activeSide.title} to ${currency(v)}.`);
+                          }}
+                        />
+                        {!isAgent && !isLocked && (
+                          <button
+                            onClick={() => {
+                              setSidePostSplitDeductions((prev) => ({
+                                ...prev,
+                                [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
+                              }));
+                              logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
+                            }}
+                            className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                            tabIndex={-1}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {showInlineSidePostSplitDraft && (
+                    <div className="pt-2">
+                      <div className="rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={inlineSidePostSplitLabel}
+                            onChange={(e) => setInlineSidePostSplitLabel(e.target.value)}
+                            placeholder="Fee name"
+                            className="h-8 border-input bg-background text-xs"
+                          />
+                          <div className="relative w-28 shrink-0">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                            <Input
+                              value={inlineSidePostSplitAmount}
+                              onChange={(e) => setInlineSidePostSplitAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                              placeholder="0"
+                              inputMode="decimal"
+                              className="h-8 border-input bg-background pl-6 text-right text-xs"
+                            />
+                          </div>
+                          <Button size="sm" className="h-8 shrink-0 px-3 text-xs" disabled={!inlineSidePostSplitLabel.trim() || (!inlineSidePostSplitAmount.trim() && !(inlineSidePostSplitSlidingScale && inlineSidePostSplitTiers.length > 0))} onClick={handleInlineSidePostSplitSave}>
+                            Add
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-xs" onClick={resetInlineSidePostSplitDraft}>
+                            Cancel
+                          </Button>
+                        </div>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowSlidingScaleDialog(true)}
+                            className="text-[11px] font-medium text-[#5A5FF2] underline underline-offset-2"
+                          >
+                            {inlineSidePostSplitSlidingScale ? "Sliding scale configured" : "Sliding scale"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {!isLocked && (
                     <div className="pt-1">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("post-split")}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePostSplitDraft(true)}>
                         <Plus className="size-3.5 mr-1" />Post-commission deduction
                       </Button>
                     </div>
@@ -1318,6 +1891,28 @@ export function CommissionBreakdown() {
                     </div>
                   </div>
 
+                  {(canEditAll || activeSideRadiusFee > 0) && (
+                    <div className="mt-3 rounded-xl border bg-card px-4 py-3.5">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Radius Fee</p>
+                        </div>
+                        <div className="text-right">
+                          <EditableValue
+                            value={activeSideRadiusFee}
+                            readOnly={!canEditAll || isLocked}
+                            onChange={(value) => {
+                              setSideRadiusFees((prev) => ({
+                                ...prev,
+                                [activeSide.id]: value,
+                              }));
+                              logActivity(`Updated Radius Fee for ${activeSide.title} to ${currency(value)}.`);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <Separator className="my-4" />
 
@@ -1327,26 +1922,16 @@ export function CommissionBreakdown() {
                       <p className="text-xs font-medium text-muted-foreground">Comment for Team Lead</p>
                     </div>
                     {/* Comment history */}
-                    {commentHistory.length > 0 && (
+                    {activityFeed.length > 0 && (
                       <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 max-h-[180px] overflow-y-auto">
-                        {commentHistory.map((c) => (
-                          <div key={c.id} className="flex gap-2">
-                            <Avatar className="size-6 shrink-0 mt-0.5">
-                              <AvatarFallback className={`text-[10px] font-semibold ${(roleMeta[c.role] ?? roleMeta.agent).avatar}`}>{initials(c.author)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] font-semibold text-foreground">{c.author}</span>
-                                <span className={`rounded-full border px-1.5 py-0 text-[9px] font-medium ${(roleMeta[c.role] ?? roleMeta.agent).badge}`}>{(roleMeta[c.role] ?? roleMeta.agent).label}</span>
-                                <span className="text-[10px] text-muted-foreground">·</span>
-                                <span className="text-[10px] text-muted-foreground">{c.timestamp}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
-                            </div>
-                          </div>
-                        ))}
+                        {renderActivityItems(activityPreview)}
                       </div>
                     )}
+                    <div className="flex justify-end">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
+                        View all
+                      </Button>
+                    </div>
                     <div className="relative">
                       <Textarea
                         value={agentComment}
@@ -1403,12 +1988,15 @@ export function CommissionBreakdown() {
               onClick={() => {
                 if (showProcessDialog) {
                   setTxStatus("processed");
+                  logActivity("Confirmed CDA and generated final output.");
                   toast.success("CDA generated");
                 } else if (role === "team_lead") {
                   setTxStatus("team_lead_confirmed");
+                  logActivity("Confirmed CDA as Team Lead.");
                   toast.success("Confirmed by Team Lead");
                 } else {
                   setTxStatus("agent_confirmed");
+                  logActivity("Confirmed CDA as Agent.");
                   toast.success("Confirmed by Agent");
                 }
                 setRejectionNote("");
@@ -1575,7 +2163,7 @@ export function CommissionBreakdown() {
             <Button
               variant="destructive"
               disabled={!rejectInput.trim()}
-              onClick={() => { setTxStatus("draft"); setRejectionNote(rejectInput.trim()); setRejectInput(""); setShowRejectDialog(false); toast.warning("Returned to agent for edits"); }}
+              onClick={() => { setTxStatus("draft"); setRejectionNote(rejectInput.trim()); logActivity(`Returned CDA for edits: ${rejectInput.trim()}`); setRejectInput(""); setShowRejectDialog(false); toast.warning("Returned to agent for edits"); }}
             >
               Return
             </Button>
@@ -1661,6 +2249,82 @@ export function CommissionBreakdown() {
         hideTimingField={feeDialogTiming === "pre-split"}
         hidePostSplitBase={feeDialogTiming === "pre-split"}
       />
+
+      <Dialog open={showSlidingScaleDialog} onOpenChange={setShowSlidingScaleDialog}>
+        <DialogContent className="gap-0 p-0 sm:max-w-xl">
+          <DialogHeader className="border-b px-6 pb-4 pt-5">
+            <DialogTitle>Sliding scale</DialogTitle>
+            <DialogDescription>Configure tiered fee values for this post-commission deduction.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-6 py-4">
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label htmlFor="inline-sliding-scale" className="text-sm">Enable sliding scale</Label>
+                <p className="text-xs text-muted-foreground">Use different fee amounts by range.</p>
+              </div>
+              <Checkbox
+                id="inline-sliding-scale"
+                checked={inlineSidePostSplitSlidingScale}
+                onCheckedChange={(checked) => setInlineSidePostSplitSlidingScale(Boolean(checked))}
+              />
+            </div>
+            {inlineSidePostSplitSlidingScale && (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <SlidingScaleTierRows
+                  tiers={inlineSidePostSplitTiers}
+                  onChange={setInlineSidePostSplitTiers}
+                />
+                <div className="flex items-center gap-4 pt-1">
+                  <div className="flex flex-1 items-center gap-2">
+                    <Checkbox
+                      id="inline-not-less-than"
+                      checked={inlineSidePostSplitNotLessThan.enabled}
+                      onCheckedChange={(checked) => setInlineSidePostSplitNotLessThan((prev) => ({ ...prev, enabled: Boolean(checked) }))}
+                    />
+                    <Label htmlFor="inline-not-less-than" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+                      Not less than
+                    </Label>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input
+                        className="h-9 pl-7 text-sm"
+                        value={inlineSidePostSplitNotLessThan.amount}
+                        inputMode="decimal"
+                        disabled={!inlineSidePostSplitNotLessThan.enabled}
+                        onChange={(e) => setInlineSidePostSplitNotLessThan((prev) => ({ ...prev, amount: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-1 items-center gap-2">
+                    <Checkbox
+                      id="inline-not-to-exceed"
+                      checked={inlineSidePostSplitNotToExceed.enabled}
+                      onCheckedChange={(checked) => setInlineSidePostSplitNotToExceed((prev) => ({ ...prev, enabled: Boolean(checked) }))}
+                    />
+                    <Label htmlFor="inline-not-to-exceed" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+                      Not to exceed
+                    </Label>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input
+                        className="h-9 pl-7 text-sm"
+                        value={inlineSidePostSplitNotToExceed.amount}
+                        inputMode="decimal"
+                        disabled={!inlineSidePostSplitNotToExceed.enabled}
+                        onChange={(e) => setInlineSidePostSplitNotToExceed((prev) => ({ ...prev, amount: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setShowSlidingScaleDialog(false)}>Close</Button>
+            <Button onClick={() => setShowSlidingScaleDialog(false)}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Company Dollar Contribution dialog */}
       <Dialog open={showCDCDialog} onOpenChange={setShowCDCDialog}>
@@ -1819,7 +2483,7 @@ export function CommissionBreakdown() {
           </div>
           <DialogFooter className="border-t px-6 py-4">
             <Button variant="outline" onClick={() => setShowAwardDialog(false)}>Cancel</Button>
-            <Button onClick={() => { toast.success("Award distribution saved"); setShowAwardDialog(false); }}>Save</Button>
+            <Button onClick={() => { logActivity("Updated award allocation."); toast.success("Award distribution saved"); setShowAwardDialog(false); }}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1856,23 +2520,21 @@ export function CommissionBreakdown() {
                 {CONTACTS.filter((c) => !agentSearch || c.name.toLowerCase().includes(agentSearch.toLowerCase())).map((contact, i, arr) => (
                   <button
                     key={contact.id}
-                    onClick={() => {
-                      const sideAgents = sidesData.find((s) => s.id === addAgentSideId)?.agents ?? [];
-                      const equal = Math.floor(100 / (sideAgents.length + 1));
-                      const allocs: Record<string, number> = {};
-                      sideAgents.forEach((a) => { allocs[a.id] = equal; });
-                      allocs[contact.id] = 100 - equal * sideAgents.length;
-                      setAgentAllocations(allocs);
-                      setPendingAgent(contact);
-                    }}
+                    onClick={() => seedPendingAgent(contact)}
                     className={cn("flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted/60", i < arr.length - 1 && "border-b")}
                   >
                     <span>{contact.name}</span>
                     <span className="text-xs text-muted-foreground">contact</span>
                   </button>
                 ))}
-                <button className="flex w-full items-center px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted/60">
-                  Create new…
+                <button
+                  onClick={() => {
+                    resetExternalAgentForm();
+                    setShowExternalAgentDialog(true);
+                  }}
+                  className="flex w-full items-center px-4 py-2.5 text-left text-sm font-medium text-[#5A5FF2] hover:bg-[#5A5FF2]/5"
+                >
+                  + Add external agent manually
                 </button>
               </div>
             </div>
@@ -1880,10 +2542,17 @@ export function CommissionBreakdown() {
             /* Step 2 — allocation */
             <div className="px-6 py-4">
               <div className="mb-3 flex items-center justify-end">
-                <span className="text-xs text-muted-foreground">Sales volume: <span className="font-medium text-primary">Auto-calculated</span></span>
+                <span className="text-xs text-muted-foreground">
+                  {pendingAgent?.external ? "Manual split required" : <>Sales volume: <span className="font-medium text-primary">Auto-calculated</span></>}
+                </span>
               </div>
+              {pendingAgent?.external && (
+                <div className="mb-3 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/80">
+                  External agent. Auto commission-plan logic stays off. Enter split manually.
+                </div>
+              )}
               <div className="space-y-3">
-                {[...(sidesData.find((s) => s.id === addAgentSideId)?.agents ?? []), { id: pendingAgent.id, name: pendingAgent.name, role: "Agent", payout: 0 }].map((agent) => {
+                {[...(sidesData.find((s) => s.id === addAgentSideId)?.agents ?? []), { id: pendingAgent.id, name: pendingAgent.name, role: pendingAgent.external ? "External agent" : "Agent", payout: 0, external: pendingAgent.external }].map((agent) => {
                   const pct = agentAllocations[agent.id] ?? 0;
                   return (
                     <div key={agent.id} className="flex items-center gap-3">
@@ -1916,12 +2585,120 @@ export function CommissionBreakdown() {
               if (!pendingAgent) return;
               setSidesData((prev) => prev.map((side) => side.id !== addAgentSideId ? side : {
                 ...side,
-                agents: [...side.agents, { id: pendingAgent.id, name: pendingAgent.name, role: "Agent", payout: 0 }],
+                agents: [...side.agents, { id: pendingAgent.id, name: pendingAgent.name, role: pendingAgent.external ? "External agent" : "Agent", payout: 0, email: pendingAgent.email, phone: pendingAgent.phone, brokerageName: pendingAgent.brokerageName, brokerageLicenseNumber: pendingAgent.brokerageLicenseNumber, brokerageStreetAddress: pendingAgent.brokerageStreetAddress, brokerageUnit: pendingAgent.brokerageUnit, brokerageCity: pendingAgent.brokerageCity, brokerageState: pendingAgent.brokerageState, brokerageZip: pendingAgent.brokerageZip, representing: pendingAgent.representing, external: pendingAgent.external }],
               }));
+              logActivity(`Added ${pendingAgent.name} to ${addAgentSideId === "buyer" ? "Buying Side" : "Listing Side"}.`);
               toast.success(`${pendingAgent.name} added`);
               setShowAddAgentDialog(false);
             }}>
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showExternalAgentDialog} onOpenChange={(open) => { setShowExternalAgentDialog(open); if (!open) resetExternalAgentForm(); }}>
+        <DialogContent className="gap-0 p-0 sm:max-w-4xl">
+          <DialogHeader className="border-b px-6 pb-4 pt-5">
+            <DialogTitle>{addAgentSideId === "buyer" ? "Buyer Agent Information" : "Listing Agent Information"}</DialogTitle>
+            <DialogDescription>
+              Add external agent manually. Keep fields minimal. Radius plan and fee automation stay off.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 px-6 py-5">
+            <div className="rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-[11px] text-foreground/80">
+              If agent is part of Radius, use search list. Use this form only for external agents.
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="external-first-name">First Name<span className="text-destructive">*</span></Label>
+                <Input id="external-first-name" value={externalAgentForm.firstName} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, firstName: e.target.value }))} placeholder="Ashuthosh" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-last-name">Last Name<span className="text-destructive">*</span></Label>
+                <Input id="external-last-name" value={externalAgentForm.lastName} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, lastName: e.target.value }))} placeholder="iOSacc" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-email">Email<span className="text-destructive">*</span></Label>
+                <Input id="external-email" value={externalAgentForm.email} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="agent@brokerage.com" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-phone">Phone</Label>
+                <Input id="external-phone" value={externalAgentForm.phone} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="177-288-2900" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-license">Agent License Number</Label>
+                <Input id="external-license" value={externalAgentForm.agentLicenseNumber} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, agentLicenseNumber: e.target.value }))} placeholder="Agent License Number" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage">Brokerage Name</Label>
+                <Input id="external-brokerage" value={externalAgentForm.brokerageName} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageName: e.target.value }))} placeholder="Avengers DBA" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage-license">Brokerage License Number</Label>
+                <Input id="external-brokerage-license" value={externalAgentForm.brokerageLicenseNumber} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageLicenseNumber: e.target.value }))} placeholder="270601052607" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage-street">Brokerage Street Address</Label>
+                <Input id="external-brokerage-street" value={externalAgentForm.brokerageStreetAddress} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageStreetAddress: e.target.value }))} placeholder="123 Mission Street" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage-unit">Brokerage Apt/Unit/Suite</Label>
+                <Input id="external-brokerage-unit" value={externalAgentForm.brokerageUnit} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageUnit: e.target.value }))} placeholder="Brokerage Apt/Unit/Suite" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage-city">Brokerage City</Label>
+                <Input id="external-brokerage-city" value={externalAgentForm.brokerageCity} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageCity: e.target.value }))} placeholder="San Francisco" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage-state">Brokerage State</Label>
+                <Input id="external-brokerage-state" value={externalAgentForm.brokerageState} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageState: e.target.value }))} placeholder="California" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-brokerage-zip">Brokerage Zip Code</Label>
+                <Input id="external-brokerage-zip" value={externalAgentForm.brokerageZip} onChange={(e) => setExternalAgentForm((prev) => ({ ...prev, brokerageZip: e.target.value }))} placeholder="94105" className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="external-representing">Representing</Label>
+                <Select value={externalAgentForm.representing} onValueChange={(value) => setExternalAgentForm((prev) => ({ ...prev, representing: value }))}>
+                  <SelectTrigger id="external-representing" className="h-10">
+                    <SelectValue placeholder="Select side" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Buyer">Buyer</SelectItem>
+                    <SelectItem value="Seller">Seller</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setShowExternalAgentDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-[#5A5FF2] text-white hover:bg-[#5A5FF2]/90"
+              disabled={!externalAgentForm.firstName.trim() || !externalAgentForm.lastName.trim() || !externalAgentForm.email.trim()}
+              onClick={() => {
+                const agent: PendingAgent = {
+                  id: `ext-${Date.now()}`,
+                  name: `${externalAgentForm.firstName.trim()} ${externalAgentForm.lastName.trim()}`.trim(),
+                  email: externalAgentForm.email.trim(),
+                  phone: externalAgentForm.phone.trim(),
+                  brokerageName: externalAgentForm.brokerageName.trim(),
+                  brokerageLicenseNumber: externalAgentForm.brokerageLicenseNumber.trim(),
+                  brokerageStreetAddress: externalAgentForm.brokerageStreetAddress.trim(),
+                  brokerageUnit: externalAgentForm.brokerageUnit.trim(),
+                  brokerageCity: externalAgentForm.brokerageCity.trim(),
+                  brokerageState: externalAgentForm.brokerageState.trim(),
+                  brokerageZip: externalAgentForm.brokerageZip.trim(),
+                  representing: externalAgentForm.representing,
+                  external: true,
+                };
+                seedPendingAgent(agent);
+                setShowExternalAgentDialog(false);
+                resetExternalAgentForm();
+              }}
+            >
+              Save & Proceed
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1944,6 +2721,7 @@ export function CommissionBreakdown() {
             <Button onClick={() => {
               if (!pendingPlanChange) return;
               setAppliedPlans((p) => ({ ...p, [pendingPlanChange.agentId]: pendingPlanChange.plan.id }));
+              logActivity(`Applied commission plan ${pendingPlanChange.plan.name}.`);
               toast.success(`"${pendingPlanChange.plan.name}" applied`);
               setPendingPlanChange(null);
             }}>
@@ -1952,6 +2730,20 @@ export function CommissionBreakdown() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={showActivitySheet} onOpenChange={setShowActivitySheet}>
+        <SheetContent side="right" className="w-full sm:max-w-xl">
+          <SheetHeader className="border-b px-5 py-4">
+            <SheetTitle className="text-base">CDA Comments & Activity</SheetTitle>
+            <SheetDescription>All notes and breakdown changes for this CDA.</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="space-y-3">
+              {renderActivityItems([...activityFeed].reverse())}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Gross info dialog */}
       <Dialog open={showGrossInfo} onOpenChange={setShowGrossInfo}>
