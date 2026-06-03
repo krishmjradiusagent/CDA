@@ -5,9 +5,7 @@ import {
   Building2,
   ChevronRight,
   Download,
-  HelpCircle,
   Info,
-  MessageSquare,
   Pencil,
   Printer,
   Plus,
@@ -434,7 +432,6 @@ export function CommissionBreakdown() {
   const [agentComment, setAgentComment] = useState("");
   type ActivityEntry = { id: string; author: string; role: Role; text: string; timestamp: string; kind: "comment" | "activity" };
   type ActivityView = "comments" | "activity" | "all";
-  type CollapsedActivityEntry = ActivityEntry & { count?: number };
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
     { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: "CDA draft created for 1284 Willow Creek Dr.", timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
     { id: "ac2", author: "Jessica Hall", role: "radius_auditing", text: "Award allocation updated for Listing Side to 1%.", timestamp: "May 12, 2026 · 10:14 AM", kind: "activity" },
@@ -487,27 +484,7 @@ export function CommissionBreakdown() {
   }
   const latestFeed = [...activityFeed].reverse();
   const commentFeed = latestFeed.filter((entry) => entry.kind === "comment");
-  const commentsPreview = commentFeed.slice(0, 3);
-  function collapseActivityEntries(entries: ActivityEntry[]) {
-    return entries.reduce<CollapsedActivityEntry[]>((acc, entry) => {
-      const last = acc[acc.length - 1];
-      if (
-        entry.kind === "activity" &&
-        last &&
-        last.kind === "activity" &&
-        last.author === entry.author &&
-        last.role === entry.role &&
-        last.text === entry.text
-      ) {
-        last.count = (last.count ?? 1) + 1;
-        return acc;
-      }
-      acc.push({ ...entry, count: 1 });
-      return acc;
-    }, []);
-  }
-  const collapsedActivityFeed = collapseActivityEntries(latestFeed.filter((entry) => entry.kind === "activity"));
-  const collapsedAllFeed = collapseActivityEntries(latestFeed);
+  const activityOnlyFeed = latestFeed.filter((entry) => entry.kind === "activity");
   const [role, setRole] = useState<Role>("radius_auditing");
   const [selectedSide, setSelectedSide] = useState<SideId>("listing");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -859,52 +836,154 @@ export function CommissionBreakdown() {
     (role === "radius_auditing" && txStatus === "team_lead_confirmed");
   const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
 
-  function renderCommentItems(items: ActivityEntry[]) {
-    return items.map((entry, index) => (
-      <div key={entry.id} className="flex gap-3">
-        <div className="relative flex w-7 shrink-0 justify-center">
-          <Avatar className="size-6 mt-0.5">
-            <AvatarFallback className={`text-[10px] font-semibold ${(roleMeta[entry.role] ?? roleMeta.agent).avatar}`}>
-              {initials(entry.author)}
-            </AvatarFallback>
-          </Avatar>
-          {index < items.length - 1 && (
-            <div className="absolute top-7 bottom-[-14px] w-px bg-border" />
-          )}
-        </div>
-        <div className="min-w-0 space-y-1.5 pb-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-foreground">{entry.author}</span>
-            <span className={`rounded-full border px-1.5 py-0 text-[9px] font-medium ${(roleMeta[entry.role] ?? roleMeta.agent).badge}`}>
-              {(roleMeta[entry.role] ?? roleMeta.agent).label}
-            </span>
-            <span className="text-[10px] text-muted-foreground">·</span>
-            <span className="text-[10px] text-muted-foreground">{entry.timestamp}</span>
-          </div>
-          <p className="text-xs leading-relaxed text-foreground/80">{entry.text}</p>
-        </div>
+  function getActivityNode(entry: ActivityEntry) {
+    if (entry.kind === "comment") {
+      return (
+        <Avatar className="size-8 border border-border/70 bg-background shadow-sm">
+          <AvatarFallback className={`text-[11px] font-semibold ${(roleMeta[entry.role] ?? roleMeta.agent).avatar}`}>
+            {initials(entry.author)}
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+
+    const iconClassName = entry.text.toLowerCase().includes("confirmed")
+      ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+      : entry.text.toLowerCase().includes("updated")
+        ? "bg-amber-50 text-amber-600 border-amber-100"
+        : "bg-blue-50 text-blue-600 border-blue-100";
+
+    return (
+      <div className={cn("mt-0.5 flex size-8 items-center justify-center rounded-full border shadow-sm", iconClassName)}>
+        {entry.text.toLowerCase().includes("confirmed") ? (
+          <Shield className="size-3.5" />
+        ) : entry.text.toLowerCase().includes("updated") ? (
+          <RefreshCw className="size-3.5" />
+        ) : (
+          <Plus className="size-3.5" />
+        )}
       </div>
-    ));
+    );
   }
-  function renderCollapsedActivityItems(items: CollapsedActivityEntry[]) {
-    return items.map((entry) => (
-      <div key={entry.id} className="flex items-start gap-3 rounded-lg border border-border/60 bg-background px-3 py-2.5">
-        <div className="mt-1 size-2 shrink-0 rounded-full bg-primary/55" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-xs font-medium text-foreground">{entry.text}</p>
-            {(entry.count ?? 1) > 1 && (
-              <span className="rounded-full border border-border bg-muted px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
-                {entry.count}x
-              </span>
+
+  function renderTimelineItems(items: ActivityEntry[]) {
+    return items.map((entry, index) => {
+      const meta = roleMeta[entry.role] ?? roleMeta.agent;
+      const isComment = entry.kind === "comment";
+
+      return (
+        <div key={entry.id} className="relative flex gap-4">
+          <div className="relative flex w-10 shrink-0 justify-center">
+            {getActivityNode(entry)}
+            {index < items.length - 1 && (
+              <div className="absolute top-9 bottom-[-16px] w-px bg-border/80" />
             )}
           </div>
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            {entry.author} · {(roleMeta[entry.role] ?? roleMeta.agent).label} · {entry.timestamp}
-          </p>
+
+          <div className="min-w-0 flex-1 pb-4">
+            {isComment ? (
+              <div className="rounded-[22px] border border-border/80 bg-background px-5 py-4 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-foreground">{entry.author}</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.badge}`}>
+                    {meta.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground">{entry.timestamp}</span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-foreground/85">{entry.text}</p>
+              </div>
+            ) : (
+              <div className="pt-1">
+                <p className="text-sm leading-6 text-foreground">
+                  <span className="font-semibold">{entry.author}</span>{" "}
+                  <span className="text-foreground/80">{entry.text}</span>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {meta.label} · {entry.timestamp}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    });
+  }
+
+  function renderActivitySurface(options?: { preview?: boolean; inSheet?: boolean }) {
+    const preview = options?.preview ?? false;
+    const inSheet = options?.inSheet ?? false;
+    const items =
+      activityView === "comments"
+        ? commentFeed
+        : activityView === "activity"
+          ? activityOnlyFeed
+          : latestFeed;
+    const visibleItems = preview ? items.slice(0, 4) : items;
+
+    return (
+      <div className={cn("space-y-3", inSheet ? "pt-1" : "pt-0")}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight text-foreground">Comments</h3>
+            {!preview && (
+              <p className="mt-1 text-xs text-muted-foreground">Comments and CDA changes using current breakdown data.</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
+              <SelectTrigger className="h-8 rounded-full border-border/80 bg-background px-3 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="comments">Comments</SelectItem>
+                <SelectItem value="activity">Activity</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+            {preview && (
+              <Button variant="ghost" size="sm" className="h-8 rounded-full px-3 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
+                View all
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {visibleItems.length > 0 ? (
+          <div className="space-y-0">{renderTimelineItems(visibleItems)}</div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border/80 bg-background px-4 py-6 text-sm text-muted-foreground">
+            No history yet.
+          </div>
+        )}
+
+        <div className="rounded-[24px] border border-border/80 bg-background px-4 py-2.5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Input
+              value={agentComment}
+              onChange={(e) => setAgentComment(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSendComment();
+                }
+              }}
+              placeholder="Add comment"
+              className="h-10 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+            />
+            <div className="flex shrink-0 items-center gap-1 text-muted-foreground">
+              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm">@</Button>
+              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm font-semibold">B</Button>
+              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm italic">I</Button>
+              <Button variant="ghost" size="icon" className="size-8 rounded-full text-sm underline">U</Button>
+              <Button variant="ghost" size="icon" className="size-8 rounded-full text-lg" disabled={!agentComment.trim()} onClick={handleSendComment}>
+                <Send className="size-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-    ));
+    );
   }
 
   const editableSnapshot = useMemo(
@@ -1572,52 +1651,7 @@ export function CommissionBreakdown() {
                   </div>
                   <Separator className="my-3" />
 
-                  <div className="space-y-3 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <MessageSquare className="size-3 text-muted-foreground" />
-                      <p className="text-xs font-medium text-muted-foreground">Comment for Team Lead</p>
-                    </div>
-                    {commentsPreview.length > 0 ? (
-                      <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
-                        {renderCommentItems(commentsPreview)}
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-border bg-muted/10 px-3 py-2.5 text-[11px] text-muted-foreground">
-                        No comments yet.
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-muted-foreground">Recent discussion only</p>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
-                        View all
-                      </Button>
-                    </div>
-                    <div className="relative">
-                      <Textarea
-                        value={agentComment}
-                        onChange={(e) => setAgentComment(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
-                        placeholder="Add a note about this breakdown…"
-                        rows={2}
-                        className="min-h-[60px] resize-none border border-input bg-background pr-10 text-xs placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1.5 bottom-1.5 size-7 text-[#5A5FF2] hover:bg-[#5A5FF2]/10 hover:text-[#5A5FF2] disabled:opacity-50"
-                        disabled={!agentComment.trim()}
-                        onClick={handleSendComment}
-                      >
-                        <Send className="size-3.5" />
-                      </Button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/60">Flag incorrect splits or add context before confirmation. Press Enter to send.</p>
-                  </div>
-                  <div className="flex items-center pb-4">
-                    <Button variant="ghost" size="sm" className="h-8 gap-2 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-                      <HelpCircle className="size-4" />Need help?
-                    </Button>
-                  </div>
+                  {renderActivitySurface({ preview: true })}
                   </div>
                 </>
               )}
@@ -1817,53 +1851,7 @@ export function CommissionBreakdown() {
 
                   <Separator className="my-4" />
 
-                  <div className="space-y-3 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <MessageSquare className="size-3 text-muted-foreground" />
-                      <p className="text-xs font-medium text-muted-foreground">Comment for Team Lead</p>
-                    </div>
-                    {/* Comment history */}
-                    {commentsPreview.length > 0 ? (
-                      <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
-                        {renderCommentItems(commentsPreview)}
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-border bg-muted/10 px-3 py-2.5 text-[11px] text-muted-foreground">
-                        No comments yet.
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-muted-foreground">Recent discussion only</p>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
-                        View all
-                      </Button>
-                    </div>
-                    <div className="relative">
-                      <Textarea
-                        value={agentComment}
-                        onChange={(e) => setAgentComment(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
-                        placeholder="Add a note about this breakdown…"
-                        rows={2}
-                        className="min-h-[60px] resize-none border border-input bg-background pr-10 text-xs placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1.5 bottom-1.5 size-7 text-[#5A5FF2] hover:bg-[#5A5FF2]/10 hover:text-[#5A5FF2] disabled:opacity-50"
-                        disabled={!agentComment.trim()}
-                        onClick={handleSendComment}
-                      >
-                        <Send className="size-3.5" />
-                      </Button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/60">Flag incorrect splits or add context before confirmation. Press Enter to send.</p>
-                  </div>
-                  <div className="flex items-center pb-4">
-                    <Button variant="ghost" size="sm" className="h-8 gap-2 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-                      <HelpCircle className="size-4" />Need help?
-                    </Button>
-                  </div>
+                  {renderActivitySurface({ preview: true })}
                 </div>
               </motion.div>
             )}
@@ -2552,57 +2540,13 @@ export function CommissionBreakdown() {
       <Sheet open={showActivitySheet} onOpenChange={setShowActivitySheet}>
         <SheetContent side="right" className="w-full sm:max-w-xl">
           <SheetHeader className="border-b px-5 py-4">
-            <div className="flex items-start justify-between gap-4 pr-8">
-              <div>
-                <SheetTitle className="text-base">CDA Comments & Activity</SheetTitle>
-                <SheetDescription>All notes and breakdown changes for this CDA.</SheetDescription>
-              </div>
-              <div className="w-32 shrink-0">
-                <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
-                  <SelectTrigger className="h-8 rounded-lg text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="comments">Comments</SelectItem>
-                    <SelectItem value="activity">Activity</SelectItem>
-                    <SelectItem value="all">All</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="pr-8">
+              <SheetTitle className="text-base">CDA Comments & Activity</SheetTitle>
+              <SheetDescription>All notes and breakdown changes for this CDA.</SheetDescription>
             </div>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            {activityView === "comments" && (
-              <div className="space-y-3 pt-1">
-                {commentFeed.length > 0 ? renderCommentItems(commentFeed) : (
-                  <div className="rounded-lg border border-dashed border-border bg-muted/10 px-3 py-2.5 text-[11px] text-muted-foreground">
-                    No comments yet.
-                  </div>
-                )}
-              </div>
-            )}
-            {activityView === "activity" && (
-              <div className="space-y-2 pt-1">
-                {collapsedActivityFeed.length > 0 ? renderCollapsedActivityItems(collapsedActivityFeed) : (
-                  <div className="rounded-lg border border-dashed border-border bg-muted/10 px-3 py-2.5 text-[11px] text-muted-foreground">
-                    No activity yet.
-                  </div>
-                )}
-              </div>
-            )}
-            {activityView === "all" && (
-              <div className="space-y-2 pt-1">
-                {collapsedAllFeed.length > 0 ? collapsedAllFeed.map((entry) => (
-                  entry.kind === "comment"
-                    ? renderCommentItems([entry])
-                    : renderCollapsedActivityItems([entry])
-                )) : (
-                  <div className="rounded-lg border border-dashed border-border bg-muted/10 px-3 py-2.5 text-[11px] text-muted-foreground">
-                    No history yet.
-                  </div>
-                )}
-              </div>
-            )}
+            {renderActivitySurface({ inSheet: true })}
           </div>
         </SheetContent>
       </Sheet>
