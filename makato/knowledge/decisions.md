@@ -64,3 +64,12 @@ This file tracks architectural and product decisions made during development.
      - **Radius fee to Radius, rest to Team**: Title splits — Radius fees → Radius, remainder → Team distributes to agents.
      - **Direct to all**: Title pays Radius fee → Radius, team fee → Team, agent commission → Agent directly.
 - **Status**: Captured — not yet implemented.
+
+---
+
+## Date: 2026-06-03
+### Decision: Isolate Activity Feed logs to View All drawer
+- **Context**: The main page comments section was displaying both audit trail activities and comments, causing clutter.
+- **Decision**: Filter the preview feed on the main page to show comments only. Show all audit activities and logs only within the side panel drawer when clicking "View all".
+- **Rationale**: Keeps the primary layout focused on direct agent/admin communications while retaining full audit transparency in the drawer.
+- **Status**: Final

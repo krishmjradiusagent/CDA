@@ -19,6 +19,9 @@ import {
   User,
   Users,
   X,
+  Radar,
+  Calendar,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -478,6 +481,23 @@ export function CommissionBreakdown() {
     setAgentComment("");
     toast.success("Comment sent");
   }
+  function renderCommentTrigger() {
+    return (
+      <button
+        type="button"
+        onClick={() => setShowActivitySheet(true)}
+        className="relative flex size-8 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label="Open comments"
+      >
+        <MessageCircleMore className="size-4" />
+        {hasCommentNotification && (
+          <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
+            1
+          </span>
+        )}
+      </button>
+    );
+  }
   const latestFeed = [...activityFeed].reverse();
   const commentFeed = latestFeed.filter((entry) => entry.kind === "comment");
   const activityOnlyFeed = latestFeed.filter((entry) => entry.kind === "activity");
@@ -502,7 +522,8 @@ export function CommissionBreakdown() {
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [statementNotes, setStatementNotes] = useState("");
   const [includeProgressInfo, setIncludeProgressInfo] = useState(false);
-  const [appliedPlans, setAppliedPlans] = useState<Record<string, string | null>>({});
+  const [appliedPlans, setAppliedPlans] = useState<Record<string, string | null>>({ a1: "p1" });
+  const [agentRadiusFees, setAgentRadiusFees] = useState<Record<string, number>>({});
   type TxStatus = "draft" | "agent_confirmed" | "team_lead_confirmed" | "processed" | "rejected";
   // txStatus drives confirmation flow: Agent confirms → Team Lead confirms → Admin processes
   const [txStatus, setTxStatus] = useState<TxStatus>("draft");
@@ -512,6 +533,7 @@ export function CommissionBreakdown() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [rejectInput, setRejectInput] = useState("");
+  const hasCommentNotification = Boolean(rejectionNote);
   const [expandedSideAgentId, setExpandedSideAgentId] = useState<string | null>(null);
   // Simple pre-split deduction for agent role (Credits / Referral Fees)
   const [showAgentPreSplitDialog, setShowAgentPreSplitDialog] = useState(false);
@@ -527,10 +549,6 @@ export function CommissionBreakdown() {
       { id: "sg2", name: "Referrals", amount: 50 },
     ],
     buyer: [],
-  });
-  const [sideRadiusFees, setSideRadiusFees] = useState<Record<SideId, number>>({
-    listing: 0,
-    buyer: 0,
   });
 
 
@@ -604,6 +622,24 @@ export function CommissionBreakdown() {
 
   const activeSide = sides.find((s) => s.id === selectedSide) ?? sides[0];
 
+  const getAgentRadiusFee = (agentId: string) => {
+    if (agentRadiusFees[agentId] !== undefined) {
+      return agentRadiusFees[agentId];
+    }
+    const planId = appliedPlans[agentId];
+    const plan = COMMISSION_PLANS.find((p) => p.id === planId);
+    return plan?.feeType === "flat" ? plan.feeAmount : 0;
+  };
+
+  const getSideRadiusFee = (sideId: string) => {
+    const side = sides.find((s) => s.id === sideId);
+    if (!side || side.agents.length === 0) return 0;
+    if (side.agents.length === 1) {
+      return getAgentRadiusFee(side.agents[0].id);
+    }
+    return side.agents.reduce((sum, a) => sum + getAgentRadiusFee(a.id), 0);
+  };
+
   const selectedAgent = useMemo(() => {
     if (!selectedAgentId) return null;
     for (const side of sides) {
@@ -615,14 +651,15 @@ export function CommissionBreakdown() {
         const planId = appliedPlans[agent.id];
         const plan = COMMISSION_PLANS.find((entry) => entry.id === planId) ?? null;
         const planFixedFee = plan?.feeType === "flat" ? plan.feeAmount : 0;
+        const agentRadiusFee = agentRadiusFees[agent.id] !== undefined ? agentRadiusFees[agent.id] : planFixedFee;
         const totalPostSplitDeductions = (postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-        const netCommission = commissionBasis - split - planFixedFee - totalPostSplitDeductions;
+        const netCommission = commissionBasis - split - agentRadiusFee - totalPostSplitDeductions;
         const companyDollar = Math.max(side.gross - commissionBasis, 0);
-        return { agent, side, commissionBasis, split, planFixedFee, totalPostSplitDeductions, netCommission, companyDollar };
+        return { agent, side, commissionBasis, split, planFixedFee, radiusFee: agentRadiusFee, totalPostSplitDeductions, netCommission, companyDollar };
       }
     }
     return null;
-  }, [selectedAgentId, sides, fieldOverrides, appliedPlans, postSplitDeductions]);
+  }, [selectedAgentId, sides, fieldOverrides, appliedPlans, postSplitDeductions, agentRadiusFees]);
 
   const selectedPlan = selectedAgentId
     ? COMMISSION_PLANS.find((plan) => plan.id === appliedPlans[selectedAgentId])
@@ -636,19 +673,21 @@ export function CommissionBreakdown() {
         const planId = appliedPlans[agent.id];
         const plan = COMMISSION_PLANS.find((entry) => entry.id === planId) ?? null;
         const planFixedFee = plan?.feeType === "flat" ? plan.feeAmount : 0;
+        const agentRadiusFee = agentRadiusFees[agent.id] !== undefined ? agentRadiusFees[agent.id] : planFixedFee;
         const totalPreSplitDeductions = (preSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
         const totalPostSplitDeductions = (postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-        const netCommission = commissionBasis - split - planFixedFee - totalPostSplitDeductions;
+        const netCommission = commissionBasis - split - agentRadiusFee - totalPostSplitDeductions;
 
         return {
           agent,
           split,
+          radiusFee: agentRadiusFee,
           totalPreSplitDeductions,
           totalPostSplitDeductions,
           netCommission,
         };
       }),
-    [activeSide.agents, appliedPlans, fieldOverrides, postSplitDeductions, preSplitDeductions]
+    [activeSide.agents, appliedPlans, fieldOverrides, postSplitDeductions, preSplitDeductions, agentRadiusFees]
   );
   const selectedAgentIsExternal = Boolean(selectedAgent?.agent.external);
   const selectedCapAmount = selectedPlan?.capAmount ?? 0;
@@ -781,8 +820,8 @@ export function CommissionBreakdown() {
   const grossCommissionAfterDeductions = Math.max(grossIncome - totalSideGrossDeductions, 0);
   const officeNet = Math.max(grossCommissionAfterDeductions - totalAgentPayout, 0);
   const activeSideOfficeShare = officeNet;
-  const activeSideRadiusFee = sideRadiusFees[activeSide.id] ?? 0;
-  const radiusFeeRequiredForApproval = sides.some((side) => side.agents.length > 0 && (sideRadiusFees[side.id] ?? 0) <= 0);
+  const activeSideRadiusFee = getSideRadiusFee(activeSide.id);
+  const radiusFeeRequiredForApproval = sides.some((side) => side.agents.length > 0 && getSideRadiusFee(side.id) <= 0);
 
   // Permission helpers
   const [showAddPlanDialog, setShowAddPlanDialog] = useState(false);
@@ -916,9 +955,9 @@ export function CommissionBreakdown() {
     const preview = options?.preview ?? false;
     const inSheet = options?.inSheet ?? false;
     const dense = inSheet && !preview;
-    const commentsOnly = activityView === "comments";
+    const commentsOnly = preview || activityView === "comments";
     const items =
-      activityView === "comments"
+      preview || activityView === "comments"
         ? commentFeed
         : activityView === "activity"
           ? activityOnlyFeed
@@ -929,7 +968,7 @@ export function CommissionBreakdown() {
         <div className={cn(preview ? "space-y-2.5" : dense ? "space-y-2.5" : "space-y-3", inSheet ? "pt-1" : "pt-0", dense && "pb-2")}>
         <div className="flex items-center justify-between">
           <div>
-            {preview && <h3 className="text-sm font-semibold tracking-tight text-foreground">Comments</h3>}
+            {preview && <h3 className="text-sm font-semibold tracking-tight text-foreground">Recent comments</h3>}
           </div>
           <div className="flex items-center gap-2">
             {!preview && !inSheet && (
@@ -945,7 +984,7 @@ export function CommissionBreakdown() {
               </Select>
             )}
             {preview && (
-              <Button variant="ghost" size="sm" className="h-7 rounded-full px-2.5 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowActivitySheet(true)}>
+              <Button variant="ghost" size="sm" className="h-7 rounded-full px-2.5 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => { setActivityView("comments"); setShowActivitySheet(true); }}>
                 View all
               </Button>
             )}
@@ -997,13 +1036,13 @@ export function CommissionBreakdown() {
       sidesData,
       fieldOverrides,
       sideGrossDeductions,
-      sideRadiusFees,
+      agentRadiusFees,
       postSplitDeductions,
       appliedPlans,
       awardValues,
       preSplitDeductions,
     }),
-    [sidesData, fieldOverrides, sideGrossDeductions, sideRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
+    [sidesData, fieldOverrides, sideGrossDeductions, agentRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
   );
   const previousEditableSnapshot = useRef(editableSnapshot);
   useEffect(() => {
@@ -1065,7 +1104,11 @@ export function CommissionBreakdown() {
             <Separator orientation="vertical" className="h-4" />
             <h1 className="min-w-0 truncate text-sm font-semibold">Commission Breakdown — 1284 Willow Creek Dr</h1>
             <Separator orientation="vertical" className="h-4 shrink-0" />
-            <span className="shrink-0 text-xs text-muted-foreground">May 13, 2026</span>
+            <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium font-sans shadow-sm border bg-muted/30">
+              <Calendar className="size-3 text-muted-foreground" />
+              <span className="text-muted-foreground">Closing</span>
+              <span className="text-foreground">May 13, 2026</span>
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             {role !== "agent" && (
@@ -1073,23 +1116,23 @@ export function CommissionBreakdown() {
                 {STATUS_LABELS[txStatus]}
               </Badge>
             )}
-            {rejectionNote && txStatus === "draft" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="relative flex size-8 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onClick={() => { setActivityView("activity"); setShowActivitySheet(true); }}
+              aria-label="Open activity log"
+            >
+              <Activity className="size-4" />
+            </Button>
+            {rejectionNote ? (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => setShowActivitySheet(true)}
-                    className="relative flex size-8 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    aria-label="Open comments"
-                  >
-                    <MessageCircleMore className="size-4" />
-                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
-                      1
-                    </span>
-                  </button>
-                </TooltipTrigger>
+                <TooltipTrigger asChild>{renderCommentTrigger()}</TooltipTrigger>
                 <TooltipContent className="max-w-64">{rejectionNote}</TooltipContent>
               </Tooltip>
+            ) : (
+              renderCommentTrigger()
             )}
             {/* Role action */}
             {role === "agent" && (
@@ -1378,21 +1421,7 @@ export function CommissionBreakdown() {
                         Manual agent
                       </Badge>
                     )}
-                    {selectedCapStatus !== "none" && (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "h-7 rounded-lg px-2.5 text-[11px] font-medium",
-                          selectedCapStatus === "reached"
-                            ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : selectedCapStatus === "near"
-                              ? "border-orange-300 bg-orange-50 text-orange-800"
-                              : "border-border bg-background text-muted-foreground"
-                        )}
-                      >
-                        {selectedCapStatus === "reached" ? "Cap reached" : `${currency(selectedCapRemaining)} to cap`}
-                      </Badge>
-                    )}
+
                     {!selectedAgentIsExternal && !appliedPlans[selectedAgent.agent.id] && role !== "agent" && (
                       <Button
                         variant="outline"
@@ -1454,11 +1483,7 @@ export function CommissionBreakdown() {
                   <>
                     {/* Agent ledger */}
                 <div className="px-5 py-4">
-                  {/* Tentative notice */}
-                  <div className="mb-4 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-[11px] text-blue-700 flex items-center gap-2">
-                    <Info className="size-3.5 text-blue-500" />
-                    <span>{flowNote}</span>
-                  </div>
+
                   {selectedAgentIsExternal && (
                     <Alert className="mb-4 border border-primary/15 bg-primary/[0.04] px-3 py-2">
                       <AlertDescription className="text-[11px] leading-5 text-foreground/80">
@@ -1555,23 +1580,30 @@ export function CommissionBreakdown() {
                       <EditableValue value={selectedAgent.split} onChange={(v) => setAgentField("split", v)} readOnly={isAgent || isLocked} />
                     </div>
                   </div>
-                  {selectedAgent.planFixedFee > 0 && (
-                    <>
-                      <div className="group flex items-center justify-between py-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs text-muted-foreground">Plan fixed fee</p>
-                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">
-                            {selectedPlan?.name ?? "Plan"}
-                          </span>
-                        </div>
-                        <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-                          {currency(selectedAgent.planFixedFee)}
-                        </span>
-                      </div>
-                      <Separator className="my-3" />
-                    </>
-                  )}
-                  {selectedAgent.planFixedFee <= 0 && <Separator className="my-3" />}
+                  <div className="flex items-center justify-between py-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Radius Fee</p>
+                      {selectedPlan && (
+                        <p className="text-xs text-muted-foreground">
+                          {selectedPlan.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="min-w-[120px] text-right">
+                      <EditableValue
+                        value={selectedAgent.radiusFee}
+                        readOnly={!canEditAll || isLocked}
+                        onChange={(value) => {
+                          setAgentRadiusFees((prev) => ({
+                            ...prev,
+                            [selectedAgent.agent.id]: value,
+                          }));
+                          logActivity(`Updated Radius Fee for ${selectedAgent.agent.name} to ${currency(value)}.`);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <Separator className="my-3" />
 
                   {/* Post-split deductions */}
                   <div className="py-2">
@@ -1845,19 +1877,36 @@ export function CommissionBreakdown() {
                   {(canEditAll || activeSideRadiusFee > 0) && (
                     <div className="mt-3 rounded-xl border bg-card px-4 py-3.5">
                       <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground">Radius Fee</p>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-muted-foreground">
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="6" strokeDasharray="6 4" />
+                              <circle cx="12" cy="12" r="10" strokeDasharray="8 4" />
+                            </svg>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground">Radius Fee</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {activeSide.agents.length > 1
+                                ? "Summation of all agents' Radius fees"
+                                : "Office-side fee applied to this side"}
+                            </p>
+                          </div>
                         </div>
                         <div className="text-right">
                           <EditableValue
                             value={activeSideRadiusFee}
-                            readOnly={!canEditAll || isLocked}
+                            readOnly={!canEditAll || isLocked || activeSide.agents.length !== 1}
                             onChange={(value) => {
-                              setSideRadiusFees((prev) => ({
-                                ...prev,
-                                [activeSide.id]: value,
-                              }));
-                              logActivity(`Updated Radius Fee for ${activeSide.title} to ${currency(value)}.`);
+                              if (activeSide.agents.length === 1) {
+                                const agentId = activeSide.agents[0].id;
+                                setAgentRadiusFees((prev) => ({
+                                  ...prev,
+                                  [agentId]: value,
+                                }));
+                                logActivity(`Updated Radius Fee for ${activeSide.agents[0].name} to ${currency(value)}.`);
+                              }
                             }}
                           />
                         </div>
