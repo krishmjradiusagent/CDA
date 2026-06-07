@@ -100,6 +100,7 @@ import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
 type SideId = "listing" | "buyer";
 type Role = "agent" | "team_lead" | "radius_auditing";
 type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string; external?: boolean; phone?: string; brokerageName?: string; brokerageLicenseNumber?: string; brokerageStreetAddress?: string; brokerageUnit?: string; brokerageCity?: string; brokerageState?: string; brokerageZip?: string; representing?: string };
+type SideDeduction = { id: string; name: string; amount: number };
 type Side = {
   id: SideId;
   title: string;
@@ -114,6 +115,16 @@ type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
 type ResetPeriod = "yearly" | "quarterly" | "monthly";
 type BasedOn = "units" | "gci" | "sales-volume";
+type CommissionPlanOption = {
+  id: string;
+  name: string;
+  detail: string;
+  feeType: FeeType;
+  feeAmount: number;
+  capAmount: number;
+  agentSplit: number;
+  teamSplit: number;
+};
 
 type TierRow = {
   id: string;
@@ -174,11 +185,11 @@ const CONTACTS = [
   { id: "c10", name: "Rod Watson" },
 ];
 
-const COMMISSION_PLANS = [
-  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% office", feeType: "flat" as const, feeAmount: 495, capAmount: 18000 },
-  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% office", feeType: "flat" as const, feeAmount: 495, capAmount: 15000 },
-  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat" as const, feeAmount: 0, capAmount: 0 },
-  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% office", feeType: "flat" as const, feeAmount: 0, capAmount: 0 },
+const COMMISSION_PLANS: CommissionPlanOption[] = [
+  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% office", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20 },
+  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% office", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30 },
+  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0 },
+  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% office", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40 },
 ];
 
 const AGENT_CAP_PROGRESS: Record<string, number> = {
@@ -258,6 +269,229 @@ const defaultTiers: TierRow[] = [
   { id: "tier-3", from: "11", to: "25", agentSplit: "90", teamSplit: "10" },
   { id: "tier-4", from: "26", to: "", agentSplit: "95", teamSplit: "5" },
 ];
+
+const DEAL_SALE_PRICE = 4_950_000;
+const DEAL_TOTAL_COMMISSION_RATE = 0.02;
+const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v1";
+
+type DerivedAgentSummary = {
+  agent: Agent;
+  side: Side;
+  allocationPercent: number;
+  commissionBasis: number;
+  preSplitDeductionsTotal: number;
+  afterPreSplit: number;
+  split: number;
+  splitRate: number;
+  plan: CommissionPlanOption | null;
+  radiusFee: number;
+  postSplitDeductionsTotal: number;
+  postSplitAgentCommission: number;
+  netCommission: number;
+  companyDollarContribution: number;
+  capAmount: number;
+  capUsed: number;
+  capRemaining: number;
+  capApplied: number;
+  capWarning: boolean;
+  capReached: boolean;
+};
+
+type DerivedSideSummary = {
+  side: Side;
+  grossCommission: number;
+  grossDeductionsTotal: number;
+  grossCommissionAfterDeductions: number;
+  agents: DerivedAgentSummary[];
+  toAgents: number;
+  officeIncome: number;
+  radiusFee: number;
+};
+
+type PersistedCommissionBreakdownState = {
+  sidesData: Side[];
+  sideGrossDeductions: Record<string, SideDeduction[]>;
+  preSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number }>>;
+  postSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>;
+  awardValues: Record<SideId, number>;
+  appliedPlans: Record<string, string | null>;
+  agentRadiusFees: Record<string, number>;
+  agentAllocationPercentages: Record<string, number>;
+  commissionPlans: CommissionPlanOption[];
+};
+
+function roundCurrency(value: number) {
+  return Math.round(value);
+}
+
+function clampCurrency(value: number) {
+  return Math.max(value, 0);
+}
+
+function getDefaultAgentAllocationPercentages() {
+  return initialSides.reduce<Record<string, number>>((acc, side) => {
+    if (side.agents.length === 0) return acc;
+    const base = side.agents.length === 1 ? 100 : roundCurrency(100 / side.agents.length);
+    let remaining = 100;
+    side.agents.forEach((agent, index) => {
+      const allocation = index === side.agents.length - 1 ? remaining : Math.min(base, remaining);
+      acc[agent.id] = allocation;
+      remaining -= allocation;
+    });
+    return acc;
+  }, {});
+}
+
+function normalizeSideAwards(awardValues: Record<SideId, number>) {
+  const total = Object.values(awardValues).reduce((sum, value) => sum + Math.max(value, 0), 0);
+  if (total <= 0) {
+    return {
+      listing: 50,
+      buyer: 50,
+    } satisfies Record<SideId, number>;
+  }
+  return {
+    listing: (Math.max(awardValues.listing, 0) / total) * 100,
+    buyer: (Math.max(awardValues.buyer, 0) / total) * 100,
+  } satisfies Record<SideId, number>;
+}
+
+function normalizeAgentAllocations(agentIds: string[], values: Record<string, number>) {
+  if (agentIds.length === 0) return {} as Record<string, number>;
+  if (agentIds.length === 1) return { [agentIds[0]]: 100 };
+
+  const sanitized = agentIds.map((id) => ({
+    id,
+    value: Math.max(values[id] ?? 0, 0),
+  }));
+  const total = sanitized.reduce((sum, entry) => sum + entry.value, 0);
+
+  if (total <= 0) {
+    const even = roundCurrency(100 / agentIds.length);
+    let remainder = 100;
+    return agentIds.reduce<Record<string, number>>((acc, id, index) => {
+      const value = index === agentIds.length - 1 ? remainder : Math.min(even, remainder);
+      acc[id] = value;
+      remainder -= value;
+      return acc;
+    }, {});
+  }
+
+  let remainder = 100;
+  return sanitized.reduce<Record<string, number>>((acc, entry, index) => {
+    const normalized = index === sanitized.length - 1 ? remainder : roundCurrency((entry.value / total) * 100);
+    const clamped = Math.max(Math.min(normalized, remainder), 0);
+    acc[entry.id] = clamped;
+    remainder -= clamped;
+    return acc;
+  }, {});
+}
+
+function deriveCommissionBreakdown(params: {
+  sides: Side[];
+  awardValues: Record<SideId, number>;
+  sideGrossDeductions: Record<string, SideDeduction[]>;
+  preSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number }>>;
+  postSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>;
+  appliedPlans: Record<string, string | null>;
+  agentRadiusFees: Record<string, number>;
+  agentAllocationPercentages: Record<string, number>;
+  commissionPlans: CommissionPlanOption[];
+}) {
+  const normalizedAwards = normalizeSideAwards(params.awardValues);
+  const totalGrossCommission = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
+
+  const sideSummaries = params.sides.map<DerivedSideSummary>((side) => {
+    const sideAwardPercent = normalizedAwards[side.id] ?? 0;
+    const grossCommission = totalGrossCommission * (sideAwardPercent / 100);
+    const grossDeductionsTotal = (params.sideGrossDeductions[side.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+    const grossCommissionAfterDeductions = clampCurrency(grossCommission - grossDeductionsTotal);
+    const normalizedAllocations = normalizeAgentAllocations(
+      side.agents.map((agent) => agent.id),
+      params.agentAllocationPercentages
+    );
+
+    const agents = side.agents.map<DerivedAgentSummary>((agent) => {
+      const allocationPercent = normalizedAllocations[agent.id] ?? 0;
+      const commissionBasis = side.agents.length <= 1
+        ? grossCommissionAfterDeductions
+        : grossCommissionAfterDeductions * (allocationPercent / 100);
+      const preSplitDeductionsTotal = (params.preSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+      const afterPreSplit = clampCurrency(commissionBasis - preSplitDeductionsTotal);
+      const plan = params.commissionPlans.find((entry) => entry.id === params.appliedPlans[agent.id]) ?? null;
+      const splitRate = plan ? Math.max(0, Math.min(1, plan.teamSplit / 100)) : 0;
+      const rawSplit = afterPreSplit * splitRate;
+      const capAmount = plan?.capAmount ?? 0;
+      const capUsed = AGENT_CAP_PROGRESS[agent.id] ?? 0;
+      const capRemaining = Math.max(capAmount - capUsed, 0);
+      const split = capAmount > 0 ? Math.min(rawSplit, capRemaining) : rawSplit;
+      const radiusFee = params.agentRadiusFees[agent.id] !== undefined
+        ? params.agentRadiusFees[agent.id]
+        : plan?.feeType === "percentage"
+          ? grossCommissionAfterDeductions * ((plan.feeAmount ?? 0) / 100)
+          : (plan?.feeAmount ?? 0);
+      const postSplitAgentCommission = clampCurrency(afterPreSplit - split);
+      const postSplitDeductionsTotal = (params.postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
+      const netCommission = clampCurrency(postSplitAgentCommission - postSplitDeductionsTotal);
+      const companyDollarContribution = split - radiusFee;
+
+      return {
+        agent,
+        side,
+        allocationPercent,
+        commissionBasis,
+        preSplitDeductionsTotal,
+        afterPreSplit,
+        split,
+        splitRate,
+        plan,
+        radiusFee,
+        postSplitDeductionsTotal,
+        postSplitAgentCommission,
+        netCommission,
+        companyDollarContribution,
+        capAmount,
+        capUsed,
+        capRemaining,
+        capApplied: split,
+        capWarning: capAmount > 0 && capRemaining > 0 && capRemaining < rawSplit,
+        capReached: capAmount > 0 && capRemaining <= 0,
+      };
+    });
+
+    const toAgents = agents.reduce((sum, agent) => sum + agent.netCommission, 0);
+    const officeIncome = grossCommissionAfterDeductions - agents.reduce((sum, agent) => sum + agent.postSplitAgentCommission, 0);
+    const radiusFee = agents.reduce((sum, agent) => sum + agent.radiusFee, 0);
+
+    return {
+      side,
+      grossCommission,
+      grossDeductionsTotal,
+      grossCommissionAfterDeductions,
+      agents,
+      toAgents,
+      officeIncome,
+      radiusFee,
+    };
+  });
+
+  return {
+    totalGrossCommission,
+    normalizedAwards,
+    sideSummaries,
+  };
+}
+
+function readPersistedCommissionBreakdownState() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(COMMISSION_BREAKDOWN_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as Partial<PersistedCommissionBreakdownState>;
+  } catch {
+    return null;
+  }
+}
 
 function getFreshPlanForm(): PlanForm {
   return {
@@ -522,8 +756,16 @@ export function CommissionBreakdown() {
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [statementNotes, setStatementNotes] = useState("");
   const [includeProgressInfo, setIncludeProgressInfo] = useState(false);
-  const [appliedPlans, setAppliedPlans] = useState<Record<string, string | null>>({ a1: "p1" });
-  const [agentRadiusFees, setAgentRadiusFees] = useState<Record<string, number>>({});
+  const persistedState = readPersistedCommissionBreakdownState();
+  const [commissionPlans, setCommissionPlans] = useState<CommissionPlanOption[]>(
+    persistedState?.commissionPlans?.length ? persistedState.commissionPlans : COMMISSION_PLANS
+  );
+  const [appliedPlans, setAppliedPlans] = useState<Record<string, string | null>>(
+    persistedState?.appliedPlans ?? { a1: "p1" }
+  );
+  const [agentRadiusFees, setAgentRadiusFees] = useState<Record<string, number>>(
+    persistedState?.agentRadiusFees ?? {}
+  );
   type TxStatus = "draft" | "agent_confirmed" | "team_lead_confirmed" | "processed" | "rejected";
   // txStatus drives confirmation flow: Agent confirms → Team Lead confirms → Admin processes
   const [txStatus, setTxStatus] = useState<TxStatus>("draft");
@@ -539,30 +781,36 @@ export function CommissionBreakdown() {
   const [showAgentPreSplitDialog, setShowAgentPreSplitDialog] = useState(false);
   const [agentPreSplitLabel, setAgentPreSplitLabel] = useState("");
   const [agentPreSplitAmount, setAgentPreSplitAmount] = useState("");
-  const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>({});
+  const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>(
+    persistedState?.preSplitDeductions ?? {}
+  );
 
-  // Side-level gross deductions (Credits, Referrals) — keyed by SideId
-  type SideDeduction = { id: string; name: string; amount: number };
-  const [sideGrossDeductions, setSideGrossDeductions] = useState<Record<string, SideDeduction[]>>({
-    listing: [
-      { id: "sg1", name: "Credits", amount: 200 },
-      { id: "sg2", name: "Referrals", amount: 50 },
-    ],
-    buyer: [],
-  });
+  const [sideGrossDeductions, setSideGrossDeductions] = useState<Record<string, SideDeduction[]>>(
+    persistedState?.sideGrossDeductions ?? {
+      listing: [
+        { id: "sg1", name: "Credits", amount: 200 },
+        { id: "sg2", name: "Referrals", amount: 50 },
+      ],
+      buyer: [],
+    }
+  );
 
 
-  const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>>({
-    a1: [
-      { id: "d1", name: "File Review Fee", amount: 25, isRadiusFee: true },
-      { id: "d2", name: "RERM", amount: 124, isRadiusFee: true },
-      { id: "d3", name: "SBTC", amount: 400 },
-      { id: "d4", name: "E&O", amount: 250 },
-    ],
-  });
-  const [pendingPlanChange, setPendingPlanChange] = useState<{ agentId: string; plan: typeof COMMISSION_PLANS[0] } | null>(null);
+  const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>>(
+    persistedState?.postSplitDeductions ?? {
+      a1: [
+        { id: "d1", name: "File Review Fee", amount: 25, isRadiusFee: true },
+        { id: "d2", name: "RERM", amount: 124, isRadiusFee: true },
+        { id: "d3", name: "SBTC", amount: 400 },
+        { id: "d4", name: "E&O", amount: 250 },
+      ],
+    }
+  );
+  const [pendingPlanChange, setPendingPlanChange] = useState<{ agentId: string; plan: CommissionPlanOption } | null>(null);
   const [showAwardDialog, setShowAwardDialog] = useState(false);
-  const [awardValues, setAwardValues] = useState<Record<SideId, number>>({ listing: 1, buying: 0 });
+  const [awardValues, setAwardValues] = useState<Record<SideId, number>>(
+    persistedState?.awardValues ?? { listing: 50, buyer: 50 }
+  );
   const [showEditPlanDialog, setShowEditPlanDialog] = useState(false);
   const [editPlanForm, setEditPlanForm] = useState({ planName: "", agentSplit: "80", teamSplit: "20", feeType: "flat" as "flat" | "percentage", feeAmount: "495", capAmount: "18000" });
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
@@ -586,6 +834,9 @@ export function CommissionBreakdown() {
     representing: addAgentSideId === "buyer" ? "Buyer" : "Seller",
   });
   const [agentAllocations, setAgentAllocations] = useState<Record<string, number>>({});
+  const [agentAllocationPercentages, setAgentAllocationPercentages] = useState<Record<string, number>>(
+    persistedState?.agentAllocationPercentages ?? getDefaultAgentAllocationPercentages()
+  );
 
   // Compute connector top position from selected anchor
   useEffect(() => {
@@ -608,12 +859,9 @@ export function CommissionBreakdown() {
   }, [selectedSide, selectedAgentId]);
 
   // mutable sides so delete works
-  const [sidesData, setSidesData] = useState(initialSides);
-
-  // per-agent editable field overrides: { [agentId]: { commissionBasis, split } }
-  const [fieldOverrides, setFieldOverrides] = useState<Record<string, { commissionBasis: number; split: number }>>({
-    a1: { commissionBasis: 29451, split: 7500 },
-  });
+  const [sidesData, setSidesData] = useState<Side[]>(
+    persistedState?.sidesData?.length ? persistedState.sidesData : initialSides
+  );
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -621,104 +869,72 @@ export function CommissionBreakdown() {
   );
 
   const activeSide = sides.find((s) => s.id === selectedSide) ?? sides[0];
-
-  const getAgentRadiusFee = (agentId: string) => {
-    if (agentRadiusFees[agentId] !== undefined) {
-      return agentRadiusFees[agentId];
-    }
-    const planId = appliedPlans[agentId];
-    const plan = COMMISSION_PLANS.find((p) => p.id === planId);
-    return plan?.feeType === "flat" ? plan.feeAmount : 0;
-  };
-
-  const getSideRadiusFee = (sideId: string) => {
-    const side = sides.find((s) => s.id === sideId);
-    if (!side || side.agents.length === 0) return 0;
-    if (side.agents.length === 1) {
-      return getAgentRadiusFee(side.agents[0].id);
-    }
-    return side.agents.reduce((sum, a) => sum + getAgentRadiusFee(a.id), 0);
-  };
-
-  const selectedAgent = useMemo(() => {
-    if (!selectedAgentId) return null;
-    for (const side of sides) {
-      const agent = side.agents.find((a) => a.id === selectedAgentId);
-      if (agent) {
-        const overrides = fieldOverrides[agent.id] ?? {};
-        const commissionBasis = overrides.commissionBasis ?? agent.payout;
-        const split = overrides.split ?? 0;
-        const planId = appliedPlans[agent.id];
-        const plan = COMMISSION_PLANS.find((entry) => entry.id === planId) ?? null;
-        const planFixedFee = plan?.feeType === "flat" ? plan.feeAmount : 0;
-        const agentRadiusFee = agentRadiusFees[agent.id] !== undefined ? agentRadiusFees[agent.id] : planFixedFee;
-        const totalPostSplitDeductions = (postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-        const netCommission = commissionBasis - split - agentRadiusFee - totalPostSplitDeductions;
-        const companyDollar = Math.max(side.gross - commissionBasis, 0);
-        return { agent, side, commissionBasis, split, planFixedFee, radiusFee: agentRadiusFee, totalPostSplitDeductions, netCommission, companyDollar };
-      }
-    }
-    return null;
-  }, [selectedAgentId, sides, fieldOverrides, appliedPlans, postSplitDeductions, agentRadiusFees]);
-
-  const selectedPlan = selectedAgentId
-    ? COMMISSION_PLANS.find((plan) => plan.id === appliedPlans[selectedAgentId])
-    : null;
-  const activeSideAgentSummaries = useMemo(
+  const derivedBreakdown = useMemo(
     () =>
-      activeSide.agents.map((agent) => {
-        const overrides = fieldOverrides[agent.id] ?? {};
-        const commissionBasis = overrides.commissionBasis ?? agent.payout;
-        const split = overrides.split ?? 0;
-        const planId = appliedPlans[agent.id];
-        const plan = COMMISSION_PLANS.find((entry) => entry.id === planId) ?? null;
-        const planFixedFee = plan?.feeType === "flat" ? plan.feeAmount : 0;
-        const agentRadiusFee = agentRadiusFees[agent.id] !== undefined ? agentRadiusFees[agent.id] : planFixedFee;
-        const totalPreSplitDeductions = (preSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-        const totalPostSplitDeductions = (postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-        const netCommission = commissionBasis - split - agentRadiusFee - totalPostSplitDeductions;
-
-        return {
-          agent,
-          split,
-          radiusFee: agentRadiusFee,
-          totalPreSplitDeductions,
-          totalPostSplitDeductions,
-          netCommission,
-        };
+      deriveCommissionBreakdown({
+        sides,
+        awardValues,
+        sideGrossDeductions,
+        preSplitDeductions,
+        postSplitDeductions,
+        appliedPlans,
+        agentRadiusFees,
+        agentAllocationPercentages,
+        commissionPlans,
       }),
-    [activeSide.agents, appliedPlans, fieldOverrides, postSplitDeductions, preSplitDeductions, agentRadiusFees]
+    [
+      sides,
+      awardValues,
+      sideGrossDeductions,
+      preSplitDeductions,
+      postSplitDeductions,
+      appliedPlans,
+      agentRadiusFees,
+      agentAllocationPercentages,
+      commissionPlans,
+    ]
   );
+
+  const activeSideSummary =
+    derivedBreakdown.sideSummaries.find((entry) => entry.side.id === activeSide.id) ??
+    derivedBreakdown.sideSummaries[0];
+  const selectedAgent = selectedAgentId
+    ? derivedBreakdown.sideSummaries
+        .flatMap((sideSummary) => sideSummary.agents)
+        .find((agentSummary) => agentSummary.agent.id === selectedAgentId) ?? null
+    : null;
+  const selectedPlan = selectedAgent?.plan ?? null;
+  const activeSideAgentSummaries = activeSideSummary?.agents ?? [];
   const selectedAgentIsExternal = Boolean(selectedAgent?.agent.external);
-  const selectedCapAmount = selectedPlan?.capAmount ?? 0;
-  const selectedCapUsed = selectedAgentId ? (AGENT_CAP_PROGRESS[selectedAgentId] ?? 0) : 0;
-  const selectedCapRemaining = Math.max(selectedCapAmount - selectedCapUsed, 0);
+  const selectedCapAmount = selectedAgent?.capAmount ?? 0;
+  const selectedCapUsed = selectedAgent?.capUsed ?? 0;
+  const selectedCapRemaining = selectedAgent?.capRemaining ?? 0;
   const selectedCapRatio = selectedCapAmount > 0 ? selectedCapUsed / selectedCapAmount : 0;
   const selectedCapStatus = selectedCapAmount <= 0
     ? "none"
-    : selectedCapRemaining <= 0
+    : selectedAgent?.capReached
       ? "reached"
-      : selectedCapRatio >= 0.9
+      : selectedAgent?.capWarning || selectedCapRatio >= 0.9
         ? "near"
         : "normal";
-
-  function setAgentField(field: "commissionBasis" | "split", value: number) {
-    if (!selectedAgentId) return;
-    const fieldLabel = field === "commissionBasis" ? "commission basis" : "split";
-    const agentName = selectedAgent?.agent.name ?? "agent";
-    setFieldOverrides((prev) => ({
-      ...prev,
-      [selectedAgentId]: { ...(prev[selectedAgentId] ?? {}), [field]: value },
-    }));
-    logActivity(`Updated ${fieldLabel} for ${agentName} to ${currency(value)}.`);
-  }
 
   function handleDeleteAgent() {
     if (!selectedAgentId || !selectedAgent) return;
     const agentName = selectedAgent.agent.name;
+    const remainingAgentIds = selectedAgent.side.agents
+      .filter((agent) => agent.id !== selectedAgentId)
+      .map((agent) => agent.id);
     setSidesData((prev) =>
       prev.map((side) => ({ ...side, agents: side.agents.filter((a) => a.id !== selectedAgentId) }))
     );
+    setAgentAllocationPercentages((prev) => {
+      const next = { ...prev };
+      delete next[selectedAgentId];
+      return {
+        ...next,
+        ...normalizeAgentAllocations(remainingAgentIds, next),
+      };
+    });
     setSelectedAgentId(null);
     setShowDeleteConfirm(false);
     logActivity(`Removed ${agentName} from ${selectedAgent.side.title}.`);
@@ -813,15 +1029,15 @@ export function CommissionBreakdown() {
     setFeeDialogTiming(null);
   }
 
-  const grossIncome = activeSide.gross;
-  const totalGrossCommission = sidesData.reduce((sum, side) => sum + side.gross, 0);
-  const totalAgentPayout = activeSide.agents.reduce((s, a) => s + a.payout, 0);
-  const totalSideGrossDeductions = (sideGrossDeductions[activeSide.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-  const grossCommissionAfterDeductions = Math.max(grossIncome - totalSideGrossDeductions, 0);
-  const officeNet = Math.max(grossCommissionAfterDeductions - totalAgentPayout, 0);
+  const grossIncome = activeSideSummary?.grossCommission ?? 0;
+  const totalGrossCommission = derivedBreakdown.totalGrossCommission;
+  const totalAgentPayout = activeSideSummary?.toAgents ?? 0;
+  const totalSideGrossDeductions = activeSideSummary?.grossDeductionsTotal ?? 0;
+  const grossCommissionAfterDeductions = activeSideSummary?.grossCommissionAfterDeductions ?? 0;
+  const officeNet = activeSideSummary?.officeIncome ?? 0;
   const activeSideOfficeShare = officeNet;
-  const activeSideRadiusFee = getSideRadiusFee(activeSide.id);
-  const radiusFeeRequiredForApproval = sides.some((side) => side.agents.length > 0 && getSideRadiusFee(side.id) <= 0);
+  const activeSideRadiusFee = activeSideSummary?.radiusFee ?? 0;
+  const radiusFeeRequiredForApproval = derivedBreakdown.sideSummaries.some((sideSummary) => sideSummary.agents.length > 0 && sideSummary.radiusFee <= 0);
 
   // Permission helpers
   const [showAddPlanDialog, setShowAddPlanDialog] = useState(false);
@@ -1034,25 +1250,40 @@ export function CommissionBreakdown() {
   const editableSnapshot = useMemo(
     () => JSON.stringify({
       sidesData,
-      fieldOverrides,
       sideGrossDeductions,
       agentRadiusFees,
       postSplitDeductions,
       appliedPlans,
       awardValues,
       preSplitDeductions,
+      agentAllocationPercentages,
+      commissionPlans,
     }),
-    [sidesData, fieldOverrides, sideGrossDeductions, agentRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions]
+    [sidesData, sideGrossDeductions, agentRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions, agentAllocationPercentages, commissionPlans]
   );
   const previousEditableSnapshot = useRef(editableSnapshot);
   useEffect(() => {
     if (previousEditableSnapshot.current === editableSnapshot) return;
     previousEditableSnapshot.current = editableSnapshot;
+    if (typeof window !== "undefined") {
+      const persistedPayload: PersistedCommissionBreakdownState = {
+        sidesData,
+        sideGrossDeductions,
+        preSplitDeductions,
+        postSplitDeductions,
+        awardValues,
+        appliedPlans,
+        agentRadiusFees,
+        agentAllocationPercentages,
+        commissionPlans,
+      };
+      window.localStorage.setItem(COMMISSION_BREAKDOWN_STORAGE_KEY, JSON.stringify(persistedPayload));
+    }
     if (txStatus !== "draft") {
       setTxStatus("draft");
       setRejectionNote("");
     }
-  }, [editableSnapshot, txStatus]);
+  }, [editableSnapshot, txStatus, sidesData, sideGrossDeductions, preSplitDeductions, postSplitDeductions, awardValues, appliedPlans, agentRadiusFees, agentAllocationPercentages, commissionPlans]);
 
   return (
     <TooltipProvider>
@@ -1210,7 +1441,7 @@ export function CommissionBreakdown() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Building2 className="size-3.5" />Sale Price
             </p>
-            <p className="mt-1 text-3xl font-bold tracking-tight">{currency(4950000)}</p>
+            <p className="mt-1 text-3xl font-bold tracking-tight">{currency(DEAL_SALE_PRICE)}</p>
           </div>
         </div>
 
@@ -1234,7 +1465,9 @@ export function CommissionBreakdown() {
             <div className="space-y-4">
               <Card className="rounded-xl border bg-card overflow-hidden p-0 gap-0 block shadow-sm">
                 <div className="w-full">
-                  {sides.map((side, index) => (
+                  {sides.map((side, index) => {
+                    const sideSummary = derivedBreakdown.sideSummaries.find((entry) => entry.side.id === side.id);
+                    return (
                     <React.Fragment key={side.id}>
                       <div className="border-none">
                         <div
@@ -1264,7 +1497,7 @@ export function CommissionBreakdown() {
                                   )}
                                   onClick={!isAgent && !isLocked ? (e) => { e.stopPropagation(); setShowAwardDialog(true); } : undefined}
                                 >
-                                  Award {side.award}%
+                                  Award {roundCurrency(derivedBreakdown.normalizedAwards[side.id] ?? 0)}%
                                 </Badge>
 
                                 <Separator
@@ -1294,7 +1527,7 @@ export function CommissionBreakdown() {
                             <div className="flex items-center gap-4 shrink-0 mr-1">
                               <div className="text-right">
                                 <p className="text-xs font-medium text-muted-foreground">Side total</p>
-                                <p className="text-xl font-bold tracking-tight tabular-nums">{currency(side.agents.reduce((s, a) => s + a.payout, 0))}</p>
+                                <p className="text-xl font-bold tracking-tight tabular-nums">{currency(sideSummary?.toAgents ?? 0)}</p>
                               </div>
                               <Button
                                 variant="ghost"
@@ -1313,7 +1546,9 @@ export function CommissionBreakdown() {
                         </div>
                         <div className="px-5 pb-4">
                           <div className="mt-1 space-y-2">
-                            {side.agents.map((agent) => (
+                            {side.agents.map((agent) => {
+                              const agentSummary = sideSummary?.agents.find((entry) => entry.agent.id === agent.id);
+                              return (
                               <div
                                 data-connector-anchor={`agent-${agent.id}`}
                                 key={agent.id}
@@ -1337,18 +1572,18 @@ export function CommissionBreakdown() {
                                 <div className="flex items-center gap-3 shrink-0">
                                   <div className="text-right">
                                     <p className="text-xs font-medium text-muted-foreground">Payout</p>
-                                    <p className="text-base font-bold tracking-tight tabular-nums">{currency(agent.payout)}</p>
+                                    <p className="text-base font-bold tracking-tight tabular-nums">{currency(agentSummary?.netCommission ?? 0)}</p>
                                   </div>
                                   <ChevronRight className="size-4 text-muted-foreground/50" />
                                 </div>
                               </div>
-                            ))}
+                            )})}
                           </div>
                         </div>
                       </div>
                       {index === 0 && <Separator />}
                     </React.Fragment>
-                  ))}
+                  )})}
                 </div>
               </Card>
             </div>
@@ -1385,7 +1620,7 @@ export function CommissionBreakdown() {
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" size="sm" className={cn("h-7 rounded-lg px-3 text-xs gap-1", !appliedPlans[selectedAgent.agent.id] && "text-muted-foreground")}>
                             {appliedPlans[selectedAgent.agent.id]
-                              ? COMMISSION_PLANS.find((p) => p.id === appliedPlans[selectedAgent.agent.id])?.name
+                              ? commissionPlans.find((p) => p.id === appliedPlans[selectedAgent.agent.id])?.name
                               : "No plan selected"}
                             <ChevronRight className="size-3 rotate-90" />
                           </Button>
@@ -1393,7 +1628,7 @@ export function CommissionBreakdown() {
                         <DropdownMenuContent align="start" className="w-52">
                           <DropdownMenuLabel className="text-xs text-muted-foreground">Commission plans</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {COMMISSION_PLANS.map((plan) => (
+                          {commissionPlans.map((plan) => (
                             <DropdownMenuItem
                               key={plan.id}
                               onClick={() => {
@@ -1511,10 +1746,10 @@ export function CommissionBreakdown() {
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
                     <div className="min-w-[120px] text-right">
-                      <EditableValue value={selectedAgent.commissionBasis} onChange={(v) => setAgentField("commissionBasis", v)} readOnly={isAgent || isLocked} />
+                      <EditableValue value={selectedAgent.commissionBasis} onChange={() => undefined} readOnly />
                     </div>
                   </div>
-                  {!isAgent && !isLocked && (
+                  {(isTL || canEditAll) && !isLocked && (
                   <>
                   {(preSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => (
                     <div key={ded.id} className="group flex items-center justify-between py-1.5">
@@ -1573,11 +1808,11 @@ export function CommissionBreakdown() {
                           ? "Adjusted by cap logic"
                           : selectedCapStatus === "near"
                             ? `Cap warning: ${currency(selectedCapRemaining)} left`
-                            : "0% of remaining balance"}
+                            : `${roundCurrency(selectedAgent.splitRate * 100)}% company split`}
                       </p>
                     </div>
                     <div className="min-w-[120px] text-right">
-                      <EditableValue value={selectedAgent.split} onChange={(v) => setAgentField("split", v)} readOnly={isAgent || isLocked} />
+                      <EditableValue value={selectedAgent.split} onChange={() => undefined} readOnly />
                     </div>
                   </div>
                   <div className="flex items-center justify-between py-3">
@@ -1610,8 +1845,8 @@ export function CommissionBreakdown() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Post-split deductions</p>
                   </div>
                   {(postSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => {
-                    const dedReadOnly = isLocked || (ded.isRadiusFee && !canEditAll);
-                    const canDelete = !isLocked && (!ded.isRadiusFee || canEditAll);
+                    const dedReadOnly = isLocked;
+                    const canDelete = !isLocked;
                     return (
                       <div key={ded.id} className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
@@ -1693,7 +1928,7 @@ export function CommissionBreakdown() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company Dollar Contribution</p>
                     <div className="min-w-[120px] text-right">
                       <button onClick={() => setShowCDCDialog(true)} className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]">
-                        {currency(selectedAgent.companyDollar)}
+                        {currency(selectedAgent.companyDollarContribution)}
                       </button>
                     </div>
                   </div>
@@ -1753,7 +1988,7 @@ export function CommissionBreakdown() {
                         <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {!isAgent && !isLocked ? (
+                        {(!isLocked && (isAgent || isTL || canEditAll)) ? (
                           <DeductionValue
                             value={ded.amount}
                             readOnly={false}
@@ -1768,7 +2003,7 @@ export function CommissionBreakdown() {
                         ) : (
                           <span className="text-xs text-muted-foreground tabular-nums min-w-[80px] text-right">{currency(ded.amount)}</span>
                         )}
-                        {!isAgent && !isLocked && (
+                        {(!isLocked && (isAgent || isTL || canEditAll)) && (
                           <button
                             onClick={() => {
                               setSideGrossDeductions((prev) => ({
@@ -1799,14 +2034,14 @@ export function CommissionBreakdown() {
                       />
                     </div>
                   )}
-                  {isAgent && (sideGrossDeductions[activeSide.id] ?? []).length === 0 && (
+                  {isAgent && !isLocked && (
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
                       <Plus className="size-3.5 mr-1" />Add credit or referral fee
                     </Button>
                   </div>
                   )}
-                  {!isAgent && !isLocked && (
+                  {(isTL || canEditAll) && !isLocked && (
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePreSplitDraft(true)}>
                       <Plus className="size-3.5 mr-1" />Pre-split deduction
@@ -1824,7 +2059,7 @@ export function CommissionBreakdown() {
                   <Separator className="my-4" />
 
                   <div className="space-y-2 pt-1">
-                    {activeSideAgentSummaries.map(({ agent, netCommission, totalPreSplitDeductions, totalPostSplitDeductions }) => {
+                    {activeSideAgentSummaries.map(({ agent, netCommission, preSplitDeductionsTotal, postSplitDeductionsTotal }) => {
                       const isExpanded = expandedSideAgentId === agent.id;
                       return (
                         <div
@@ -1852,11 +2087,11 @@ export function CommissionBreakdown() {
                             <div className="border-t px-4 py-3">
                               <div className="flex items-center justify-between py-1.5">
                                 <p className="text-xs font-medium text-muted-foreground">Pre-split amount</p>
-                                <p className="text-sm font-semibold tabular-nums text-foreground">{currency(totalPreSplitDeductions)}</p>
+                                <p className="text-sm font-semibold tabular-nums text-foreground">{currency(preSplitDeductionsTotal)}</p>
                               </div>
                               <div className="flex items-center justify-between py-1.5">
                                 <p className="text-xs font-medium text-muted-foreground">Post-split amount</p>
-                                <p className="text-sm font-semibold tabular-nums text-foreground">{currency(totalPostSplitDeductions)}</p>
+                                <p className="text-sm font-semibold tabular-nums text-foreground">{currency(postSplitDeductionsTotal)}</p>
                               </div>
                             </div>
                           )}
@@ -2366,7 +2601,14 @@ export function CommissionBreakdown() {
           </div>
           <DialogFooter className="border-t px-6 py-4">
             <Button variant="outline" onClick={() => setShowAwardDialog(false)}>Cancel</Button>
-            <Button onClick={() => { logActivity("Updated award allocation."); toast.success("Award distribution saved"); setShowAwardDialog(false); }}>Save</Button>
+            <Button onClick={() => {
+              const normalizedAwards = normalizeSideAwards(awardValues);
+              setAwardValues(normalizedAwards);
+              setSidesData((prev) => prev.map((side) => ({ ...side, award: roundCurrency(normalizedAwards[side.id]) })));
+              logActivity("Updated award allocation.");
+              toast.success("Award distribution saved");
+              setShowAwardDialog(false);
+            }}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2466,9 +2708,18 @@ export function CommissionBreakdown() {
             </Button>
             <Button onClick={() => {
               if (!pendingAgent) return;
+              const nextSideAgentIds = [
+                ...(sidesData.find((s) => s.id === addAgentSideId)?.agents.map((agent) => agent.id) ?? []),
+                pendingAgent.id,
+              ];
+              const normalizedAllocations = normalizeAgentAllocations(nextSideAgentIds, agentAllocations);
               setSidesData((prev) => prev.map((side) => side.id !== addAgentSideId ? side : {
                 ...side,
                 agents: [...side.agents, { id: pendingAgent.id, name: pendingAgent.name, role: pendingAgent.external ? "External agent" : "Agent", payout: 0, email: pendingAgent.email, phone: pendingAgent.phone, brokerageName: pendingAgent.brokerageName, brokerageLicenseNumber: pendingAgent.brokerageLicenseNumber, brokerageStreetAddress: pendingAgent.brokerageStreetAddress, brokerageUnit: pendingAgent.brokerageUnit, brokerageCity: pendingAgent.brokerageCity, brokerageState: pendingAgent.brokerageState, brokerageZip: pendingAgent.brokerageZip, representing: pendingAgent.representing, external: pendingAgent.external }],
+              }));
+              setAgentAllocationPercentages((prev) => ({
+                ...prev,
+                ...normalizedAllocations,
               }));
               logActivity(`Added ${pendingAgent.name} to ${addAgentSideId === "buyer" ? "Buying Side" : "Listing Side"}.`);
               toast.success(`${pendingAgent.name} added`);
@@ -2582,7 +2833,7 @@ export function CommissionBreakdown() {
             <DialogTitle>Replace commission plan?</DialogTitle>
             <DialogDescription>
               {pendingPlanChange && (() => {
-                const current = COMMISSION_PLANS.find((p) => p.id === appliedPlans[pendingPlanChange.agentId]);
+                const current = commissionPlans.find((p) => p.id === appliedPlans[pendingPlanChange.agentId]);
                 return `"${current?.name}" will be replaced with "${pendingPlanChange.plan.name}".`;
               })()}
             </DialogDescription>
