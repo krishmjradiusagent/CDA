@@ -96,6 +96,12 @@ import { cn } from "../../lib/utils";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { FeeBuilderModal } from "../components/finance/fee-builder-modal";
 import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
+import {
+  createDefaultWireInstructionsStore,
+  createEmptyWireInstruction,
+  isWireInstructionComplete,
+  readWireInstructionsStore,
+} from "../lib/wire-instructions";
 
 type SideId = "listing" | "buyer";
 type Role = "agent" | "team_lead" | "radius_auditing";
@@ -273,6 +279,8 @@ const defaultTiers: TierRow[] = [
 const DEAL_SALE_PRICE = 4_950_000;
 const DEAL_TOTAL_COMMISSION_RATE = 0.02;
 const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v1";
+const CURRENT_TEAM_LEAD_ID = "a3";
+const CURRENT_AGENT_ID = "a1";
 
 type DerivedAgentSummary = {
   agent: Agent;
@@ -862,6 +870,20 @@ export function CommissionBreakdown() {
   const [sidesData, setSidesData] = useState<Side[]>(
     persistedState?.sidesData?.length ? persistedState.sidesData : initialSides
   );
+  const wireStore = useMemo(
+    () =>
+      readWireInstructionsStore(
+        createDefaultWireInstructionsStore(
+          CURRENT_TEAM_LEAD_ID,
+          Array.from(new Set(sidesData.flatMap((side) => side.agents.map((agent) => agent.id)).concat([CURRENT_TEAM_LEAD_ID, CURRENT_AGENT_ID]))),
+        ),
+      ),
+    [sidesData],
+  );
+  const teamWireComplete = isWireInstructionComplete(wireStore.teamWireInstructions);
+  const agentWireComplete = isWireInstructionComplete(
+    wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(),
+  );
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -1418,6 +1440,27 @@ export function CommissionBreakdown() {
             )}
           </div>
         </div>
+
+        {role === "agent" && !agentWireComplete && (
+          <div className="border-b bg-background px-6 py-3">
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+              <Info className="text-amber-700" />
+              <AlertDescription className="text-amber-800">
+                Complete your wire instructions in settings before CDA can be generated.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+        {role === "team_lead" && !teamWireComplete && (
+          <div className="border-b bg-background px-6 py-3">
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+              <Info className="text-amber-700" />
+              <AlertDescription className="text-amber-800">
+                Complete team wire instructions in settings before CDA can be generated.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
 
         {/* ── Stats strip ── */}
         <div className="grid grid-cols-[1fr_1px_1fr] items-stretch border-b bg-background">

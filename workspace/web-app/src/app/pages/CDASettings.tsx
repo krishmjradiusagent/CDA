@@ -8,6 +8,8 @@ import {
   ChevronDown,
   Copy,
   DollarSign,
+  Eye,
+  EyeOff,
   Edit3,
   FileText,
   Gift,
@@ -28,6 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +74,7 @@ import {
 } from "../components/ui/select";
 import { Separator } from "../components/ui/separator";
 import { Switch } from "../components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Textarea } from "../components/ui/textarea";
 import { cn } from "../components/ui/utils";
 import {
   Table,
@@ -97,6 +100,18 @@ import {
   AgentAvatarStack 
 } from "../components/finance";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
+import {
+  createDefaultWireInstructionsStore,
+  createEmptyWireInstruction,
+  isWireInstructionComplete,
+  maskSensitiveValue,
+  readWireInstructionsStore,
+  validateWireInstruction,
+  type WireInstructionRecord,
+  type WireInstructionsStore,
+  type WireValidationErrors,
+  writeWireInstructionsStore,
+} from "../lib/wire-instructions";
 
 type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
@@ -139,7 +154,7 @@ type Agent = {
   id: string;
   name: string;
   email: string;
-  role: "Team Lead" | "Agent";
+  role: string;
   hasDefault: boolean;
   avatarUrl?: string;
 };
@@ -192,6 +207,8 @@ type PlanErrors = Partial<
   tiers?: Record<string, string>;
 };
 
+type WireRoleView = "team_lead" | "agent";
+
 const agents: Agent[] = [
   { id: "a1", name: "Ila Corcoran", role: "Primary Agent", email: "ila@radiusagent.com", avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop", hasDefault: true },
   { id: "a2", name: "Michael Tran", role: "Co-Agent", email: "michael@radiusagent.com", avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150&auto=format&fit=crop", hasDefault: false },
@@ -203,6 +220,9 @@ const agents: Agent[] = [
   { id: "a8", name: "Noah Garcia", role: "Agent", email: "noah@radiusagent.com", avatarUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=150&auto=format&fit=crop", hasDefault: false },
   { id: "a9", name: "Sophia Brown", role: "Agent", email: "sophia@radiusagent.com", avatarUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=150&auto=format&fit=crop", hasDefault: false },
 ];
+
+const CURRENT_TEAM_LEAD_ID = "a3";
+const CURRENT_AGENT_ID = "a1";
 
 const defaultTiers: TierRow[] = [
   { id: "tier-1", from: "1", to: "5", agentSplit: "80", teamSplit: "20" },
@@ -1522,7 +1542,273 @@ function DefaultAssignmentsTable({
   );
 }
 
+function buildWireFieldId(prefix: string, field: string) {
+  return `${prefix}-${field}`;
+}
+
+function formatWireAccountType(accountType: WireInstructionRecord["accountType"]) {
+  return accountType === "checking" ? "Checking" : "Savings";
+}
+
+function WireInstructionsFormCard({
+  idPrefix,
+  record,
+  errors,
+  revealSensitive,
+  onToggleSensitive,
+  onChange,
+  onSave,
+}: {
+  idPrefix: string;
+  record: WireInstructionRecord;
+  errors: WireValidationErrors;
+  revealSensitive: boolean;
+  onToggleSensitive: () => void;
+  onChange: (patch: Partial<WireInstructionRecord>) => void;
+  onSave: () => void;
+}) {
+  const [activeSensitiveField, setActiveSensitiveField] = useState<"routingNumber" | "accountNumber" | null>(null);
+  const showRoutingValue = revealSensitive || activeSensitiveField === "routingNumber";
+  const showAccountValue = revealSensitive || activeSensitiveField === "accountNumber";
+
+  return (
+    <section className="flex flex-col gap-4">
+      <Card className="rounded-[14px] border-border shadow-none">
+        <CardContent className="p-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "account-holder")} className="text-sm font-medium">Account Holder Name</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "account-holder")}
+                value={record.accountHolderName}
+                aria-invalid={Boolean(errors.accountHolderName)}
+                onChange={(e) => onChange({ accountHolderName: e.target.value })}
+                className="h-10"
+              />
+              {errors.accountHolderName && <p className="text-xs text-destructive">{errors.accountHolderName}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "bank-name")} className="text-sm font-medium">Bank Name</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "bank-name")}
+                value={record.bankName}
+                aria-invalid={Boolean(errors.bankName)}
+                onChange={(e) => onChange({ bankName: e.target.value })}
+                className="h-10"
+              />
+              {errors.bankName && <p className="text-xs text-destructive">{errors.bankName}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "routing")} className="text-sm font-medium">Routing Number (ABA)</Label>
+              <div className="relative">
+                <Input
+                  id={buildWireFieldId(idPrefix, "routing")}
+                  value={showRoutingValue ? record.routingNumber : ""}
+                  placeholder={showRoutingValue ? "Enter routing number" : record.routingNumber ? maskSensitiveValue(record.routingNumber) : "Enter routing number"}
+                  aria-invalid={Boolean(errors.routingNumber)}
+                  inputMode="numeric"
+                  onFocus={() => setActiveSensitiveField("routingNumber")}
+                  onBlur={() => setActiveSensitiveField((current) => (current === "routingNumber" ? null : current))}
+                  onChange={(e) => onChange({ routingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) })}
+                  className="h-10 pr-10"
+                />
+                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 size-8" onClick={onToggleSensitive} aria-label={revealSensitive ? "Mask routing and account number" : "Reveal routing and account number"}>
+                  {revealSensitive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
+              {errors.routingNumber && <p className="text-xs text-destructive">{errors.routingNumber}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "account-number")} className="text-sm font-medium">Account Number</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "account-number")}
+                value={showAccountValue ? record.accountNumber : ""}
+                placeholder={showAccountValue ? "Enter account number" : record.accountNumber ? maskSensitiveValue(record.accountNumber) : "Enter account number"}
+                aria-invalid={Boolean(errors.accountNumber)}
+                onFocus={() => setActiveSensitiveField("accountNumber")}
+                onBlur={() => setActiveSensitiveField((current) => (current === "accountNumber" ? null : current))}
+                onChange={(e) => onChange({ accountNumber: e.target.value.replace(/\s/g, "") })}
+                className="h-10"
+              />
+              {errors.accountNumber && <p className="text-xs text-destructive">{errors.accountNumber}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Account Type</Label>
+              <Select value={record.accountType} onValueChange={(value) => onChange({ accountType: value as WireInstructionRecord["accountType"] })}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="checking">Checking</SelectItem>
+                  <SelectItem value="savings">Savings</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "bank-street")} className="text-sm font-medium">Bank Street Address</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "bank-street")}
+                value={record.bankStreet}
+                aria-invalid={Boolean(errors.bankStreet)}
+                onChange={(e) => onChange({ bankStreet: e.target.value })}
+                className="h-10"
+              />
+              {errors.bankStreet && <p className="text-xs text-destructive">{errors.bankStreet}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "bank-city")} className="text-sm font-medium">City</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "bank-city")}
+                value={record.bankCity}
+                aria-invalid={Boolean(errors.bankCity)}
+                onChange={(e) => onChange({ bankCity: e.target.value })}
+                className="h-10"
+              />
+              {errors.bankCity && <p className="text-xs text-destructive">{errors.bankCity}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "bank-state")} className="text-sm font-medium">State</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "bank-state")}
+                value={record.bankState}
+                aria-invalid={Boolean(errors.bankState)}
+                onChange={(e) => onChange({ bankState: e.target.value })}
+                className="h-10"
+              />
+              {errors.bankState && <p className="text-xs text-destructive">{errors.bankState}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "bank-zip")} className="text-sm font-medium">ZIP</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "bank-zip")}
+                value={record.bankZip}
+                aria-invalid={Boolean(errors.bankZip)}
+                onChange={(e) => onChange({ bankZip: e.target.value })}
+                className="h-10"
+              />
+              {errors.bankZip && <p className="text-xs text-destructive">{errors.bankZip}</p>}
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <Label htmlFor={buildWireFieldId(idPrefix, "special-instructions")} className="text-sm font-medium">Special Instructions / Memo</Label>
+            <Textarea
+              id={buildWireFieldId(idPrefix, "special-instructions")}
+              value={record.specialInstructions}
+              onChange={(e) => onChange({ specialInstructions: e.target.value })}
+              className="min-h-[92px]"
+            />
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {record.updatedAt ? `Last updated ${new Date(record.updatedAt).toLocaleString()}` : "Not saved yet"}
+            </p>
+            <Button onClick={onSave}>Save Wire Instructions</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function WireInstructionsSummaryCard({
+  title,
+  description,
+  record,
+  revealSensitive,
+  onToggleSensitive,
+  onEdit,
+}: {
+  title: string;
+  description: string;
+  record: WireInstructionRecord;
+  revealSensitive: boolean;
+  onToggleSensitive: () => void;
+  onEdit: () => void;
+}) {
+  const routingNumber = revealSensitive ? record.routingNumber || "Not provided" : maskSensitiveValue(record.routingNumber);
+  const accountNumber = revealSensitive ? record.accountNumber || "Not provided" : maskSensitiveValue(record.accountNumber);
+  const address = [record.bankStreet, record.bankCity, record.bankState, record.bankZip].filter(Boolean).join(", ");
+
+  return (
+    <Card className="rounded-[14px] border-border shadow-none">
+      <CardContent className="p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={onToggleSensitive}
+                aria-label={revealSensitive ? "Mask routing and account number" : "Reveal routing and account number"}
+              >
+                {revealSensitive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+                <Edit3 className="mr-2 size-4" />
+                Edit
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Holder Name</p>
+              <p className="text-sm text-foreground">{record.accountHolderName}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bank Name</p>
+              <p className="text-sm text-foreground">{record.bankName}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Routing Number (ABA)</p>
+              <p className="text-sm text-foreground">{routingNumber}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Number</p>
+              <p className="text-sm text-foreground">{accountNumber}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Type</p>
+              <p className="text-sm text-foreground">{formatWireAccountType(record.accountType)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bank Address</p>
+              <p className="text-sm text-foreground">{address || "Not provided"}</p>
+            </div>
+          </div>
+          {record.specialInstructions && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Special Instructions / Memo</p>
+              <p className="text-sm text-foreground">{record.specialInstructions}</p>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {record.updatedAt ? `Last updated ${new Date(record.updatedAt).toLocaleString()}` : "Not saved yet"}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WireStatusBadge({ complete }: { complete: boolean }) {
+  return complete ? (
+    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200">Complete</Badge>
+  ) : (
+    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Incomplete</Badge>
+  );
+}
+
 export function CDASettings() {
+  const defaultWireStore = useMemo(
+    () => createDefaultWireInstructionsStore(CURRENT_TEAM_LEAD_ID, agents.map((agent) => agent.id)),
+    [],
+  );
   const [state, setState] = useState<{
     plans: CommissionPlan[];
     activePlanId: string | null;
@@ -1570,12 +1856,283 @@ export function CDASettings() {
     dealsAssignment: null,
     isAssigning: false,
   });
+  const [wireRoleView, setWireRoleView] = useState<WireRoleView>("team_lead");
+  const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
+  const [teamWireDraft, setTeamWireDraft] = useState<WireInstructionRecord>(() => readWireInstructionsStore(defaultWireStore).teamWireInstructions);
+  const [agentWireDraft, setAgentWireDraft] = useState<WireInstructionRecord>(() => readWireInstructionsStore(defaultWireStore).agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
+  const [teamWireErrors, setTeamWireErrors] = useState<WireValidationErrors>({});
+  const [agentWireErrors, setAgentWireErrors] = useState<WireValidationErrors>({});
+  const [revealTeamSensitive, setRevealTeamSensitive] = useState(false);
+  const [revealAgentSensitive, setRevealAgentSensitive] = useState(false);
+  const [teamWireEditing, setTeamWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).teamWireInstructions));
+  const [agentWireEditing, setAgentWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction()));
+  const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
+  const currentAgent = agents.find((agent) => agent.id === CURRENT_AGENT_ID) ?? agents[0];
+  const unreadWireNotifications = wireStore.notifications.filter((item) => !item.read);
 
   const selectedDefaultAgents = useMemo(() => {
     if (!state.form.applyAsDefault) return [];
     if (state.form.defaultMode === "all") return agents;
     return agents.filter((agent) => state.form.selectedAgentIds.includes(agent.id));
   }, [state.form.applyAsDefault, state.form.defaultMode, state.form.selectedAgentIds]);
+
+  useEffect(() => {
+    const nextStore = readWireInstructionsStore(defaultWireStore);
+    setWireStore(nextStore);
+    setTeamWireDraft(nextStore.teamWireInstructions);
+    setAgentWireDraft(nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
+    setTeamWireEditing(!isWireInstructionComplete(nextStore.teamWireInstructions));
+    setAgentWireEditing(!isWireInstructionComplete(nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction()));
+  }, [defaultWireStore]);
+
+  useEffect(() => {
+    if (wireRoleView !== "team_lead" || unreadWireNotifications.length === 0) return;
+    unreadWireNotifications.forEach((notification) => {
+      toast.success(`${notification.agentName} completed wire instructions`);
+    });
+    const nextStore = {
+      ...wireStore,
+      notifications: wireStore.notifications.map((notification) => ({ ...notification, read: true })),
+    };
+    setWireStore(nextStore);
+    writeWireInstructionsStore(nextStore);
+  }, [wireRoleView, unreadWireNotifications, wireStore]);
+
+  function saveTeamWireInstructions() {
+    const errors = validateWireInstruction(teamWireDraft);
+    setTeamWireErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Fix team wire instruction errors");
+      return;
+    }
+
+    const nextStore: WireInstructionsStore = {
+      ...wireStore,
+      teamWireInstructions: {
+        ...teamWireDraft,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    setWireStore(nextStore);
+    setTeamWireDraft(nextStore.teamWireInstructions);
+    writeWireInstructionsStore(nextStore);
+    setTeamWireEditing(false);
+    toast.success("Team wire instructions saved");
+  }
+
+  function saveAgentWireInstructions() {
+    const errors = validateWireInstruction(agentWireDraft);
+    setAgentWireErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Fix personal wire instruction errors");
+      return;
+    }
+
+    const previousRecord = wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction();
+    const wasComplete = isWireInstructionComplete(previousRecord);
+    const nextRecord = {
+      ...agentWireDraft,
+      updatedAt: new Date().toISOString(),
+    };
+    const isCompleteNow = isWireInstructionComplete(nextRecord);
+    const nextNotifications = !wasComplete && isCompleteNow
+      ? [
+          {
+            id: crypto.randomUUID(),
+            agentId: currentAgent.id,
+            agentName: currentAgent.name,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...wireStore.notifications,
+        ]
+      : wireStore.notifications;
+
+    const nextStore: WireInstructionsStore = {
+      ...wireStore,
+      agentWireInstructions: {
+        ...wireStore.agentWireInstructions,
+        [CURRENT_AGENT_ID]: nextRecord,
+      },
+      notifications: nextNotifications,
+    };
+    setWireStore(nextStore);
+    setAgentWireDraft(nextRecord);
+    writeWireInstructionsStore(nextStore);
+    setAgentWireEditing(false);
+    toast.success("My wire instructions saved");
+  }
+
+  function renderWireInstructions() {
+    const teamComplete = isWireInstructionComplete(wireStore.teamWireInstructions);
+    const agentStatuses = agents
+      .filter((agent) => agent.id !== CURRENT_TEAM_LEAD_ID)
+      .map((agent) => ({
+        agent,
+        complete: isWireInstructionComplete(wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction()),
+      }));
+    const currentAgentComplete = isWireInstructionComplete(wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
+    const sectionTitle = wireRoleView === "team_lead" ? "Team Wire Instructions" : "My Wire Instructions";
+    const sectionDescription =
+      wireRoleView === "team_lead"
+        ? `Brokerage payout details for ${teamLeadAgent.name}'s team, plus read-only agent completion status.`
+        : `Personal payout details for ${currentAgent.name}. Team wire instructions stay hidden.`;
+    const showTeamForm = teamWireEditing || !teamComplete;
+    const showAgentForm = agentWireEditing || !currentAgentComplete;
+
+    return (
+      <section className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-base font-medium leading-6 text-foreground">{sectionTitle}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{sectionDescription}</p>
+          </div>
+          <div className="flex items-center gap-3 self-start">
+            {wireRoleView === "team_lead" && unreadWireNotifications.length > 0 && (
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                {unreadWireNotifications.length} new completion{unreadWireNotifications.length > 1 ? "s" : ""}
+              </Badge>
+            )}
+            <div className="inline-flex rounded-full border bg-muted/30 p-1">
+              <Button
+                type="button"
+                variant={wireRoleView === "team_lead" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-full px-4"
+                onClick={() => setWireRoleView("team_lead")}
+              >
+                Team Lead
+              </Button>
+              <Button
+                type="button"
+                variant={wireRoleView === "agent" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-full px-4"
+                onClick={() => setWireRoleView("agent")}
+              >
+                Agent
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {wireRoleView === "team_lead" ? (
+          <>
+            {!teamComplete && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <Bell className="text-amber-700" />
+                <AlertTitle className="text-amber-900">Team wire instructions incomplete</AlertTitle>
+                <AlertDescription className="text-amber-800">
+                  Complete brokerage wire instructions. CDA generation should block until payout destination exists.
+                </AlertDescription>
+              </Alert>
+            )}
+            {showTeamForm ? (
+              <WireInstructionsFormCard
+                idPrefix="team-wire"
+                record={teamWireDraft}
+                errors={teamWireErrors}
+                revealSensitive={revealTeamSensitive}
+                onToggleSensitive={() => setRevealTeamSensitive((prev) => !prev)}
+                onChange={(patch) => setTeamWireDraft((current) => ({ ...current, ...patch }))}
+                onSave={saveTeamWireInstructions}
+              />
+            ) : (
+              <WireInstructionsSummaryCard
+                title="Saved Team Wire Instructions"
+                description="Brokerage payout destination shown on generated CDA documents."
+                record={teamWireDraft}
+                revealSensitive={revealTeamSensitive}
+                onToggleSensitive={() => setRevealTeamSensitive((prev) => !prev)}
+                onEdit={() => setTeamWireEditing(true)}
+              />
+            )}
+            <section className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-base font-medium leading-6 text-foreground">Agent Wire Status</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Read-only status for each team member. Team lead cannot edit personal wire details.</p>
+              </div>
+              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent border-b">
+                      <TableHead className="pl-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Agent</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                      <TableHead className="pr-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 text-right">Updated</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {agentStatuses.map(({ agent, complete }) => {
+                      const record = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction();
+                      return (
+                        <TableRow key={agent.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <TableCell className="pl-6">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="size-8 shrink-0">
+                                <AvatarImage src={agent.avatarUrl} alt={agent.name} className="object-cover" />
+                                <AvatarFallback className="text-xs">{agent.name.split(" ").map((p) => p[0]).join("")}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{agent.name}</p>
+                                <p className="text-xs text-muted-foreground">{agent.role}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[13px] text-muted-foreground">{agent.email}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <WireStatusBadge complete={complete} />
+                              {!complete && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Action needed</Badge>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="pr-6 text-right text-xs text-muted-foreground">
+                            {record.updatedAt ? new Date(record.updatedAt).toLocaleDateString() : "Not started"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Card>
+            </section>
+          </>
+        ) : (
+          <>
+            {!currentAgentComplete && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <Bell className="text-amber-700" />
+                <AlertTitle className="text-amber-900">My wire instructions incomplete</AlertTitle>
+                <AlertDescription className="text-amber-800">
+                  Complete personal wire instructions before CDA can be generated for escrow payout.
+                </AlertDescription>
+              </Alert>
+            )}
+            {showAgentForm ? (
+              <WireInstructionsFormCard
+                idPrefix="agent-wire"
+                record={agentWireDraft}
+                errors={agentWireErrors}
+                revealSensitive={revealAgentSensitive}
+                onToggleSensitive={() => setRevealAgentSensitive((prev) => !prev)}
+                onChange={(patch) => setAgentWireDraft((current) => ({ ...current, ...patch }))}
+                onSave={saveAgentWireInstructions}
+              />
+            ) : (
+              <WireInstructionsSummaryCard
+                title="Saved My Wire Instructions"
+                description="Personal payout destination shown on generated CDA documents."
+                record={agentWireDraft}
+                revealSensitive={revealAgentSensitive}
+                onToggleSensitive={() => setRevealAgentSensitive((prev) => !prev)}
+                onEdit={() => setAgentWireEditing(true)}
+              />
+            )}
+          </>
+        )}
+      </section>
+    );
+  }
 
   function closeDialog() {
     setState((current) => ({ ...current, activeDialog: null }));
@@ -2626,6 +3183,7 @@ export function CDASettings() {
         <div className="flex flex-col gap-8 px-4 py-9">
           {renderCommissionPlans()}
           {renderFeeTypes()}
+          {renderWireInstructions()}
           {/* {renderPaymentRouting()} */}
           {/* 
           {state.defaultAssignments.length === 0 ? (
