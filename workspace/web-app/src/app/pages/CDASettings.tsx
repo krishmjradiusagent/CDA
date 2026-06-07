@@ -1972,7 +1972,10 @@ export function CDASettings() {
         complete: isWireInstructionComplete(wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction()),
       }));
     const currentAgentComplete = isWireInstructionComplete(wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
-    const sectionTitle = wireRoleView === "team_lead" ? "Team Wire Instructions" : "My Wire Instructions";
+    const sectionTitle =
+      wireRoleView === "team_lead"
+        ? "Team Wire Instructions"
+        : "My Wire Instructions";
     const sectionDescription =
       wireRoleView === "team_lead"
         ? `Brokerage payout details for ${teamLeadAgent.name}'s team, plus read-only agent completion status.`

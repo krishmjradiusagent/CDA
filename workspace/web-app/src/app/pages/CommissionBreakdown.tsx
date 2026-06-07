@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronRight,
   Download,
+  Landmark,
   Info,
   MessageCircleMore,
   Pencil,
@@ -100,11 +101,13 @@ import {
   createDefaultWireInstructionsStore,
   createEmptyWireInstruction,
   isWireInstructionComplete,
+  maskSensitiveValue,
   readWireInstructionsStore,
+  type WireInstructionRecord,
 } from "../lib/wire-instructions";
 
 type SideId = "listing" | "buyer";
-type Role = "agent" | "team_lead" | "radius_auditing";
+type Role = "agent" | "team_lead" | "radius_auditing" | "soul_auditor";
 type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string; external?: boolean; phone?: string; brokerageName?: string; brokerageLicenseNumber?: string; brokerageStreetAddress?: string; brokerageUnit?: string; brokerageCity?: string; brokerageState?: string; brokerageZip?: string; representing?: string };
 type SideDeduction = { id: string; name: string; amount: number };
 type Side = {
@@ -259,10 +262,15 @@ function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
 }
 
+function formatWireAccountType(accountType: WireInstructionRecord["accountType"]) {
+  return accountType === "checking" ? "Checking" : "Savings";
+}
+
 const roleMeta: Record<string, { label: string; badge: string; avatar: string }> = {
   agent: { label: "Agent", badge: "bg-blue-50 text-blue-700 border-blue-200", avatar: "bg-blue-100 text-blue-700" },
   team_lead: { label: "Team Lead", badge: "bg-amber-50 text-amber-700 border-amber-200", avatar: "bg-amber-100 text-amber-700" },
-  radius_auditing: { label: "Admin", badge: "bg-purple-50 text-purple-700 border-purple-200", avatar: "bg-purple-100 text-purple-700" },
+  radius_auditing: { label: "Auditor", badge: "bg-purple-50 text-purple-700 border-purple-200", avatar: "bg-purple-100 text-purple-700" },
+  soul_auditor: { label: "SOUL Auditor", badge: "bg-purple-50 text-purple-700 border-purple-200", avatar: "bg-purple-100 text-purple-700" },
 };
 
 function numericValue(value: string) {
@@ -692,8 +700,9 @@ export function CommissionBreakdown() {
     { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: "Confirmed CDA and generated final output.", timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
+  const [showWireSheet, setShowWireSheet] = useState(false);
   const [activityView, setActivityView] = useState<ActivityView>("all");
-  const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You" };
+  const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You", soul_auditor: "You" };
   function makeTimestamp() {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
@@ -884,6 +893,34 @@ export function CommissionBreakdown() {
   const agentWireComplete = isWireInstructionComplete(
     wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(),
   );
+  const auditorWireParties = useMemo(() => {
+    const parties = [
+      {
+        id: "team",
+        name: `${sidesData.find((side) => side.id === "listing")?.subline ?? "Brokerage"} - Team`,
+        roleLabel: "Team",
+        detailLabel: "Brokerage wire instructions",
+        complete: teamWireComplete,
+        record: wireStore.teamWireInstructions,
+      },
+      ...sidesData.flatMap((side) =>
+        side.agents.map((agent) => {
+          const record = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction();
+          return {
+            id: `${side.id}-${agent.id}`,
+            name: agent.name,
+            roleLabel: "Agent",
+            detailLabel: `${agent.role} - ${side.title}`,
+            complete: isWireInstructionComplete(record),
+            record,
+          };
+        }),
+      ),
+    ];
+    return parties;
+  }, [sidesData, teamWireComplete, wireStore]);
+  const incompleteWirePartyNames = auditorWireParties.filter((party) => !party.complete).map((party) => party.name);
+  const allAuditorWiresComplete = incompleteWirePartyNames.length === 0;
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -1068,8 +1105,9 @@ export function CommissionBreakdown() {
 
   const isAgent = role === "agent";
   const isTL = role === "team_lead";
-  const canEditAll = role === "radius_auditing";
-  const isLocked = txStatus === "processed" && role !== "radius_auditing";
+  const isAuditor = role === "radius_auditing" || role === "soul_auditor";
+  const canEditAll = isAuditor;
+  const isLocked = txStatus === "processed" && !isAuditor;
   const STATUS_LABELS: Record<TxStatus, string> = {
     draft: "Awaiting Agent confirmation",
     agent_confirmed: "Confirmed by Agent",
@@ -1091,15 +1129,15 @@ export function CommissionBreakdown() {
         ? "Agent confirms first. Team Lead confirms next."
         : "Confirm CDA after Agent and Team Lead confirm. Any edit restarts flow.";
   const confirmActionLabel =
-    role === "radius_auditing" ? "Confirm CDA" : "Confirm";
+    isAuditor ? "Confirm CDA" : "Confirm";
   const confirmDialogTitle =
-    role === "radius_auditing"
+    isAuditor
       ? "Confirm CDA?"
       : role === "team_lead"
         ? "Confirm by Team Lead?"
         : "Confirm by Agent?";
   const confirmDialogBody =
-    role === "radius_auditing"
+    isAuditor
       ? "Confirm and generate CDA after Agent and Team Lead confirm. Any edit after this restarts confirmation."
       : role === "team_lead"
         ? "Confirm the numbers after Agent confirmation. If anything changes later, Agent must confirm again."
@@ -1107,7 +1145,7 @@ export function CommissionBreakdown() {
   const canConfirmNow =
     (role === "agent" && txStatus === "draft") ||
     (role === "team_lead" && txStatus === "agent_confirmed") ||
-    (role === "radius_auditing" && txStatus === "team_lead_confirmed");
+    (isAuditor && txStatus === "team_lead_confirmed");
   const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
 
   function getActivityNode(entry: ActivityEntry) {
@@ -1329,18 +1367,18 @@ export function CommissionBreakdown() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-2 rounded-lg px-3 text-xs">
                 {role === "agent" ? <User className="size-3.5" /> : role === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
-                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : "Auditor view"}
+                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : role === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}
                 <ChevronRight className="size-3 rotate-90" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Switch role</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {(["agent", "team_lead", "radius_auditing"] as Role[]).map((r) => (
+              {(["agent", "team_lead", "radius_auditing", "soul_auditor"] as Role[]).map((r) => (
                 <DropdownMenuItem key={r} onClick={() => setRole(r)} className={cn(role === r && "bg-accent")}>
                   <div className="flex items-center gap-2">
                     {r === "agent" ? <User className="size-3.5" /> : r === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
-                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : "Auditor view"}</span>
+                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : r === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}</span>
                   </div>
                 </DropdownMenuItem>
               ))}
@@ -1368,6 +1406,23 @@ export function CommissionBreakdown() {
               <Badge variant={STATUS_COLORS[txStatus]} className="rounded-full px-3">
                 {STATUS_LABELS[txStatus]}
               </Badge>
+            )}
+            {isAuditor && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="relative flex size-8 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setShowWireSheet(true)}
+                aria-label="Open wire instructions status"
+              >
+                <Landmark className="size-4" />
+                {!allAuditorWiresComplete && (
+                  <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
+                    {incompleteWirePartyNames.length}
+                  </span>
+                )}
+              </Button>
             )}
             <Button
               type="button"
@@ -1408,7 +1463,7 @@ export function CommissionBreakdown() {
                 Confirm
               </Button>
             )}
-            {role === "radius_auditing" && (
+            {isAuditor && (
               <Button
                 size="sm"
                 className="h-8 shrink-0 rounded-lg px-4 text-xs"
@@ -1424,6 +1479,7 @@ export function CommissionBreakdown() {
                 size="sm"
                 variant="outline"
                 className="h-8 gap-1.5 rounded-lg border-primary px-4 text-xs text-primary"
+                disabled={isAuditor && !allAuditorWiresComplete}
                 onClick={() => setShowPdfPreview(true)}
               >
                 <Download className="size-3.5" />
@@ -1457,6 +1513,16 @@ export function CommissionBreakdown() {
               <Info className="text-amber-700" />
               <AlertDescription className="text-amber-800">
                 Complete team wire instructions in settings before CDA can be generated.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+        {isAuditor && !allAuditorWiresComplete && (
+          <div className="border-b bg-background px-6 py-4">
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+              <Info className="text-amber-700" />
+              <AlertDescription className="text-amber-800">
+                Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. CDA download blocked.
               </AlertDescription>
             </Alert>
           </div>
@@ -2924,6 +2990,80 @@ export function CommissionBreakdown() {
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             {renderActivitySurface({ inSheet: true })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={showWireSheet} onOpenChange={setShowWireSheet}>
+        <SheetContent side="right" showCloseButton={false} className="w-full gap-0 sm:max-w-xl">
+          <SheetHeader className="border-b px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <SheetTitle className="text-[15px] leading-6">Wire Instructions Status</SheetTitle>
+                <SheetDescription className="mt-0.5 text-[13px]">Read-only wire status for brokerage and each agent on this deal.</SheetDescription>
+              </div>
+              <SheetClose className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <X className="size-4" />
+                <span className="sr-only">Close</span>
+              </SheetClose>
+            </div>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="flex flex-col gap-3">
+              {!allAuditorWiresComplete && (
+                <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                  <Info className="text-amber-700" />
+                  <AlertDescription className="text-amber-800">
+                    Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. CDA download blocked.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {auditorWireParties.map((party) => (
+                <Card key={party.id} className="rounded-[14px] border-border py-0 gap-0 shadow-none">
+                  <CardContent className="px-3 py-0">
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-sm font-semibold text-foreground">{party.name}</h3>
+                          <p className="mt-1 text-xs text-muted-foreground">{party.roleLabel} · {party.detailLabel}</p>
+                        </div>
+                        {party.complete ? (
+                          <Badge variant="secondary" className="border-emerald-200 bg-emerald-50 text-emerald-700">Complete</Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Incomplete - Action needed</Badge>
+                        )}
+                      </div>
+                      {party.complete ? (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Account Holder Name</p>
+                            <p className="text-sm text-foreground">{party.record.accountHolderName}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Bank Name</p>
+                            <p className="text-sm text-foreground">{party.record.bankName}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Routing Number</p>
+                            <p className="text-sm text-foreground">{maskSensitiveValue(party.record.routingNumber)}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Account Number</p>
+                            <p className="text-sm text-foreground">{maskSensitiveValue(party.record.accountNumber)}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Account Type</p>
+                            <p className="text-sm text-foreground">{formatWireAccountType(party.record.accountType)}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Wire details missing for this party.</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
