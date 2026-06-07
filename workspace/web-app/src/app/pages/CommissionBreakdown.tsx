@@ -3019,8 +3019,8 @@ export function CommissionBreakdown() {
                 </Alert>
               )}
               {auditorWireParties.map((party) => (
-                <Card key={party.id} className="rounded-[14px] border-border py-0 gap-0 shadow-none">
-                  <CardContent className="px-3 py-0">
+                <Card key={party.id} className="rounded-[14px] border-border py-0 gap-0 shadow-none overflow-hidden">
+                  <CardContent className="px-4 py-3">
                     <div className="flex flex-col gap-2.5">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
