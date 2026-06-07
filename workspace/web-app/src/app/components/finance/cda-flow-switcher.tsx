@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router";
 import {
   Calculator,
   Settings,
+  FileText,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -56,6 +57,23 @@ export function CDAFlowSwitcher() {
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="top">CDA Settings</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="h-4 mx-1" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link to="/cda/templates">
+                  <Button 
+                    variant={isActive("/cda/templates") ? "secondary" : "ghost"} 
+                    size="icon" 
+                    className="size-9 rounded-md"
+                  >
+                    <FileText className={isActive("/cda/templates") ? "size-4.5 text-primary" : "size-4.5 text-muted-foreground"} />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="top">CDA Templates</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </CardContent>

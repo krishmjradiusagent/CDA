@@ -1,19 +1,18 @@
-# Handoff - 2026-06-03
+# Handoff - 2026-06-08
 
 ## Summary
-Refined the CDA Settings workspace, updated the activity feed with realistic audit trail logs, removed tentative notice flow banners/caps badges from the commission breakdown page, and isolated audit trail activities to the "View all" side panel view.
+Ported the CDA Document templates from the static HTML prototype into the React application, registered the `/cda/templates` route, and updated both standard and v4 navigation switchers to include the "CDA Templates" view.
 
 ## Changes
-1. **Removed Banner**: Removed the blue info banner containing the "Confirm CDA after Agent and Team Lead confirm..." flow note from the top of the agent details ledger inside the side panel.
-2. **Removed Cap Badge**: Removed the `$580 to cap` badge next to the agent name header in the side panel.
-3. **Comments-Only Filtering**: Restricted the default comments section preview inside the breakdown page to only display actual user comments, moving all system activity and audit logs strictly inside the "View all" comments & activity side panel drawer.
-4. **Deployment**: Staged, committed, and successfully pushed latest changes to the remote branch `main` at `https://github.com/krishmjradiusagent/CDA.git`.
+1. **CDA Templates Page**: Implemented [CDATemplates.tsx](file:///Users/radius/Desktop/Radius%20Vault/CDA%20copy/workspace/web-app/src/app/pages/CDATemplates.tsx) featuring the 5 layout configurations: Full Transparency, Radius Split Hidden (Partner), Radius Split Hidden (Associate), Team Split Hidden (Partner), and Gross CDA.
+2. **Navigation Integration**: Updated the navigation flow switchers in [cda-flow-switcher.tsx](file:///Users/radius/Desktop/Radius%20Vault/CDA%20copy/workspace/web-app/src/app/components/finance/cda-flow-switcher.tsx) and [cda-flow-switcher.tsx (v4)](file:///Users/radius/Desktop/Radius%20Vault/CDA%20copy/workspace/web-app/src/app/components/v4/finance/cda-flow-switcher.tsx) to support switching to/from the new templates page.
+3. **Route Registered**: Registered the route under `/cda/templates` inside [routes.tsx](file:///Users/radius/Desktop/Radius%20Vault/CDA%20copy/workspace/web-app/src/app/routes.tsx).
+4. **Verification**: Executed successful build (`npm run build`) with zero compile or TypeScript errors.
 
 ## Technical Notes
-- **Repository**: `https://github.com/krishmjradiusagent/CDA.git` (Remotes: `origin`, `cda`)
+- **Repository**: `https://github.com/krishmjradiusagent/CDA.git`
 - **Current Branch**: `main`
-- **Status**: Local changes successfully updated and verified in Vite dev server (http://localhost:5173/).
+- **Status**: Running locally on http://localhost:5173/ with routes and switchers fully operational.
 
 ## Next Steps
-- Gather feedback on the comments-only default feed view.
-- Finalize remaining components in the React app.
+- Verify the printed layout output matches the print styles in the original layout.

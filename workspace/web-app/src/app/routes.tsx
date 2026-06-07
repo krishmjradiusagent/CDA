@@ -13,6 +13,7 @@ import { CDAInsertionMap } from "./pages/CDAInsertionMap";
 import { CDACalculatorBreakdown } from "./pages/CDACalculatorBreakdown";
 import { CommissionBreakdown } from "./pages/CommissionBreakdown";
 import { TransactionDetail } from "./pages/TransactionDetail";
+import { CDATemplates } from "./pages/CDATemplates";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 
 export const router = createBrowserRouter([
@@ -80,6 +81,10 @@ export const router = createBrowserRouter([
       {
         path: "cda/commission-breakdown",
         Component: CommissionBreakdown,
+      },
+      {
+        path: "cda/templates",
+        Component: CDATemplates,
       },
       {
         path: "transaction-detail",
