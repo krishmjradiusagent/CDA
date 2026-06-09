@@ -48,6 +48,10 @@ export interface FeeTypeDraft {
   notToExceed: { enabled: boolean; amount: string };
 }
 
+export type ExistingFeeOption = FeeTypeDraft & {
+  id: string;
+};
+
 export interface FeeBuilderModalProps {
   open: boolean;
   title: string;
@@ -60,6 +64,8 @@ export interface FeeBuilderModalProps {
   hidePostSplitBase?: boolean;
   /** Hide sliding scale controls for contexts that do not support tiered fees */
   hideSlidingScale?: boolean;
+  /** Existing fee definitions that can be selected instead of manually creating a new one */
+  existingFeeOptions?: ExistingFeeOption[];
 }
 
 function createDraft(
@@ -233,19 +239,46 @@ export function FeeBuilderModal({
   hideTimingField,
   hidePostSplitBase,
   hideSlidingScale,
+  existingFeeOptions = [],
 }: FeeBuilderModalProps) {
   const [draft, setDraft] = useState<FeeTypeDraft>(() =>
     createDraft(initialData, { hideSlidingScale })
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [selectedExistingFeeId, setSelectedExistingFeeId] = useState<string>("__new__");
+  const isExistingFeeSelected = selectedExistingFeeId !== "__new__";
+
+  function buildDraftFromExistingFee(existingFeeId: string) {
+    const existingFee = existingFeeOptions.find((option) => option.id === existingFeeId);
+    if (!existingFee) {
+      return createDraft(initialData, { hideSlidingScale });
+    }
+
+    return createDraft(
+      {
+        ...existingFee,
+        timing: hideTimingField ? initialData?.timing ?? existingFee.timing : existingFee.timing,
+      },
+      { hideSlidingScale }
+    );
+  }
 
   useEffect(() => {
     if (!open) return;
-    setDraft(createDraft(initialData, { hideSlidingScale }));
+    const matchedExistingFee = initialData?.id
+      ? existingFeeOptions.find((option) => option.id === initialData.id)
+      : undefined;
+    const nextSelectedExistingFeeId = matchedExistingFee?.id ?? "__new__";
+    setSelectedExistingFeeId(nextSelectedExistingFeeId);
+    setDraft(
+      nextSelectedExistingFeeId === "__new__"
+        ? createDraft(initialData, { hideSlidingScale })
+        : buildDraftFromExistingFee(nextSelectedExistingFeeId)
+    );
     setErrors({});
     setSaving(false);
-  }, [hideSlidingScale, initialData, open]);
+  }, [existingFeeOptions, hideSlidingScale, initialData, open]);
 
   function updateField<K extends keyof FeeTypeDraft>(field: K, value: FeeTypeDraft[K]) {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -281,6 +314,35 @@ export function FeeBuilderModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-4 px-6 py-4">
+            {existingFeeOptions.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Select Fee Type</Label>
+                <Select
+                  value={selectedExistingFeeId}
+                  onValueChange={(value) => {
+                    setSelectedExistingFeeId(value);
+                    setErrors({});
+                    setDraft(
+                      value === "__new__"
+                        ? createDraft(initialData, { hideSlidingScale })
+                        : buildDraftFromExistingFee(value)
+                    );
+                  }}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingFeeOptions.map((feeOption) => (
+                      <SelectItem key={feeOption.id} value={feeOption.id}>
+                        {feeOption.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__new__">+ Create a fee type</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Fee Name */}
             <div className="space-y-1.5">
@@ -291,6 +353,7 @@ export function FeeBuilderModal({
                 placeholder="e.g., Transaction Coordinator Fee"
                 value={draft.name}
                 aria-invalid={Boolean(errors.name)}
+                disabled={isExistingFeeSelected}
                 onChange={(event) => updateField("name", event.target.value)}
               />
               {errors.name ? <p className="text-xs text-destructive">{errors.name}</p> : null}
@@ -300,7 +363,11 @@ export function FeeBuilderModal({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fee Type</Label>
-                <Select value={draft.type} onValueChange={(value) => updateField("type", value as FeeTypeDraft["type"])}>
+                <Select
+                  value={draft.type}
+                  disabled={isExistingFeeSelected}
+                  onValueChange={(value) => updateField("type", value as FeeTypeDraft["type"])}
+                >
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
@@ -317,7 +384,7 @@ export function FeeBuilderModal({
                   value={draft.amount}
                   type={draft.type}
                   invalid={Boolean(errors.amount)}
-                  disabled={draft.slidingScale}
+                  disabled={draft.slidingScale || isExistingFeeSelected}
                   onChange={(value) => updateField("amount", value)}
                 />
                 {errors.amount ? <p className="text-xs text-destructive">{errors.amount}</p> : null}
@@ -328,7 +395,11 @@ export function FeeBuilderModal({
             {draft.type === "percentage" && (
               <div className="space-y-1.5">
                 <Label>Percentage Based On</Label>
-                <Select value={draft.percentageBase} onValueChange={(value) => updateField("percentageBase", value as PercentageBase)}>
+                <Select
+                  value={draft.percentageBase}
+                  disabled={isExistingFeeSelected}
+                  onValueChange={(value) => updateField("percentageBase", value as PercentageBase)}
+                >
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
@@ -347,7 +418,11 @@ export function FeeBuilderModal({
             {!hideTimingField && (
             <div className="space-y-1.5">
               <Label>When Applied</Label>
-              <Select value={draft.timing} onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}>
+              <Select
+                value={draft.timing}
+                disabled={isExistingFeeSelected}
+                onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}
+              >
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -362,7 +437,11 @@ export function FeeBuilderModal({
             {/* Fee Payer */}
             <div className="space-y-1.5">
               <Label>Fee Payer</Label>
-              <Select value={draft.appliesToMode} onValueChange={(value) => updateField("appliesToMode", value as FeeTypeDraft["appliesToMode"])}>
+              <Select
+                value={draft.appliesToMode}
+                disabled={isExistingFeeSelected}
+                onValueChange={(value) => updateField("appliesToMode", value as FeeTypeDraft["appliesToMode"])}
+              >
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -385,6 +464,7 @@ export function FeeBuilderModal({
                   <Switch
                     id="sliding-scale"
                     checked={draft.slidingScale}
+                    disabled={isExistingFeeSelected}
                     onCheckedChange={(checked) => updateField("slidingScale", checked)}
                   />
                 </div>
@@ -401,6 +481,7 @@ export function FeeBuilderModal({
                         <Checkbox
                           id="not-less-than"
                           checked={draft.notLessThan.enabled}
+                          disabled={isExistingFeeSelected}
                           onCheckedChange={(checked) =>
                             updateField("notLessThan", { ...draft.notLessThan, enabled: Boolean(checked) })
                           }
@@ -414,7 +495,7 @@ export function FeeBuilderModal({
                             className="h-9 pl-7 text-sm"
                             value={draft.notLessThan.amount}
                             inputMode="decimal"
-                            disabled={!draft.notLessThan.enabled}
+                            disabled={!draft.notLessThan.enabled || isExistingFeeSelected}
                             onChange={(e) =>
                               updateField("notLessThan", { ...draft.notLessThan, amount: e.target.value })
                             }
@@ -425,6 +506,7 @@ export function FeeBuilderModal({
                         <Checkbox
                           id="not-to-exceed"
                           checked={draft.notToExceed.enabled}
+                          disabled={isExistingFeeSelected}
                           onCheckedChange={(checked) =>
                             updateField("notToExceed", { ...draft.notToExceed, enabled: Boolean(checked) })
                           }
@@ -438,7 +520,7 @@ export function FeeBuilderModal({
                             className="h-9 pl-7 text-sm"
                             value={draft.notToExceed.amount}
                             inputMode="decimal"
-                            disabled={!draft.notToExceed.enabled}
+                            disabled={!draft.notToExceed.enabled || isExistingFeeSelected}
                             onChange={(e) =>
                               updateField("notToExceed", { ...draft.notToExceed, amount: e.target.value })
                             }
@@ -461,6 +543,7 @@ export function FeeBuilderModal({
                 <Switch
                   id="contributes-cap"
                   checked={draft.contributesToCap}
+                  disabled={isExistingFeeSelected}
                   onCheckedChange={(checked) => updateField("contributesToCap", checked)}
                 />
               </div>
@@ -473,6 +556,7 @@ export function FeeBuilderModal({
                 <Switch
                   id="visible-cda"
                   checked={draft.visibleOnCda}
+                  disabled={isExistingFeeSelected}
                   onCheckedChange={(checked) => updateField("visibleOnCda", checked)}
                 />
               </div>
@@ -487,7 +571,7 @@ export function FeeBuilderModal({
           </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save Fee Type
+            {isExistingFeeSelected ? "Add Fee" : "Save Fee Type"}
           </Button>
         </DialogFooter>
       </DialogContent>

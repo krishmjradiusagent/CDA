@@ -96,7 +96,7 @@ import {
 import { cn } from "../../lib/utils";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { FeeBuilderModal } from "../components/finance/fee-builder-modal";
-import type { FeeTypeDraft } from "../components/finance/fee-builder-modal";
+import type { ExistingFeeOption, FeeTypeDraft } from "../components/finance/fee-builder-modal";
 import {
   createDefaultWireInstructionsStore,
   createEmptyWireInstruction,
@@ -199,6 +199,13 @@ const COMMISSION_PLANS: CommissionPlanOption[] = [
   { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% office", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30 },
   { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0 },
   { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% office", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40 },
+];
+
+const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
+  { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
+  { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
+  { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
+  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: false, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
 ];
 
 const AGENT_CAP_PROGRESS: Record<string, number> = {
@@ -799,6 +806,7 @@ export function CommissionBreakdown() {
   const [_showAgentPreSplitDialog] = useState(false);
   const [_agentPreSplitLabel] = useState("");
   const [_agentPreSplitAmount] = useState("");
+  const [feeLibrary, setFeeLibrary] = useState<ExistingFeeOption[]>(DEFAULT_FEE_LIBRARY);
   const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>(
     persistedState?.preSplitDeductions ?? {}
   );
@@ -1050,6 +1058,17 @@ export function CommissionBreakdown() {
 
   function handleFeeAdded(fee: FeeTypeDraft) {
     const amount = Math.round(Number(fee.amount) || 0);
+    if (!fee.id) {
+      const newFeeId = `fee-${Date.now()}`;
+      setFeeLibrary((prev) => [
+        ...prev,
+        {
+          ...fee,
+          id: newFeeId,
+        },
+      ]);
+      fee = { ...fee, id: newFeeId };
+    }
     if (fee.timing === "pre-split") {
       if (feeDialogTarget === "agent" && selectedAgentId) {
         setPreSplitDeductions((prev) => ({
@@ -1077,6 +1096,11 @@ export function CommissionBreakdown() {
     setFeeDialogTiming(null);
     setFeeDialogTarget("side");
   }
+
+  const availableFeeOptions = useMemo(
+    () => feeLibrary.filter((fee) => fee.timing === (feeDialogTiming ?? fee.timing)),
+    [feeDialogTiming, feeLibrary]
+  );
 
   const grossIncome = activeSideSummary?.grossCommission ?? 0;
   const totalGrossCommission = derivedBreakdown.totalGrossCommission;
@@ -2504,6 +2528,7 @@ export function CommissionBreakdown() {
         hideTimingField={feeDialogTiming !== null}
         hidePostSplitBase={feeDialogTiming === "pre-split"}
         hideSlidingScale
+        existingFeeOptions={availableFeeOptions}
       />
 
       {/* Company Dollar Contribution dialog */}
