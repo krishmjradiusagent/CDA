@@ -761,12 +761,14 @@ export function CommissionBreakdown() {
   const [showGrossInfo, setShowGrossInfo] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [feeDialogTiming, setFeeDialogTiming] = useState<"pre-split" | "post-split" | null>(null);
+  const [feeDialogTarget, setFeeDialogTarget] = useState<"side" | "agent">("side");
   const [showInlineSidePreSplitDraft, setShowInlineSidePreSplitDraft] = useState(false);
   const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
   const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
-  const [showInlineAgentPreSplitDraft, setShowInlineAgentPreSplitDraft] = useState(false);
-  const [inlineAgentPreSplitLabel, setInlineAgentPreSplitLabel] = useState("");
-  const [inlineAgentPreSplitAmount, setInlineAgentPreSplitAmount] = useState("");
+  // Keep retired hooks stable for dev fast-refresh on this page.
+  const [_showInlineAgentPreSplitDraft] = useState(false);
+  const [_inlineAgentPreSplitLabel] = useState("");
+  const [_inlineAgentPreSplitAmount] = useState("");
   const feeDialogTitle = "Fee Type";
   const [showCDCDialog, setShowCDCDialog] = useState(false);
   const [showNetCommissionDialog, setShowNetCommissionDialog] = useState(false);
@@ -794,10 +796,9 @@ export function CommissionBreakdown() {
   const [rejectInput, setRejectInput] = useState("");
   const hasCommentNotification = Boolean(rejectionNote);
   const [expandedSideAgentId, setExpandedSideAgentId] = useState<string | null>(null);
-  // Simple pre-split deduction for agent role (Credits / Referral Fees)
-  const [showAgentPreSplitDialog, setShowAgentPreSplitDialog] = useState(false);
-  const [agentPreSplitLabel, setAgentPreSplitLabel] = useState("");
-  const [agentPreSplitAmount, setAgentPreSplitAmount] = useState("");
+  const [_showAgentPreSplitDialog] = useState(false);
+  const [_agentPreSplitLabel] = useState("");
+  const [_agentPreSplitAmount] = useState("");
   const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>(
     persistedState?.preSplitDeductions ?? {}
   );
@@ -1034,12 +1035,6 @@ export function CommissionBreakdown() {
     setInlineSidePreSplitAmount("");
   }
 
-  function resetInlineAgentPreSplitDraft() {
-    setShowInlineAgentPreSplitDraft(false);
-    setInlineAgentPreSplitLabel("");
-    setInlineAgentPreSplitAmount("");
-  }
-
   function handleInlineSidePreSplitSave() {
     const name = inlineSidePreSplitLabel.trim();
     const amount = Math.round(Number(inlineSidePreSplitAmount) || 0);
@@ -1053,29 +1048,23 @@ export function CommissionBreakdown() {
     resetInlineSidePreSplitDraft();
   }
 
-  function handleInlineAgentPreSplitSave() {
-    const agentId = selectedAgent?.agent.id;
-    const name = inlineAgentPreSplitLabel.trim();
-    const amount = Math.round(Number(inlineAgentPreSplitAmount) || 0);
-    if (!agentId || !name || !amount) return;
-    setPreSplitDeductions((prev) => ({
-      ...prev,
-      [agentId]: [...(prev[agentId] ?? []), { id: `pre-${Date.now()}`, name, amount }],
-    }));
-    logActivity(`Added ${name} pre-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
-    toast.success(`"${name}" added`);
-    resetInlineAgentPreSplitDraft();
-  }
-
   function handleFeeAdded(fee: FeeTypeDraft) {
     const amount = Math.round(Number(fee.amount) || 0);
     if (fee.timing === "pre-split") {
-      // Pre-split → side-level gross deductions
-      setSideGrossDeductions((prev) => ({
-        ...prev,
-        [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount }],
-      }));
-      logActivity(`Added ${fee.name} pre-split deduction for ${activeSide.title}.`);
+      if (feeDialogTarget === "agent" && selectedAgentId) {
+        setPreSplitDeductions((prev) => ({
+          ...prev,
+          [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `pre-${Date.now()}`, name: fee.name, amount }],
+        }));
+        logActivity(`Added ${fee.name} pre-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
+      } else {
+        // Pre-split → side-level gross deductions
+        setSideGrossDeductions((prev) => ({
+          ...prev,
+          [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount }],
+        }));
+        logActivity(`Added ${fee.name} pre-split deduction for ${activeSide.title}.`);
+      }
     } else if (fee.timing === "post-split" && selectedAgentId) {
       // Post-split → agent-level deductions
       setPostSplitDeductions((prev) => ({
@@ -1086,6 +1075,7 @@ export function CommissionBreakdown() {
     }
     toast.success(`"${fee.name}" added`);
     setFeeDialogTiming(null);
+    setFeeDialogTarget("side");
   }
 
   const grossIncome = activeSideSummary?.grossCommission ?? 0;
@@ -1887,21 +1877,16 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                   ))}
-                  {showInlineAgentPreSplitDraft && (
-                    <div className="pt-1">
-                      <InlineDeductionDraftRow
-                        label={inlineAgentPreSplitLabel}
-                        amount={inlineAgentPreSplitAmount}
-                        labelPlaceholder="Fee name"
-                        onLabelChange={setInlineAgentPreSplitLabel}
-                        onAmountChange={setInlineAgentPreSplitAmount}
-                        onSave={handleInlineAgentPreSplitSave}
-                        onCancel={resetInlineAgentPreSplitDraft}
-                      />
-                    </div>
-                  )}
                   <div className="pt-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineAgentPreSplitDraft(true)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]"
+                      onClick={() => {
+                        setFeeDialogTarget("agent");
+                        setFeeDialogTiming("pre-split");
+                      }}
+                    >
                       <Plus className="size-3.5 mr-1" />Pre-split deduction
                     </Button>
                   </div>
@@ -2145,7 +2130,15 @@ export function CommissionBreakdown() {
                   )}
                   {isAgent && !isLocked && (
                   <div className="pt-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setFeeDialogTiming("pre-split")}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]"
+                      onClick={() => {
+                        setFeeDialogTarget("side");
+                        setFeeDialogTiming("pre-split");
+                      }}
+                    >
                       <Plus className="size-3.5 mr-1" />Add credit or referral fee
                     </Button>
                   </div>
@@ -2474,52 +2467,6 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
-      {/* Agent: add credit or referral fee (gross pre-split) */}
-      <Dialog open={showAgentPreSplitDialog} onOpenChange={(open) => { setShowAgentPreSplitDialog(open); if (!open) { setAgentPreSplitLabel(""); setAgentPreSplitAmount(""); } }}>
-        <DialogContent className="gap-0 p-0 sm:max-w-sm">
-          <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Add credit or referral fee</DialogTitle>
-            <DialogDescription>Enter a label and dollar amount to deduct from gross before split.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 px-6 py-4">
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">Label</p>
-              <Input value={agentPreSplitLabel} onChange={(e) => setAgentPreSplitLabel(e.target.value)} placeholder="e.g. Referral fee" className="h-9 border border-input bg-background" />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">Amount</p>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                <Input value={agentPreSplitAmount} onChange={(e) => setAgentPreSplitAmount(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" inputMode="decimal" className="h-9 pl-7 border border-input bg-background" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowAgentPreSplitDialog(false)}>Cancel</Button>
-            <Button
-              disabled={!agentPreSplitLabel.trim() || !agentPreSplitAmount}
-              className="bg-primary"
-              onClick={() => {
-                const agentId = sidesData.flatMap(s => s.agents).find(a => a.id === selectedAgentId)?.id ?? selectedAgentId ?? "";
-                setPreSplitDeductions((prev) => ({
-                  ...prev,
-                  [agentId]: [...(prev[agentId] ?? []), { id: `pre-${Date.now()}`, name: agentPreSplitLabel.trim(), amount: Math.round(Number(agentPreSplitAmount)) }],
-                }));
-                toast.success(`"${agentPreSplitLabel}" added`);
-                setShowAgentPreSplitDialog(false);
-                setAgentPreSplitLabel("");
-                setAgentPreSplitAmount("");
-              }}
-            >
-              Add
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-
-
-
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
@@ -2546,11 +2493,17 @@ export function CommissionBreakdown() {
       <FeeBuilderModal
         open={feeDialogTiming !== null}
         title={feeDialogTitle}
-        onOpenChange={(open) => { if (!open) setFeeDialogTiming(null); }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFeeDialogTiming(null);
+            setFeeDialogTarget("side");
+          }
+        }}
         initialData={{ timing: feeDialogTiming ?? "pre-split" }}
         onSave={handleFeeAdded}
-        hideTimingField={feeDialogTiming === "pre-split"}
+        hideTimingField={feeDialogTiming !== null}
         hidePostSplitBase={feeDialogTiming === "pre-split"}
+        hideSlidingScale
       />
 
       {/* Company Dollar Contribution dialog */}

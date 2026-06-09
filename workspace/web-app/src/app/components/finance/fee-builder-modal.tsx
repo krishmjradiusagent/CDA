@@ -58,9 +58,15 @@ export interface FeeBuilderModalProps {
   hideTimingField?: boolean;
   /** Hide "Post-Split Amount" from "Percentage Based On" options */
   hidePostSplitBase?: boolean;
+  /** Hide sliding scale controls for contexts that do not support tiered fees */
+  hideSlidingScale?: boolean;
 }
 
-function createDraft(initialData?: Partial<FeeTypeDraft>): FeeTypeDraft {
+function createDraft(
+  initialData?: Partial<FeeTypeDraft>,
+  options?: { hideSlidingScale?: boolean }
+): FeeTypeDraft {
+  const hideSlidingScale = options?.hideSlidingScale ?? false;
   return {
     id: initialData?.id ?? null,
     name: initialData?.name ?? "",
@@ -70,12 +76,16 @@ function createDraft(initialData?: Partial<FeeTypeDraft>): FeeTypeDraft {
     appliesToMode: initialData?.appliesToMode ?? "team",
     agentIds: initialData?.agentIds ?? [],
     timing: initialData?.timing ?? "pre-split",
-    slidingScale: initialData?.slidingScale ?? false,
-    tiers: initialData?.tiers ?? [],
+    slidingScale: hideSlidingScale ? false : initialData?.slidingScale ?? false,
+    tiers: hideSlidingScale ? [] : initialData?.tiers ?? [],
     contributesToCap: initialData?.contributesToCap ?? false,
     visibleOnCda: initialData?.visibleOnCda ?? true,
-    notLessThan: initialData?.notLessThan ?? { enabled: false, amount: "0.00" },
-    notToExceed: initialData?.notToExceed ?? { enabled: false, amount: "0.00" },
+    notLessThan: hideSlidingScale
+      ? { enabled: false, amount: initialData?.notLessThan?.amount ?? "0.00" }
+      : initialData?.notLessThan ?? { enabled: false, amount: "0.00" },
+    notToExceed: hideSlidingScale
+      ? { enabled: false, amount: initialData?.notToExceed?.amount ?? "0.00" }
+      : initialData?.notToExceed ?? { enabled: false, amount: "0.00" },
   };
 }
 
@@ -222,17 +232,20 @@ export function FeeBuilderModal({
   onSave,
   hideTimingField,
   hidePostSplitBase,
+  hideSlidingScale,
 }: FeeBuilderModalProps) {
-  const [draft, setDraft] = useState<FeeTypeDraft>(() => createDraft(initialData));
+  const [draft, setDraft] = useState<FeeTypeDraft>(() =>
+    createDraft(initialData, { hideSlidingScale })
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setDraft(createDraft(initialData));
+    setDraft(createDraft(initialData, { hideSlidingScale }));
     setErrors({});
     setSaving(false);
-  }, [initialData, open]);
+  }, [hideSlidingScale, initialData, open]);
 
   function updateField<K extends keyof FeeTypeDraft>(field: K, value: FeeTypeDraft[K]) {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -361,77 +374,81 @@ export function FeeBuilderModal({
               </Select>
             </div>
 
-            {/* Sliding Scale — full row */}
-            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-              <div className="space-y-0.5">
-                <Label htmlFor="sliding-scale" className="text-sm">Sliding Scale</Label>
-                <p className="text-xs text-muted-foreground">Enable tiered fee values.</p>
-              </div>
-              <Switch
-                id="sliding-scale"
-                checked={draft.slidingScale}
-                onCheckedChange={(checked) => updateField("slidingScale", checked)}
-              />
-            </div>
-
-            {/* Sliding Scale inline section */}
-            {draft.slidingScale && (
-              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
-                <TierRows draft={draft} onDraftChange={setDraft} />
-                {errors.tiers ? <p className="text-xs text-destructive">{errors.tiers}</p> : null}
-
-                {/* Cap constraints */}
-                <div className="flex items-center gap-4 pt-1">
-                  <div className="flex flex-1 items-center gap-2">
-                    <Checkbox
-                      id="not-less-than"
-                      checked={draft.notLessThan.enabled}
-                      onCheckedChange={(checked) =>
-                        updateField("notLessThan", { ...draft.notLessThan, enabled: Boolean(checked) })
-                      }
-                    />
-                    <Label htmlFor="not-less-than" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
-                      Not less than
-                    </Label>
-                    <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                      <Input
-                        className="h-9 pl-7 text-sm"
-                        value={draft.notLessThan.amount}
-                        inputMode="decimal"
-                        disabled={!draft.notLessThan.enabled}
-                        onChange={(e) =>
-                          updateField("notLessThan", { ...draft.notLessThan, amount: e.target.value })
-                        }
-                      />
-                    </div>
+            {!hideSlidingScale && (
+              <>
+                {/* Sliding Scale — full row */}
+                <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="sliding-scale" className="text-sm">Sliding Scale</Label>
+                    <p className="text-xs text-muted-foreground">Enable tiered fee values.</p>
                   </div>
-                  <div className="flex flex-1 items-center gap-2">
-                    <Checkbox
-                      id="not-to-exceed"
-                      checked={draft.notToExceed.enabled}
-                      onCheckedChange={(checked) =>
-                        updateField("notToExceed", { ...draft.notToExceed, enabled: Boolean(checked) })
-                      }
-                    />
-                    <Label htmlFor="not-to-exceed" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
-                      Not to exceed
-                    </Label>
-                    <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                      <Input
-                        className="h-9 pl-7 text-sm"
-                        value={draft.notToExceed.amount}
-                        inputMode="decimal"
-                        disabled={!draft.notToExceed.enabled}
-                        onChange={(e) =>
-                          updateField("notToExceed", { ...draft.notToExceed, amount: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
+                  <Switch
+                    id="sliding-scale"
+                    checked={draft.slidingScale}
+                    onCheckedChange={(checked) => updateField("slidingScale", checked)}
+                  />
                 </div>
-              </div>
+
+                {/* Sliding Scale inline section */}
+                {draft.slidingScale && (
+                  <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                    <TierRows draft={draft} onDraftChange={setDraft} />
+                    {errors.tiers ? <p className="text-xs text-destructive">{errors.tiers}</p> : null}
+
+                    {/* Cap constraints */}
+                    <div className="flex items-center gap-4 pt-1">
+                      <div className="flex flex-1 items-center gap-2">
+                        <Checkbox
+                          id="not-less-than"
+                          checked={draft.notLessThan.enabled}
+                          onCheckedChange={(checked) =>
+                            updateField("notLessThan", { ...draft.notLessThan, enabled: Boolean(checked) })
+                          }
+                        />
+                        <Label htmlFor="not-less-than" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+                          Not less than
+                        </Label>
+                        <div className="relative flex-1">
+                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                          <Input
+                            className="h-9 pl-7 text-sm"
+                            value={draft.notLessThan.amount}
+                            inputMode="decimal"
+                            disabled={!draft.notLessThan.enabled}
+                            onChange={(e) =>
+                              updateField("notLessThan", { ...draft.notLessThan, amount: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-1 items-center gap-2">
+                        <Checkbox
+                          id="not-to-exceed"
+                          checked={draft.notToExceed.enabled}
+                          onCheckedChange={(checked) =>
+                            updateField("notToExceed", { ...draft.notToExceed, enabled: Boolean(checked) })
+                          }
+                        />
+                        <Label htmlFor="not-to-exceed" className="text-sm font-normal text-muted-foreground whitespace-nowrap">
+                          Not to exceed
+                        </Label>
+                        <div className="relative flex-1">
+                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                          <Input
+                            className="h-9 pl-7 text-sm"
+                            value={draft.notToExceed.amount}
+                            inputMode="decimal"
+                            disabled={!draft.notToExceed.enabled}
+                            onChange={(e) =>
+                              updateField("notToExceed", { ...draft.notToExceed, amount: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Contributes to Cap + Visible on CDA — same row */}
