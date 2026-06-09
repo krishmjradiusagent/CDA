@@ -337,6 +337,7 @@ type PersistedCommissionBreakdownState = {
   preSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number }>>;
   postSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>;
   awardValues: Record<SideId, number>;
+  awardAmountValues: Record<SideId, number>;
   appliedPlans: Record<string, string | null>;
   agentRadiusFees: Record<string, number>;
   agentAllocationPercentages: Record<string, number>;
@@ -379,6 +380,31 @@ function normalizeSideAwards(awardValues: Record<SideId, number>) {
   } satisfies Record<SideId, number>;
 }
 
+function getDefaultAwardAmountValues(
+  sides: Side[] | undefined,
+  awardValues: Record<SideId, number>,
+) {
+  const normalizedAwards = normalizeSideAwards(awardValues);
+  const baseGrossCommission = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
+
+  return {
+    listing: Math.max(
+      roundCurrency(
+        (sides?.find((side) => side.id === "listing")?.gross ?? 0) -
+          (baseGrossCommission * ((normalizedAwards.listing ?? 0) / 100)),
+      ),
+      0,
+    ),
+    buyer: Math.max(
+      roundCurrency(
+        (sides?.find((side) => side.id === "buyer")?.gross ?? 0) -
+          (baseGrossCommission * ((normalizedAwards.buyer ?? 0) / 100)),
+      ),
+      0,
+    ),
+  } satisfies Record<SideId, number>;
+}
+
 function normalizeAgentAllocations(agentIds: string[], values: Record<string, number>) {
   if (agentIds.length === 0) return {} as Record<string, number>;
   if (agentIds.length === 1) return { [agentIds[0]]: 100 };
@@ -413,6 +439,7 @@ function normalizeAgentAllocations(agentIds: string[], values: Record<string, nu
 function deriveCommissionBreakdown(params: {
   sides: Side[];
   awardValues: Record<SideId, number>;
+  awardAmountValues: Record<SideId, number>;
   sideGrossDeductions: Record<string, SideDeduction[]>;
   preSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number }>>;
   postSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>;
@@ -422,11 +449,16 @@ function deriveCommissionBreakdown(params: {
   commissionPlans: CommissionPlanOption[];
 }) {
   const normalizedAwards = normalizeSideAwards(params.awardValues);
-  const totalGrossCommission = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
+  const baseGrossCommission = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
+  const totalGrossCommission =
+    baseGrossCommission +
+    Object.values(params.awardAmountValues).reduce((sum, value) => sum + Math.max(value, 0), 0);
 
   const sideSummaries = params.sides.map<DerivedSideSummary>((side) => {
     const sideAwardPercent = normalizedAwards[side.id] ?? 0;
-    const grossCommission = totalGrossCommission * (sideAwardPercent / 100);
+    const grossCommission =
+      (baseGrossCommission * (sideAwardPercent / 100)) +
+      Math.max(params.awardAmountValues[side.id] ?? 0, 0);
     const grossDeductionsTotal = (params.sideGrossDeductions[side.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
     const grossCommissionAfterDeductions = clampCurrency(grossCommission - grossDeductionsTotal);
     const normalizedAllocations = normalizeAgentAllocations(
@@ -837,6 +869,13 @@ export function CommissionBreakdown() {
   const [awardValues, setAwardValues] = useState<Record<SideId, number>>(
     persistedState?.awardValues ?? { listing: 50, buyer: 50 }
   );
+  const [awardAmountValues, setAwardAmountValues] = useState<Record<SideId, number>>(
+    persistedState?.awardAmountValues ??
+      getDefaultAwardAmountValues(
+        persistedState?.sidesData,
+        persistedState?.awardValues ?? { listing: 50, buyer: 50 },
+      )
+  );
   const [showEditPlanDialog, setShowEditPlanDialog] = useState(false);
   const [editPlanForm, setEditPlanForm] = useState({ planName: "", agentSplit: "80", teamSplit: "20", feeType: "flat" as "flat" | "percentage", feeAmount: "495", capAmount: "18000" });
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
@@ -942,6 +981,7 @@ export function CommissionBreakdown() {
       deriveCommissionBreakdown({
         sides,
         awardValues,
+        awardAmountValues,
         sideGrossDeductions,
         preSplitDeductions,
         postSplitDeductions,
@@ -953,6 +993,7 @@ export function CommissionBreakdown() {
     [
       sides,
       awardValues,
+      awardAmountValues,
       sideGrossDeductions,
       preSplitDeductions,
       postSplitDeductions,
@@ -1329,11 +1370,12 @@ export function CommissionBreakdown() {
       postSplitDeductions,
       appliedPlans,
       awardValues,
+      awardAmountValues,
       preSplitDeductions,
       agentAllocationPercentages,
       commissionPlans,
     }),
-    [sidesData, sideGrossDeductions, agentRadiusFees, postSplitDeductions, appliedPlans, awardValues, preSplitDeductions, agentAllocationPercentages, commissionPlans]
+    [sidesData, sideGrossDeductions, agentRadiusFees, postSplitDeductions, appliedPlans, awardValues, awardAmountValues, preSplitDeductions, agentAllocationPercentages, commissionPlans]
   );
   const previousEditableSnapshot = useRef(editableSnapshot);
   useEffect(() => {
@@ -1346,6 +1388,7 @@ export function CommissionBreakdown() {
         preSplitDeductions,
         postSplitDeductions,
         awardValues,
+        awardAmountValues,
         appliedPlans,
         agentRadiusFees,
         agentAllocationPercentages,
@@ -1357,7 +1400,7 @@ export function CommissionBreakdown() {
       setTxStatus("draft");
       setRejectionNote("");
     }
-  }, [editableSnapshot, txStatus, sidesData, sideGrossDeductions, preSplitDeductions, postSplitDeductions, awardValues, appliedPlans, agentRadiusFees, agentAllocationPercentages, commissionPlans]);
+  }, [editableSnapshot, txStatus, sidesData, sideGrossDeductions, preSplitDeductions, postSplitDeductions, awardValues, awardAmountValues, appliedPlans, agentRadiusFees, agentAllocationPercentages, commissionPlans]);
 
   return (
     <TooltipProvider>
@@ -2075,7 +2118,7 @@ export function CommissionBreakdown() {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
                     {[
-                      { label: "Gross", value: currency(activeSide.gross), icon: TrendingUp, gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)", muted: "#6366f1", strong: "#1e1b4b" },
+                      { label: "Gross", value: currency(grossIncome), icon: TrendingUp, gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)", muted: "#6366f1", strong: "#1e1b4b" },
                       { label: "After Deductions", value: currency(grossCommissionAfterDeductions), icon: CircleDollarSign, gradient: "linear-gradient(135deg, #ddd6fe, #c4b5fd)", muted: "#7c3aed", strong: "#2e1065" },
                       { label: "To Agents", value: currency(totalAgentPayout), icon: User, gradient: "linear-gradient(135deg, #bbf7d0, #86efac)", muted: "#16a34a", strong: "#14532d" },
                       { label: "To Office", value: currency(activeSideOfficeShare), icon: Building2, gradient: "linear-gradient(135deg, #fef3c7, #fde68a)", muted: "#d97706", strong: "#451a03" },
@@ -2662,7 +2705,7 @@ export function CommissionBreakdown() {
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
             <DialogTitle>Award distribution</DialogTitle>
-            <DialogDescription>Set award percentage per side of the deal.</DialogDescription>
+            <DialogDescription>Set award percentage and flat amount per side of the deal.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 px-6 py-4">
             {sidesData.map((side) => (
@@ -2676,12 +2719,21 @@ export function CommissionBreakdown() {
                     <Input
                       value={awardValues[side.id]}
                       onChange={(e) => setAwardValues((prev) => ({ ...prev, [side.id]: Number(e.target.value.replace(/[^0-9.]/g, "")) || 0 }))}
-                      className="h-9 w-24 pr-8 text-right text-sm"
+                      className="h-9 w-20 pr-8 text-right text-sm"
                       inputMode="decimal"
                     />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">of price sold</span>
+                  <span className="text-sm font-medium text-muted-foreground">+</span>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                    <Input
+                      value={awardAmountValues[side.id]}
+                      onChange={(e) => setAwardAmountValues((prev) => ({ ...prev, [side.id]: roundCurrency(Number(e.target.value.replace(/[^0-9.]/g, "")) || 0) }))}
+                      className="h-9 w-28 pl-7 text-right text-sm"
+                      inputMode="decimal"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
