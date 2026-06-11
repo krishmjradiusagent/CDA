@@ -242,7 +242,7 @@ const seedFees: FeeRecord[] = [
   { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
   { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a3", "a5"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
   { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a2", "a3"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
-  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: false },
+  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
 ];
 
 export const seedAssignments: AgentAssignment[] = [
@@ -2981,7 +2981,7 @@ export function CDASettings() {
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Type</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Timing</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Fee Payer</TableHead>
-                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Visible on CDA</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Breakdown Visibility</TableHead>
                 <TableHead className="w-[50px] pr-6"></TableHead>
               </TableRow>
             </TableHeader>
@@ -3039,8 +3039,14 @@ export function CDASettings() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className={cn("text-xs font-semibold", fee.visibleOnCda ? "text-emerald-600" : "text-muted-foreground/40")}>
-                        {fee.visibleOnCda ? "Yes" : "Hidden"}
+                      <span className={cn("text-xs font-semibold", fee.timing === "pre-split" || fee.appliesToMode !== "team" || fee.visibleOnCda ? "text-emerald-600" : "text-muted-foreground/40")}>
+                        {fee.timing === "pre-split"
+                          ? "Always visible"
+                          : fee.appliesToMode !== "team"
+                            ? "Always visible"
+                            : fee.visibleOnCda
+                              ? "Visible"
+                              : "Hidden"}
                       </span>
                     </TableCell>
                     <TableCell className="pr-6 text-right">

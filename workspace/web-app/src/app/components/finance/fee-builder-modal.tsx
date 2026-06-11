@@ -68,24 +68,35 @@ export interface FeeBuilderModalProps {
   existingFeeOptions?: ExistingFeeOption[];
 }
 
+function shouldForceFeeVisibility(
+  timing: FeeTypeDraft["timing"],
+  appliesToMode: FeeTypeDraft["appliesToMode"]
+) {
+  return timing === "pre-split" || appliesToMode !== "team";
+}
+
 function createDraft(
   initialData?: Partial<FeeTypeDraft>,
   options?: { hideSlidingScale?: boolean }
 ): FeeTypeDraft {
   const hideSlidingScale = options?.hideSlidingScale ?? false;
+  const timing = initialData?.timing ?? "pre-split";
+  const appliesToMode = initialData?.appliesToMode ?? "team";
   return {
     id: initialData?.id ?? null,
     name: initialData?.name ?? "",
     type: initialData?.type ?? "flat",
     amount: initialData?.amount ?? "",
     percentageBase: initialData?.percentageBase ?? "pre-split",
-    appliesToMode: initialData?.appliesToMode ?? "team",
+    appliesToMode,
     agentIds: initialData?.agentIds ?? [],
-    timing: initialData?.timing ?? "pre-split",
+    timing,
     slidingScale: hideSlidingScale ? false : initialData?.slidingScale ?? false,
     tiers: hideSlidingScale ? [] : initialData?.tiers ?? [],
     contributesToCap: initialData?.contributesToCap ?? false,
-    visibleOnCda: initialData?.visibleOnCda ?? true,
+    visibleOnCda: shouldForceFeeVisibility(timing, appliesToMode)
+      ? true
+      : initialData?.visibleOnCda ?? true,
     notLessThan: hideSlidingScale
       ? { enabled: false, amount: initialData?.notLessThan?.amount ?? "0.00" }
       : initialData?.notLessThan ?? { enabled: false, amount: "0.00" },
@@ -248,6 +259,7 @@ export function FeeBuilderModal({
   const [saving, setSaving] = useState(false);
   const [selectedExistingFeeId, setSelectedExistingFeeId] = useState<string>("__new__");
   const isExistingFeeSelected = selectedExistingFeeId !== "__new__";
+  const visibilityLocked = shouldForceFeeVisibility(draft.timing, draft.appliesToMode);
 
   function buildDraftFromExistingFee(existingFeeId: string) {
     const existingFee = existingFeeOptions.find((option) => option.id === existingFeeId);
@@ -281,7 +293,16 @@ export function FeeBuilderModal({
   }, [existingFeeOptions, hideSlidingScale, initialData, open]);
 
   function updateField<K extends keyof FeeTypeDraft>(field: K, value: FeeTypeDraft[K]) {
-    setDraft((prev) => ({ ...prev, [field]: value }));
+    setDraft((prev) => {
+      const next = { ...prev, [field]: value };
+      if (
+        (field === "timing" || field === "appliesToMode") &&
+        shouldForceFeeVisibility(next.timing, next.appliesToMode)
+      ) {
+        next.visibleOnCda = true;
+      }
+      return next;
+    });
     setErrors((prev) => ({ ...prev, [field]: "" }));
   }
 
@@ -533,8 +554,8 @@ export function FeeBuilderModal({
               </>
             )}
 
-            {/* Contributes to Cap + Visible on CDA — same row */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Contributes to Cap + visibility */}
+            <div className={`grid gap-4 ${draft.timing === "post-split" ? "grid-cols-2" : "grid-cols-1"}`}>
               <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
                 <div className="space-y-0.5">
                   <Label htmlFor="contributes-cap" className="text-sm">Contributes to Cap</Label>
@@ -548,18 +569,22 @@ export function FeeBuilderModal({
                 />
               </div>
 
-              <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-                <div className="space-y-0.5">
-                  <Label htmlFor="visible-cda" className="text-sm">Visible on CDA</Label>
-                  <p className="text-xs text-muted-foreground truncate">Show on document.</p>
+              {draft.timing === "post-split" && (
+                <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="visible-cda" className="text-sm">Visible on Commission Breakdown</Label>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {visibilityLocked ? "Agent-paid fees stay visible." : "Team-paid fees can be hidden."}
+                    </p>
+                  </div>
+                  <Switch
+                    id="visible-cda"
+                    checked={draft.visibleOnCda}
+                    disabled={isExistingFeeSelected || visibilityLocked}
+                    onCheckedChange={(checked) => updateField("visibleOnCda", checked)}
+                  />
                 </div>
-                <Switch
-                  id="visible-cda"
-                  checked={draft.visibleOnCda}
-                  disabled={isExistingFeeSelected}
-                  onCheckedChange={(checked) => updateField("visibleOnCda", checked)}
-                />
-              </div>
+              )}
             </div>
 
           </div>

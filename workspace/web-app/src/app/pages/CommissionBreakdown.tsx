@@ -205,7 +205,7 @@ const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
   { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
   { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
   { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
-  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: false, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
+  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
 ];
 
 const AGENT_CAP_PROGRESS: Record<string, number> = {
@@ -260,6 +260,8 @@ const PDF_FINAL_NUMBERS = [
   { label: "Radius Fee", value: "$750.00", badge: "Auditor Entry", badgeClassName: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700" },
   { label: "Company Dollar", value: "$4,100.00", tone: "text-emerald-700", description: "Final company revenue" },
 ];
+
+const PROPERTY_ADDRESS = "1284 Willow Creek Dr";
 
 function currency(value: number) {
   return `$${Math.round(value).toLocaleString()}`;
@@ -721,7 +723,7 @@ export function CommissionBreakdown() {
   type ActivityEntry = { id: string; author: string; role: Role; text: string; timestamp: string; kind: "comment" | "activity" };
   type ActivityView = "comments" | "activity" | "all";
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
-    { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: "CDA draft created for 1284 Willow Creek Dr.", timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
+    { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: `Commission breakdown draft created for ${PROPERTY_ADDRESS}.`, timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
     { id: "ac2", author: "Jessica Hall", role: "radius_auditing", text: "Award allocation updated for Listing Side to 1%.", timestamp: "May 12, 2026 · 10:14 AM", kind: "activity" },
     { id: "ac3", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-split deduction Credits on Listing Side at $200.", timestamp: "May 12, 2026 · 10:16 AM", kind: "activity" },
     { id: "ac4", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-split deduction Referrals on Listing Side at $50.", timestamp: "May 12, 2026 · 10:18 AM", kind: "activity" },
@@ -729,14 +731,14 @@ export function CommissionBreakdown() {
     { id: "ac6", author: "Jessica Hall", role: "radius_auditing", text: "Updated Radius Fee for Listing Side to $495.", timestamp: "May 12, 2026 · 10:31 AM", kind: "activity" },
     { id: "cm1", author: "Sarah Kim", role: "team_lead", text: "Please double-check the RERM amount, it looks lower than the standard rate.", timestamp: "May 12, 2026 · 3:14 PM", kind: "comment" },
     { id: "cm2", author: "Mark Perez", role: "agent", text: "Updated. The RERM was adjusted per the new schedule effective May 1.", timestamp: "May 12, 2026 · 4:02 PM", kind: "comment" },
-    { id: "ac7", author: "Mark Perez", role: "agent", text: "Confirmed CDA as Agent.", timestamp: "May 12, 2026 · 4:05 PM", kind: "activity" },
+    { id: "ac7", author: "Mark Perez", role: "agent", text: `Agent confirmed commission breakdown for ${PROPERTY_ADDRESS}`, timestamp: "May 12, 2026 · 4:05 PM", kind: "activity" },
     { id: "cm3", author: "Sarah Kim", role: "team_lead", text: "Numbers look good now. I am confirming the listing side.", timestamp: "May 12, 2026 · 4:18 PM", kind: "comment" },
-    { id: "ac8", author: "Sarah Kim", role: "team_lead", text: "Confirmed CDA as Team Lead.", timestamp: "May 12, 2026 · 4:19 PM", kind: "activity" },
+    { id: "ac8", author: "Sarah Kim", role: "team_lead", text: `Team lead confirmed commission breakdown for ${PROPERTY_ADDRESS}`, timestamp: "May 12, 2026 · 4:19 PM", kind: "activity" },
     { id: "ac9", author: "Jessica Hall", role: "radius_auditing", text: "Added Olivia Chen to Buying Side.", timestamp: "May 13, 2026 · 8:42 AM", kind: "activity" },
     { id: "ac10", author: "Jessica Hall", role: "radius_auditing", text: "Added post-split deduction E&O on Buying Side.", timestamp: "May 13, 2026 · 8:49 AM", kind: "activity" },
-    { id: "cm4", author: "Jessica Hall", role: "radius_auditing", text: "Adding external agent details for buyer side. Please verify payout split before final CDA.", timestamp: "May 13, 2026 · 8:53 AM", kind: "comment" },
+    { id: "cm4", author: "Jessica Hall", role: "radius_auditing", text: "Adding external agent details for buyer side. Please verify payout split before final commission breakdown.", timestamp: "May 13, 2026 · 8:53 AM", kind: "comment" },
     { id: "ac11", author: "Jessica Hall", role: "radius_auditing", text: "Updated Radius Fee for Buying Side to $495.", timestamp: "May 13, 2026 · 8:58 AM", kind: "activity" },
-    { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: "Confirmed CDA and generated final output.", timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
+    { id: "ac12", author: "Jessica Hall", role: "radius_auditing", text: `Commission breakdown for ${PROPERTY_ADDRESS} finalized`, timestamp: "May 13, 2026 · 9:06 AM", kind: "activity" },
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
   const [showWireSheet, setShowWireSheet] = useState(false);
@@ -1165,10 +1167,10 @@ export function CommissionBreakdown() {
   const isLocked = txStatus === "processed" && !isAuditor;
   const STATUS_LABELS: Record<TxStatus, string> = {
     draft: "Awaiting Agent confirmation",
-    agent_confirmed: "Confirmed by Agent",
-    team_lead_confirmed: "Confirmed by Team Lead",
-    processed: "CDA generated",
-    rejected: "Returned for edits",
+    agent_confirmed: "Awaiting Team Lead confirmation",
+    team_lead_confirmed: "Awaiting Auditor finalization",
+    processed: "Commission breakdown finalized",
+    rejected: "Returned for confirmation",
   };
   const STATUS_COLORS: Record<TxStatus, React.ComponentProps<typeof Badge>["variant"]> = {
     draft: "outline",
@@ -1182,21 +1184,21 @@ export function CommissionBreakdown() {
       ? "Agent confirms first. Team Lead confirms next."
       : role === "team_lead"
         ? "Agent confirms first. Team Lead confirms next."
-        : "Confirm CDA after Agent and Team Lead confirm. Any edit restarts flow.";
+        : "Finalize after Agent and Team Lead confirm. Auditor return restarts Agent confirmation.";
   const confirmActionLabel =
-    isAuditor ? "Confirm CDA" : "Confirm";
+    isAuditor ? "Finalize" : "Confirm";
   const confirmDialogTitle =
     isAuditor
-      ? "Confirm CDA?"
+      ? "Finalize commission breakdown?"
       : role === "team_lead"
         ? "Confirm by Team Lead?"
         : "Confirm by Agent?";
   const confirmDialogBody =
     isAuditor
-      ? "Confirm and generate CDA after Agent and Team Lead confirm. Any edit after this restarts confirmation."
+      ? "Finalize after Agent and Team Lead confirm. Auditor edits can return this for confirmation."
       : role === "team_lead"
-        ? "Confirm the numbers after Agent confirmation. If anything changes later, Agent must confirm again."
-        : "Confirm the numbers. Team Lead confirms next before CDA processing.";
+        ? "Confirm the numbers after Agent confirmation. If you edit later, your confirmation re-activates automatically."
+        : "Confirm the numbers. Team Lead confirms next before finalization.";
   const canConfirmNow =
     (role === "agent" && txStatus === "draft") ||
     (role === "team_lead" && txStatus === "agent_confirmed") ||
@@ -1204,7 +1206,7 @@ export function CommissionBreakdown() {
   const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
 
   function getActivityNode(entry: ActivityEntry) {
-    const iconClassName = entry.text.toLowerCase().includes("confirmed")
+    const iconClassName = entry.text.toLowerCase().includes("confirmed") || entry.text.toLowerCase().includes("finalized")
       ? "bg-emerald-50 text-emerald-600 border-emerald-100"
       : entry.text.toLowerCase().includes("updated")
         ? "bg-amber-50 text-amber-600 border-amber-100"
@@ -1212,7 +1214,7 @@ export function CommissionBreakdown() {
 
     return (
       <div className={cn("mt-0.5 flex size-8 items-center justify-center rounded-full border shadow-sm", iconClassName)}>
-        {entry.text.toLowerCase().includes("confirmed") ? (
+        {entry.text.toLowerCase().includes("confirmed") || entry.text.toLowerCase().includes("finalized") ? (
           <Shield className="size-3.5" />
         ) : entry.text.toLowerCase().includes("updated") ? (
           <RefreshCw className="size-3.5" />
@@ -1397,10 +1399,14 @@ export function CommissionBreakdown() {
       window.localStorage.setItem(COMMISSION_BREAKDOWN_STORAGE_KEY, JSON.stringify(persistedPayload));
     }
     if (txStatus !== "draft") {
-      setTxStatus("draft");
+      if (role === "team_lead") {
+        setTxStatus(txStatus === "team_lead_confirmed" || txStatus === "processed" ? "agent_confirmed" : txStatus === "rejected" ? "draft" : txStatus);
+      } else {
+        setTxStatus("draft");
+      }
       setRejectionNote("");
     }
-  }, [editableSnapshot, txStatus, sidesData, sideGrossDeductions, preSplitDeductions, postSplitDeductions, awardValues, awardAmountValues, appliedPlans, agentRadiusFees, agentAllocationPercentages, commissionPlans]);
+  }, [editableSnapshot, txStatus, role, sidesData, sideGrossDeductions, preSplitDeductions, postSplitDeductions, awardValues, awardAmountValues, appliedPlans, agentRadiusFees, agentAllocationPercentages, commissionPlans]);
 
   return (
     <TooltipProvider>
@@ -1527,10 +1533,10 @@ export function CommissionBreakdown() {
                 disabled={!canAuditorApprove}
                 onClick={() => setShowProcessDialog(true)}
               >
-                Confirm CDA
+                Finalize
               </Button>
             )}
-            {/* Download CDA — visible to all when processed */}
+            {/* Download PDF — visible to all when processed */}
             {txStatus === "processed" && (
               <Button
                 size="sm"
@@ -1540,11 +1546,11 @@ export function CommissionBreakdown() {
                 onClick={() => setShowPdfPreview(true)}
               >
                 <Download className="size-3.5" />
-                CDA
+                PDF
               </Button>
             )}
-            {/* Admin / TL: return when review needs edits */}
-            {!isAgent && txStatus === "agent_confirmed" && (
+            {/* Auditor return when review needs edits */}
+            {isAuditor && txStatus === "team_lead_confirmed" && (
               <>
                 <Button size="sm" variant="outline" className="h-8 rounded-lg px-4 text-xs text-destructive border-destructive/40 hover:bg-destructive/5" onClick={() => setShowRejectDialog(true)}>
                   Return
@@ -1559,7 +1565,7 @@ export function CommissionBreakdown() {
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
               <Info className="text-amber-700" />
               <AlertDescription className="text-amber-800">
-                Complete your wire instructions in settings before CDA can be generated.
+                Complete your wire instructions in settings before commission breakdown can be finalized.
               </AlertDescription>
             </Alert>
           </div>
@@ -1569,7 +1575,7 @@ export function CommissionBreakdown() {
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
               <Info className="text-amber-700" />
               <AlertDescription className="text-amber-800">
-                Complete team wire instructions in settings before CDA can be generated.
+                Complete team wire instructions in settings before commission breakdown can be finalized.
               </AlertDescription>
             </Alert>
           </div>
@@ -1579,7 +1585,7 @@ export function CommissionBreakdown() {
             <Alert className="border-amber-200 bg-amber-50 text-amber-900">
               <Info className="text-amber-700" />
               <AlertDescription className="text-amber-800">
-                Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. CDA download blocked.
+                Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. PDF download blocked.
               </AlertDescription>
             </Alert>
           </div>
@@ -2351,16 +2357,19 @@ export function CommissionBreakdown() {
               onClick={() => {
                 if (showProcessDialog) {
                   setTxStatus("processed");
-                  logActivity("Confirmed CDA and generated final output.");
-                  toast.success("CDA generated");
+                  const message = `Commission breakdown for ${PROPERTY_ADDRESS} finalized`;
+                  logActivity(message);
+                  toast.success(message);
                 } else if (role === "team_lead") {
                   setTxStatus("team_lead_confirmed");
-                  logActivity("Confirmed CDA as Team Lead.");
-                  toast.success("Confirmed by Team Lead");
+                  const message = `Team lead confirmed commission breakdown for ${PROPERTY_ADDRESS}`;
+                  logActivity(message);
+                  toast.success(message);
                 } else {
                   setTxStatus("agent_confirmed");
-                  logActivity("Confirmed CDA as Agent.");
-                  toast.success("Confirmed by Agent");
+                  const message = `Agent confirmed commission breakdown for ${PROPERTY_ADDRESS}`;
+                  logActivity(message);
+                  toast.success(message);
                 }
                 setRejectionNote("");
                 setShowConfirmDialog(false);
@@ -2385,7 +2394,7 @@ export function CommissionBreakdown() {
                   <Printer className="mr-2 size-4" />
                   Print
                 </Button>
-                <Button className="h-11 rounded-[10px] bg-blue-600 px-5 text-[15px] hover:bg-blue-700" onClick={() => toast.success("CDA PDF downloaded")}>
+                <Button className="h-11 rounded-[10px] bg-blue-600 px-5 text-[15px] hover:bg-blue-700" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
                   <Download className="mr-2 size-4" />
                   Download
                 </Button>
@@ -2422,7 +2431,7 @@ export function CommissionBreakdown() {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <h3 className="text-base font-medium text-black">PDF Preview</h3>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("CDA PDF downloaded")}>
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
                           <Download className="mr-2 size-3.5" />
                           Download
                         </Button>
@@ -2526,7 +2535,16 @@ export function CommissionBreakdown() {
             <Button
               variant="destructive"
               disabled={!rejectInput.trim()}
-              onClick={() => { setTxStatus("draft"); setRejectionNote(rejectInput.trim()); logActivity(`Returned CDA for edits: ${rejectInput.trim()}`); setRejectInput(""); setShowRejectDialog(false); toast.warning("Returned to agent for edits"); }}
+              onClick={() => {
+                const note = rejectInput.trim();
+                setTxStatus("draft");
+                setRejectionNote(note);
+                logActivity(`Auditor edited commission breakdown for ${PROPERTY_ADDRESS}. Request confirmation.`);
+                logActivity(`"${note}"`, "comment");
+                setRejectInput("");
+                setShowRejectDialog(false);
+                toast.warning("Returned for confirmation");
+              }}
             >
               Return
             </Button>
@@ -2997,8 +3015,8 @@ export function CommissionBreakdown() {
           <SheetHeader className="border-b px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <SheetTitle className="text-[15px] leading-6">CDA Comments & Activity</SheetTitle>
-                <SheetDescription className="mt-0.5 text-[13px]">All notes and breakdown changes for this CDA.</SheetDescription>
+                <SheetTitle className="text-[15px] leading-6">Commission Breakdown Comments & Activity</SheetTitle>
+                <SheetDescription className="mt-0.5 text-[13px]">All notes and changes for this commission breakdown.</SheetDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Select value={activityView} onValueChange={(value) => setActivityView(value as ActivityView)}>
@@ -3044,7 +3062,7 @@ export function CommissionBreakdown() {
                 <Alert className="border-amber-200 bg-amber-50 text-amber-900">
                   <Info className="text-amber-700" />
                   <AlertDescription className="text-amber-800">
-                    Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. CDA download blocked.
+                    Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. PDF download blocked.
                   </AlertDescription>
                 </Alert>
               )}

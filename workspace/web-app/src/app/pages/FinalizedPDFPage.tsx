@@ -52,7 +52,7 @@ export function FinalizedPDFPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                 <span>Auditing Dashboard</span>
                 <span>/</span>
-                <span>CDA</span>
+                <span>Commission Breakdown</span>
                 <span>/</span>
                 <span className="text-foreground">Finalized</span>
               </div>
@@ -65,9 +65,9 @@ export function FinalizedPDFPage() {
                       Back to Auditor Verification
                     </Button>
                   </Link>
-                  <h1 className="text-2xl font-medium mb-1">Finalized CDA</h1>
+                  <h1 className="text-2xl font-medium mb-1">Finalized Commission Breakdown</h1>
                   <p className="text-sm text-muted-foreground">
-                    CDA is finalized and ready for PDF export or DocuSign routing.
+                    Commission breakdown is finalized and ready for PDF export or signature routing.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -89,7 +89,7 @@ export function FinalizedPDFPage() {
                   <Link to="/breakdown">
                     <Button variant="outline" size="sm">
                       <ExternalLink className="size-4 mr-2" />
-                      CDA Breakdown
+                      Commission Breakdown
                     </Button>
                   </Link>
                 </div>
@@ -103,7 +103,7 @@ export function FinalizedPDFPage() {
                   <CheckCircle2 className="size-5 text-green-600 dark:text-green-500 mt-0.5" />
                   <div>
                     <p className="font-medium text-green-900 dark:text-green-100">
-                      CDA finalized successfully.
+                      Commission breakdown finalized.
                     </p>
                     <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">
                       PDF generated and ready for signature routing.
@@ -304,21 +304,25 @@ export function FinalizedPDFPage() {
                       </div>
                     </div>
 
-                    {/* Accounting */}
+                    {/* Managing Broker */}
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="size-10 rounded-full bg-muted flex items-center justify-center">
                           <Building2 className="size-5 text-muted-foreground" />
                         </div>
                         <div>
-                          <p className="font-medium text-sm">Accounting</p>
-                          <p className="text-xs text-muted-foreground">Receives copy</p>
+                          <p className="font-medium text-sm">Megan Foster</p>
+                          <p className="text-xs text-muted-foreground">Managing Broker</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Mail className="size-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Copy only</span>
+                        <Clock className="size-4 text-amber-500" />
+                        <span className="text-sm text-muted-foreground">Pending signature</span>
                       </div>
+                    </div>
+
+                    <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      Auditor notified when envelope sent. Auditor, team lead, agent notified after managing broker signs.
                     </div>
 
                     <Button
@@ -344,7 +348,7 @@ export function FinalizedPDFPage() {
                         { label: "Team Lead review complete", completed: true },
                         { label: "Agent confirmation complete", completed: true },
                         { label: "Auditor verification complete", completed: true },
-                        { label: "CDA PDF generated", completed: true },
+                        { label: "Commission breakdown PDF generated", completed: true },
                         { label: "DocuSign pending", completed: false },
                       ].map((step, index) => (
                         <div key={index} className="flex items-start gap-3">
@@ -380,11 +384,11 @@ export function FinalizedPDFPage() {
                   <CardContent>
                     <div className="space-y-3 text-sm">
                       {[
-                        { time: "Today, 9:15 AM", event: "CDA created by Ila Corcoran" },
+                        { time: "Today, 9:15 AM", event: "Commission breakdown created by Ila Corcoran" },
                         { time: "Today, 10:22 AM", event: "TL reviewed by Rod Watson" },
                         { time: "Today, 11:05 AM", event: "Agent confirmed by Ila Corcoran" },
                         { time: "Today, 1:10 PM", event: "Auditor entered Radius fee ($750)" },
-                        { time: "Today, 1:22 PM", event: "CDA finalized by Jessica" },
+                        { time: "Today, 1:22 PM", event: "Commission breakdown for 1284 Willow Creek Dr finalized" },
                         { time: "Today, 1:22 PM", event: "PDF generated successfully" },
                       ].map((item, index) => (
                         <div key={index} className="flex items-start gap-3 pb-3 border-b last:border-0">
@@ -472,10 +476,10 @@ export function FinalizedPDFPage() {
                         </Button>
                         <Button className="w-full" variant="outline" size="sm">
                           <Copy className="size-4 mr-2" />
-                          Copy CDA Link
+                          Copy Breakdown Link
                         </Button>
                         <Button className="w-full" variant="outline" size="sm" disabled>
-                          Reopen CDA
+                          Reopen Breakdown
                         </Button>
                       </div>
                     </CardContent>
@@ -491,9 +495,9 @@ export function FinalizedPDFPage() {
       <Dialog open={docuSignModalOpen} onOpenChange={setDocuSignModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send CDA for signature?</DialogTitle>
+            <DialogTitle>Send commission breakdown for signature?</DialogTitle>
             <DialogDescription>
-              The following recipients will receive the CDA envelope via DocuSign.
+              Envelope send notifies auditor. After managing broker signs, auditor, team lead, agent get notified.
             </DialogDescription>
           </DialogHeader>
 
@@ -515,8 +519,15 @@ export function FinalizedPDFPage() {
             <div className="flex items-center gap-3 p-3 border rounded-lg">
               <Building2 className="size-5 text-muted-foreground" />
               <div>
-                <p className="font-medium text-sm">Accounting</p>
-                <p className="text-xs text-muted-foreground">Copy only</p>
+                <p className="font-medium text-sm">Megan Foster</p>
+                <p className="text-xs text-muted-foreground">Managing Broker - Signer</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 border rounded-lg">
+              <Mail className="size-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium text-sm">Jessica</p>
+                <p className="text-xs text-muted-foreground">Auditor - Notification only</p>
               </div>
             </div>
           </div>
