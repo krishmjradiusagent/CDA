@@ -939,7 +939,7 @@ export function CommissionBreakdown() {
       ),
     [sidesData],
   );
-  const teamWireComplete = isWireInstructionComplete(wireStore.teamWireInstructions);
+  const teamWireComplete = isWireInstructionComplete(wireStore.teamWireInstructions, { requireCdaType: true });
   const agentWireComplete = isWireInstructionComplete(
     wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(),
   );

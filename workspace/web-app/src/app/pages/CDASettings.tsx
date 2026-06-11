@@ -107,6 +107,7 @@ import {
   maskSensitiveValue,
   readWireInstructionsStore,
   validateWireInstruction,
+  type CDAType,
   type WireInstructionRecord,
   type WireInstructionsStore,
   type WireValidationErrors,
@@ -128,6 +129,16 @@ type AssignDefaultsForm = {
   selectedAgentIds: string[];
   applyToActiveDeals: boolean;
 };
+
+const TEAM_WIRE_COMPLETION_OPTIONS = { requireCdaType: true } as const;
+
+const TEAM_CDA_TYPE_OPTIONS: Array<{ value: CDAType; label: string }> = [
+  { value: "full-transparency", label: "Full Transparency" },
+  { value: "radius-split-hidden-partner", label: "Radius Split Hidden (Partner)" },
+  { value: "radius-split-hidden-associate", label: "Radius Split Hidden (Associate)" },
+  { value: "team-split-hidden-partner", label: "Team Split Hidden (Partner)" },
+  { value: "gross-cda", label: "Gross CDA" },
+];
 
 type AssignDefaultsErrors = Partial<Record<"planId" | "selectedAgentIds", string>>;
 
@@ -1550,11 +1561,16 @@ function formatWireAccountType(accountType: WireInstructionRecord["accountType"]
   return accountType === "checking" ? "Checking" : "Savings";
 }
 
+function formatCdaType(cdaType: WireInstructionRecord["cdaType"]) {
+  return TEAM_CDA_TYPE_OPTIONS.find((option) => option.value === cdaType)?.label ?? "Not provided";
+}
+
 function WireInstructionsFormCard({
   idPrefix,
   record,
   errors,
   revealSensitive,
+  showCdaType = false,
   onToggleSensitive,
   onChange,
   onSave,
@@ -1563,6 +1579,7 @@ function WireInstructionsFormCard({
   record: WireInstructionRecord;
   errors: WireValidationErrors;
   revealSensitive: boolean;
+  showCdaType?: boolean;
   onToggleSensitive: () => void;
   onChange: (patch: Partial<WireInstructionRecord>) => void;
   onSave: () => void;
@@ -1644,6 +1661,24 @@ function WireInstructionsFormCard({
                 </SelectContent>
               </Select>
             </div>
+            {showCdaType && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">CDA Type</Label>
+                <Select value={record.cdaType} onValueChange={(value) => onChange({ cdaType: value as CDAType })}>
+                  <SelectTrigger className="h-10" aria-invalid={Boolean(errors.cdaType)}>
+                    <SelectValue placeholder="Select CDA type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEAM_CDA_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.cdaType && <p className="text-xs text-destructive">{errors.cdaType}</p>}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor={buildWireFieldId(idPrefix, "bank-street")} className="text-sm font-medium">Bank Street Address</Label>
               <Input
@@ -1715,6 +1750,7 @@ function WireInstructionsSummaryCard({
   description,
   record,
   revealSensitive,
+  showCdaType = false,
   onToggleSensitive,
   onEdit,
 }: {
@@ -1722,6 +1758,7 @@ function WireInstructionsSummaryCard({
   description: string;
   record: WireInstructionRecord;
   revealSensitive: boolean;
+  showCdaType?: boolean;
   onToggleSensitive: () => void;
   onEdit: () => void;
 }) {
@@ -1776,6 +1813,12 @@ function WireInstructionsSummaryCard({
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Type</p>
               <p className="text-sm text-foreground">{formatWireAccountType(record.accountType)}</p>
             </div>
+            {showCdaType && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">CDA Type</p>
+                <p className="text-sm text-foreground">{formatCdaType(record.cdaType)}</p>
+              </div>
+            )}
             <div className="space-y-1">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bank Address</p>
               <p className="text-sm text-foreground">{address || "Not provided"}</p>
@@ -1864,7 +1907,7 @@ export function CDASettings() {
   const [agentWireErrors, setAgentWireErrors] = useState<WireValidationErrors>({});
   const [revealTeamSensitive, setRevealTeamSensitive] = useState(false);
   const [revealAgentSensitive, setRevealAgentSensitive] = useState(false);
-  const [teamWireEditing, setTeamWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).teamWireInstructions));
+  const [teamWireEditing, setTeamWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS));
   const [agentWireEditing, setAgentWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction()));
   const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
   const currentAgent = agents.find((agent) => agent.id === CURRENT_AGENT_ID) ?? agents[0];
@@ -1881,7 +1924,7 @@ export function CDASettings() {
     setWireStore(nextStore);
     setTeamWireDraft(nextStore.teamWireInstructions);
     setAgentWireDraft(nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
-    setTeamWireEditing(!isWireInstructionComplete(nextStore.teamWireInstructions));
+    setTeamWireEditing(!isWireInstructionComplete(nextStore.teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS));
     setAgentWireEditing(!isWireInstructionComplete(nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction()));
   }, [defaultWireStore]);
 
@@ -1899,7 +1942,7 @@ export function CDASettings() {
   }, [wireRoleView, unreadWireNotifications, wireStore]);
 
   function saveTeamWireInstructions() {
-    const errors = validateWireInstruction(teamWireDraft);
+    const errors = validateWireInstruction(teamWireDraft, TEAM_WIRE_COMPLETION_OPTIONS);
     setTeamWireErrors(errors);
     if (Object.keys(errors).length > 0) {
       toast.error("Fix team wire instruction errors");
@@ -1964,7 +2007,7 @@ export function CDASettings() {
   }
 
   function renderWireInstructions() {
-    const teamComplete = isWireInstructionComplete(wireStore.teamWireInstructions);
+    const teamComplete = isWireInstructionComplete(wireStore.teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS);
     const agentStatuses = agents
       .filter((agent) => agent.id !== CURRENT_TEAM_LEAD_ID)
       .map((agent) => ({
@@ -2036,6 +2079,7 @@ export function CDASettings() {
                 record={teamWireDraft}
                 errors={teamWireErrors}
                 revealSensitive={revealTeamSensitive}
+                showCdaType
                 onToggleSensitive={() => setRevealTeamSensitive((prev) => !prev)}
                 onChange={(patch) => setTeamWireDraft((current) => ({ ...current, ...patch }))}
                 onSave={saveTeamWireInstructions}
@@ -2046,6 +2090,7 @@ export function CDASettings() {
                 description="Brokerage payout destination shown on generated CDA documents."
                 record={teamWireDraft}
                 revealSensitive={revealTeamSensitive}
+                showCdaType
                 onToggleSensitive={() => setRevealTeamSensitive((prev) => !prev)}
                 onEdit={() => setTeamWireEditing(true)}
               />

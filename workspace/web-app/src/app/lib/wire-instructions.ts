@@ -1,4 +1,10 @@
 export type WireAccountType = "checking" | "savings";
+export type CDAType =
+  | "full-transparency"
+  | "radius-split-hidden-partner"
+  | "radius-split-hidden-associate"
+  | "team-split-hidden-partner"
+  | "gross-cda";
 
 export type WireInstructionRecord = {
   accountHolderName: string;
@@ -6,6 +12,7 @@ export type WireInstructionRecord = {
   routingNumber: string;
   accountNumber: string;
   accountType: WireAccountType;
+  cdaType: CDAType | "";
   bankStreet: string;
   bankCity: string;
   bankState: string;
@@ -35,6 +42,7 @@ export type WireValidationErrors = Partial<
     | "bankName"
     | "routingNumber"
     | "accountNumber"
+    | "cdaType"
     | "bankStreet"
     | "bankCity"
     | "bankState"
@@ -42,6 +50,10 @@ export type WireValidationErrors = Partial<
     string
   >
 >;
+
+type WireValidationOptions = {
+  requireCdaType?: boolean;
+};
 
 export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v1";
 
@@ -52,6 +64,7 @@ export function createEmptyWireInstruction(): WireInstructionRecord {
     routingNumber: "",
     accountNumber: "",
     accountType: "checking",
+    cdaType: "",
     bankStreet: "",
     bankCity: "",
     bankState: "",
@@ -73,12 +86,13 @@ export function createDefaultWireInstructionsStore(teamLeadAgentId: string, agen
   };
 }
 
-export function validateWireInstruction(record: WireInstructionRecord): WireValidationErrors {
+export function validateWireInstruction(record: WireInstructionRecord, options: WireValidationOptions = {}): WireValidationErrors {
   const errors: WireValidationErrors = {};
   if (!record.accountHolderName.trim()) errors.accountHolderName = "Account holder required";
   if (!record.bankName.trim()) errors.bankName = "Bank name required";
   if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
   if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
+  if (options.requireCdaType && !record.cdaType) errors.cdaType = "CDA type required";
   if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
   if (!record.bankCity.trim()) errors.bankCity = "City required";
   if (!record.bankState.trim()) errors.bankState = "State required";
@@ -86,8 +100,8 @@ export function validateWireInstruction(record: WireInstructionRecord): WireVali
   return errors;
 }
 
-export function isWireInstructionComplete(record: WireInstructionRecord) {
-  return Object.keys(validateWireInstruction(record)).length === 0;
+export function isWireInstructionComplete(record: WireInstructionRecord, options: WireValidationOptions = {}) {
+  return Object.keys(validateWireInstruction(record, options)).length === 0;
 }
 
 export function maskSensitiveValue(value: string, visibleDigits = 4) {
