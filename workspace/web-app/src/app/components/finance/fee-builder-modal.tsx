@@ -53,7 +53,9 @@ export interface FeeTypeDraft {
   slidingScale: boolean;
   tiers: FeeTier[];
   contributesToCap: boolean;
-  visibleOnCda: boolean;
+  coAgentDistribution: "split-equally" | "each-pays";
+  payableTo: "radius" | "team" | "external";
+  payableToExternalId?: string;
   notLessThan: { enabled: boolean; amount: string };
   notToExceed: { enabled: boolean; amount: string };
 }
@@ -108,9 +110,9 @@ function createDraft(
     slidingScale: hideSlidingScale ? false : initialData?.slidingScale ?? false,
     tiers: hideSlidingScale ? [] : initialData?.tiers ?? [],
     contributesToCap: initialData?.contributesToCap ?? false,
-    visibleOnCda: shouldForceFeeVisibility(timing, appliesToMode)
-      ? true
-      : initialData?.visibleOnCda ?? true,
+    coAgentDistribution: initialData?.coAgentDistribution ?? "split-equally",
+    payableTo: initialData?.payableTo ?? "radius",
+    payableToExternalId: initialData?.payableToExternalId,
     notLessThan: hideSlidingScale
       ? { enabled: false, amount: initialData?.notLessThan?.amount ?? "0.00" }
       : initialData?.notLessThan ?? { enabled: false, amount: "0.00" },
@@ -396,7 +398,7 @@ export function FeeBuilderModal({
         (field === "timing" || field === "appliesToMode") &&
         shouldForceFeeVisibility(next.timing, next.appliesToMode)
       ) {
-        next.visibleOnCda = true;
+        // next.visibleOnCda = true;
       }
       return next;
     });

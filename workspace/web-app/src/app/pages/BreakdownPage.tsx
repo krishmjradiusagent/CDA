@@ -94,9 +94,9 @@ export function BreakdownPage() {
   ];
   function confirmationLabel(row: { agentConfirmed: boolean; tlConfirmed: boolean }) {
     if (row.agentConfirmed && row.tlConfirmed) return "Confirmed";
-    if (row.agentConfirmed) return "TL pending";
-    if (row.tlConfirmed) return "Agent pending";
-    return "Agent/TL pending";
+    if (row.agentConfirmed) return "TL Pending";
+    if (row.tlConfirmed) return "Agent Pending";
+    return "Agent Pending";
   }
 
   return (

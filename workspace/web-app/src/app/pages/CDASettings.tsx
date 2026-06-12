@@ -93,6 +93,7 @@ import {
   BreadcrumbSeparator,
 } from "../components/ui/breadcrumb";
 import { Toaster } from "../components/ui/sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { 
   FeeBadge, 
   TierBuilderRow, 
@@ -135,10 +136,9 @@ const TEAM_WIRE_COMPLETION_OPTIONS = { requireCdaType: true } as const;
 
 const TEAM_CDA_TYPE_OPTIONS: Array<{ value: CDAType; label: string }> = [
   { value: "full-transparency", label: "Full Transparency" },
-  { value: "radius-split-hidden-partner", label: "Radius Split Hidden (Partner)" },
-  { value: "radius-split-hidden-associate", label: "Radius Split Hidden (Associate)" },
-  { value: "team-split-hidden-partner", label: "Team Split Hidden (Partner)" },
-  { value: "gross-cda", label: "Gross CDA" },
+  { value: "team-hidden", label: "Team Hidden" },
+  { value: "radius-hidden", label: "Radius Hidden" },
+  { value: "full-gross", label: "Full Gross" },
 ];
 
 type AssignDefaultsErrors = Partial<Record<"planId" | "selectedAgentIds", string>>;
@@ -1616,6 +1616,7 @@ function WireInstructionsFormCard({
   onToggleSensitive,
   onChange,
   onSave,
+  onCancel,
 }: {
   idPrefix: string;
   record: WireInstructionRecord;
@@ -1625,6 +1626,7 @@ function WireInstructionsFormCard({
   onToggleSensitive: () => void;
   onChange: (patch: Partial<WireInstructionRecord>) => void;
   onSave: () => void;
+  onCancel?: () => void;
 }) {
   const [activeSensitiveField, setActiveSensitiveField] = useState<"routingNumber" | "accountNumber" | null>(null);
   const showRoutingValue = revealSensitive || activeSensitiveField === "routingNumber";
@@ -1636,7 +1638,7 @@ function WireInstructionsFormCard({
         <CardContent className="p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "account-holder")} className="text-sm font-medium">Account Holder Name</Label>
+              <Label htmlFor={buildWireFieldId(idPrefix, "account-holder")} className="text-sm font-medium">Account Holder / Recipient Name *</Label>
               <Input
                 id={buildWireFieldId(idPrefix, "account-holder")}
                 value={record.accountHolderName}
@@ -1646,6 +1648,45 @@ function WireInstructionsFormCard({
               />
               {errors.accountHolderName && <p className="text-xs text-destructive">{errors.accountHolderName}</p>}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "email")} className="text-sm font-medium">Email</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "email")}
+                value={record.email || ""}
+                onChange={(e) => onChange({ email: e.target.value })}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "phone")} className="text-sm font-medium">Phone</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "phone")}
+                value={record.phone || ""}
+                onChange={(e) => onChange({ phone: e.target.value })}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={buildWireFieldId(idPrefix, "recipient-street")} className="text-sm font-medium">Recipient Address</Label>
+              <Input
+                id={buildWireFieldId(idPrefix, "recipient-street")}
+                value={record.recipientStreet || ""}
+                placeholder="Street"
+                onChange={(e) => onChange({ recipientStreet: e.target.value })}
+                className="h-10 mb-2"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <Input value={record.recipientCity || ""} placeholder="City" onChange={(e) => onChange({ recipientCity: e.target.value })} className="h-10 col-span-1" />
+                <Input value={record.recipientState || ""} placeholder="State" onChange={(e) => onChange({ recipientState: e.target.value })} className="h-10 col-span-1" />
+                <Input value={record.recipientZip || ""} placeholder="ZIP" onChange={(e) => onChange({ recipientZip: e.target.value })} className="h-10 col-span-1" />
+              </div>
+            </div>
+
+            <div className="col-span-1 md:col-span-2">
+              <Separator className="my-2" />
+              <h4 className="text-sm font-semibold mb-4">Banking Details (Optional for External)</h4>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor={buildWireFieldId(idPrefix, "bank-name")} className="text-sm font-medium">Bank Name</Label>
               <Input
@@ -1779,7 +1820,10 @@ function WireInstructionsFormCard({
             <p className="text-xs text-muted-foreground">
               {record.updatedAt ? `Last updated ${new Date(record.updatedAt).toLocaleString()}` : "Not saved yet"}
             </p>
-            <Button onClick={onSave}>Save Wire Instructions</Button>
+            <div className="flex gap-2">
+              {onCancel && <Button variant="outline" onClick={onCancel}>Cancel</Button>}
+              <Button onClick={onSave}>Save Wire Instructions</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1917,6 +1961,8 @@ export function CDASettings() {
     previewAssignment: AgentAssignment | null;
     dealsAssignment: AgentAssignment | null;
     isAssigning: boolean;
+    overwriteAssignDefaults: boolean;
+    pendingAssignmentSave: (() => void) | null;
   }>({
     plans: seedPlans,
     activePlanId: null,
@@ -1940,6 +1986,8 @@ export function CDASettings() {
     previewAssignment: null,
     dealsAssignment: null,
     isAssigning: false,
+    overwriteAssignDefaults: false,
+    pendingAssignmentSave: null,
   });
   const [wireRoleView, setWireRoleView] = useState<WireRoleView>("team_lead");
   const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
@@ -2057,14 +2105,6 @@ export function CDASettings() {
         complete: isWireInstructionComplete(wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction()),
       }));
     const currentAgentComplete = isWireInstructionComplete(wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
-    const sectionTitle =
-      wireRoleView === "team_lead"
-        ? "Team Wire Instructions"
-        : "My Wire Instructions";
-    const sectionDescription =
-      wireRoleView === "team_lead"
-        ? `Brokerage payout details for ${teamLeadAgent.name}'s team, plus read-only agent completion status.`
-        : `Personal payout details for ${currentAgent.name}. Team wire instructions stay hidden.`;
     const showTeamForm = teamWireEditing || !teamComplete;
     const showAgentForm = agentWireEditing || !currentAgentComplete;
 
@@ -2072,40 +2112,19 @@ export function CDASettings() {
       <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-base font-medium leading-6 text-foreground">{sectionTitle}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{sectionDescription}</p>
-          </div>
-          <div className="flex items-center gap-3 self-start">
-            {wireRoleView === "team_lead" && unreadWireNotifications.length > 0 && (
-              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
-                {unreadWireNotifications.length} new completion{unreadWireNotifications.length > 1 ? "s" : ""}
-              </Badge>
-            )}
-            <div className="inline-flex rounded-full border bg-muted/30 p-1">
-              <Button
-                type="button"
-                variant={wireRoleView === "team_lead" ? "secondary" : "ghost"}
-                size="sm"
-                className="rounded-full px-4"
-                onClick={() => setWireRoleView("team_lead")}
-              >
-                Team Lead
-              </Button>
-              <Button
-                type="button"
-                variant={wireRoleView === "agent" ? "secondary" : "ghost"}
-                size="sm"
-                className="rounded-full px-4"
-                onClick={() => setWireRoleView("agent")}
-              >
-                Agent
-              </Button>
-            </div>
+            <h2 className="text-base font-medium leading-6 text-foreground">Wiring & Payment Instructions</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Manage payment details for team, external vendors, and yourself.</p>
           </div>
         </div>
 
-        {wireRoleView === "team_lead" ? (
-          <>
+        <Tabs defaultValue="team" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="team">Team Wire Instructions</TabsTrigger>
+            <TabsTrigger value="shared">Shared Database</TabsTrigger>
+            <TabsTrigger value="private">My Private Recipients</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="team" className="flex flex-col gap-4">
             {!teamComplete && (
               <Alert className="border-amber-200 bg-amber-50">
                 <Bell className="text-amber-700" />
@@ -2137,58 +2156,50 @@ export function CDASettings() {
                 onEdit={() => setTeamWireEditing(true)}
               />
             )}
-            <section className="flex flex-col gap-4">
-              <div>
-                <h3 className="text-base font-medium leading-6 text-foreground">Agent Wire Status</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Read-only status for each team member. Team lead cannot edit personal wire details.</p>
+          </TabsContent>
+
+          <TabsContent value="shared" className="flex flex-col gap-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold">Shared Recipients</h3>
+              <Button size="sm" onClick={() => {
+                setState(s => ({...s, activeDialog: "add-fee"})); // Using existing dialog or a new one to add recipient
+              }}>
+                <Plus className="size-4 mr-1" /> Add Recipient
+              </Button>
+            </div>
+            {wireStore.sharedRecipients.length === 0 ? (
+              <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center">
+                No shared recipients yet. Add vendors or escrow companies here.
               </div>
-              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+            ) : (
+              <div className="border border-border/50 rounded-[14px] overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-b">
-                      <TableHead className="pl-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Agent</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                      <TableHead className="pr-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 text-right">Updated</TableHead>
+                    <TableRow className="bg-muted/20">
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {agentStatuses.map(({ agent, complete }) => {
-                      const record = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction();
-                      return (
-                        <TableRow key={agent.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <TableCell className="pl-6">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="size-8 shrink-0">
-                                <AvatarImage src={agent.avatarUrl} alt={agent.name} className="object-cover" />
-                                <AvatarFallback className="text-xs">{agent.name.split(" ").map((p) => p[0]).join("")}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-sm font-medium text-foreground">{agent.name}</p>
-                                <p className="text-xs text-muted-foreground">{agent.role}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-[13px] text-muted-foreground">{agent.email}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <WireStatusBadge complete={complete} />
-                              {!complete && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Action needed</Badge>}
-                            </div>
-                          </TableCell>
-                          <TableCell className="pr-6 text-right text-xs text-muted-foreground">
-                            {record.updatedAt ? new Date(record.updatedAt).toLocaleDateString() : "Not started"}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {wireStore.sharedRecipients.map(r => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.accountHolderName}</TableCell>
+                        <TableCell>{r.email || "-"}</TableCell>
+                        <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm">Edit</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
-              </Card>
-            </section>
-          </>
-        ) : (
-          <>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="private" className="flex flex-col gap-4">
             {!currentAgentComplete && (
               <Alert className="border-amber-200 bg-amber-50">
                 <Bell className="text-amber-700" />
@@ -2218,8 +2229,8 @@ export function CDASettings() {
                 onEdit={() => setAgentWireEditing(true)}
               />
             )}
-          </>
-        )}
+          </TabsContent>
+        </Tabs>
       </section>
     );
   }
@@ -2314,213 +2325,138 @@ export function CDASettings() {
         ? [source.agentId]
         : form.selectedAgentIds;
 
-    setState((current) => {
-      let nextAssignments = current.defaultAssignments;
+    const commitAssignment = () => {
+      setState((current) => {
+        let nextAssignments = [...current.defaultAssignments];
 
-      if (source.from === "plan") {
-        const targetSet = new Set(targetAgentIds);
-        nextAssignments = [
-          ...current.defaultAssignments.filter((assignment) => assignment.planId !== source.planId && !targetSet.has(assignment.agentId)),
-          ...targetAgentIds.map((agentId) => {
-            const existing = current.defaultAssignments.find((assignment) => assignment.agentId === agentId);
-            return {
-              id: existing?.id ?? crypto.randomUUID(),
-              agentId,
-              planId: source.planId,
-              feeIds: existing?.feeIds ?? [],
-              dealTypes: form.dealTypes,
-              applyToActiveDeals: form.applyToActiveDeals,
-            };
-          }),
-        ];
-      } else if (source.from === "fee") {
-        const targetSet = new Set(targetAgentIds);
-        const updated = current.defaultAssignments
-          .map((assignment) => {
-            const selected = targetSet.has(assignment.agentId);
-            const nextFeeIds = selected
-              ? Array.from(new Set([...assignment.feeIds, source.feeId]))
-              : assignment.feeIds.filter((id) => id !== source.feeId);
-            return {
-              ...assignment,
-              feeIds: nextFeeIds,
-              dealTypes: selected ? form.dealTypes : assignment.dealTypes,
-              applyToActiveDeals: selected ? form.applyToActiveDeals : assignment.applyToActiveDeals,
-            };
-          })
-          .filter((assignment) => assignment.planId !== null || assignment.feeIds.length > 0);
+        if (source.from === "plan" || effectivePlanId) {
+          const targetSet = new Set(targetAgentIds);
+          const selectedTypesKeys = Object.keys(form.dealTypes).filter(k => form.dealTypes[k]);
+          
+          targetAgentIds.forEach(agentId => {
+            // First, remove the overlapping deal types from existing assignments for this agent
+            nextAssignments = nextAssignments.map(assignment => {
+              if (assignment.agentId === agentId && assignment.planId !== effectivePlanId) {
+                const newDealTypes = { ...assignment.dealTypes };
+                selectedTypesKeys.forEach(k => { newDealTypes[k] = false; });
+                return { ...assignment, dealTypes: newDealTypes };
+              }
+              return assignment;
+            }).filter(assignment => {
+              // Keep if it has at least one deal type, OR if it has fees
+              const hasDealTypes = Object.values(assignment.dealTypes).some(v => v);
+              return hasDealTypes || assignment.feeIds.length > 0;
+            });
 
-        const existingAgentIds = new Set(updated.map((assignment) => assignment.agentId));
-        const additions = targetAgentIds
-          .filter((agentId) => !existingAgentIds.has(agentId))
-          .map((agentId) => ({
-            id: crypto.randomUUID(),
-            agentId,
-            planId: null,
-            feeIds: [source.feeId],
-            dealTypes: form.dealTypes,
-            applyToActiveDeals: form.applyToActiveDeals,
-          }));
+            // Now, find if there's an exact assignment for this plan already
+            const existingSamePlan = nextAssignments.find(a => a.agentId === agentId && a.planId === effectivePlanId);
+            if (existingSamePlan) {
+              existingSamePlan.dealTypes = { ...existingSamePlan.dealTypes, ...form.dealTypes };
+              existingSamePlan.feeIds = Array.from(new Set([...existingSamePlan.feeIds, ...effectiveFeeIds]));
+              existingSamePlan.applyToActiveDeals = form.applyToActiveDeals;
+            } else {
+              nextAssignments.push({
+                id: crypto.randomUUID(),
+                agentId,
+                planId: effectivePlanId,
+                feeIds: effectiveFeeIds,
+                dealTypes: form.dealTypes,
+                applyToActiveDeals: form.applyToActiveDeals,
+              });
+            }
+          });
+        } else if (source.from === "fee") {
+          const targetSet = new Set(targetAgentIds);
+          nextAssignments = nextAssignments.map((assignment) => {
+            if (targetSet.has(assignment.agentId)) {
+              return {
+                ...assignment,
+                feeIds: Array.from(new Set([...assignment.feeIds, source.feeId]))
+              };
+            }
+            return assignment;
+          });
+          // For agents that have NO assignments at all, create a blank one with just the fee
+          targetAgentIds.forEach(agentId => {
+            if (!nextAssignments.some(a => a.agentId === agentId)) {
+              nextAssignments.push({
+                id: crypto.randomUUID(),
+                agentId,
+                planId: null,
+                feeIds: [source.feeId],
+                dealTypes: { buyer: false, listing: false, referral: false, lease: false, "lease-listing": false },
+                applyToActiveDeals: false,
+              });
+            }
+          });
+        } else if (source.from === "bulk" || source.from === "agent") {
+          // Same logic as plan, just applying default plan + fees
+          const targetSet = new Set(targetAgentIds);
+          const selectedTypesKeys = Object.keys(form.dealTypes).filter(k => form.dealTypes[k]);
+          
+          targetAgentIds.forEach(agentId => {
+            nextAssignments = nextAssignments.map(assignment => {
+              if (assignment.agentId === agentId && assignment.planId !== effectivePlanId) {
+                const newDealTypes = { ...assignment.dealTypes };
+                selectedTypesKeys.forEach(k => { newDealTypes[k] = false; });
+                return { ...assignment, dealTypes: newDealTypes };
+              }
+              return assignment;
+            }).filter(assignment => Object.values(assignment.dealTypes).some(v => v) || assignment.feeIds.length > 0);
 
-        nextAssignments = [...updated, ...additions];
-      } else {
-        const newAssignments: AgentAssignment[] = targetAgentIds.map((agentId) => ({
-          id: crypto.randomUUID(),
-          agentId,
-          planId: effectivePlanId,
-          feeIds: effectiveFeeIds,
-          dealTypes: form.dealTypes,
-          applyToActiveDeals: form.applyToActiveDeals,
-        }));
+            const existingSamePlan = nextAssignments.find(a => a.agentId === agentId && a.planId === effectivePlanId);
+            if (existingSamePlan) {
+              existingSamePlan.dealTypes = { ...existingSamePlan.dealTypes, ...form.dealTypes };
+              existingSamePlan.feeIds = Array.from(new Set([...existingSamePlan.feeIds, ...effectiveFeeIds]));
+              existingSamePlan.applyToActiveDeals = form.applyToActiveDeals;
+            } else {
+              nextAssignments.push({
+                id: crypto.randomUUID(),
+                agentId,
+                planId: effectivePlanId,
+                feeIds: effectiveFeeIds,
+                dealTypes: form.dealTypes,
+                applyToActiveDeals: form.applyToActiveDeals,
+              });
+            }
+          });
+        }
 
-        nextAssignments = [
-          ...current.defaultAssignments.filter((a) => !targetAgentIds.includes(a.agentId)),
-          ...newAssignments,
-        ];
-      }
-
-      return {
-        ...current,
-        defaultAssignments: nextAssignments,
-        activeDialog: null,
-        assignDefaultsForm: getFreshAssignDefaultsForm(),
-        assignDefaultsErrors: {},
-        assignDefaultsSource: { from: "bulk" },
-      };
-    });
-    toast("Defaults assigned");
-  }
-
-  function updateForm(patch: Partial<PlanForm>) {
-    setState((current) => ({ ...current, form: { ...current.form, ...patch } }));
-  }
-
-  function handleAgentSplitChange(value: string) {
-    updateForm({ agentSplit: value, teamSplit: String(Math.max(0, 100 - numericValue(value))) });
-  }
-
-  function handleTeamSplitChange(value: string) {
-    updateForm({ teamSplit: value, agentSplit: String(Math.max(0, 100 - numericValue(value))) });
-  }
-
-  function updateTier(tierId: string, patch: Partial<TierRow>) {
-    setState((current) => ({
-      ...current,
-      form: {
-        ...current.form,
-        tiers: current.form.tiers.map((tier) => (tier.id === tierId ? { ...tier, ...patch } : tier)),
-      },
-    }));
-  }
-
-  function addTier() {
-    setState((current) => ({
-      ...current,
-      form: {
-        ...current.form,
-        tiers: [
-          ...current.form.tiers,
-          {
-            id: crypto.randomUUID(),
-            from: "",
-            to: "",
-            agentSplit: "80",
-            teamSplit: "20",
-          },
-        ],
-      },
-    }));
-  }
-
-  function removeTier(tierId: string) {
-    setState((current) => ({
-      ...current,
-      form: {
-        ...current.form,
-        tiers: current.form.tiers.filter((tier) => tier.id !== tierId),
-      },
-    }));
-  }
-
-  function validatePlanForm() {
-    const nextErrors: PlanErrors = {};
-
-    if (!state.form.planName.trim()) nextErrors.planName = "Plan Name required";
-
-    if (state.form.planType === "standard") {
-      const splitTotal = numericValue(state.form.agentSplit) + numericValue(state.form.teamSplit);
-      if (splitTotal !== 100) nextErrors.splitTotal = `Split total must equal 100%. Current: ${splitTotal}%`;
-    }
-
-    if (state.form.planType === "tiered") {
-      const tierErrors: Record<string, string> = {};
-      state.form.tiers.forEach((tier, index) => {
-        const splitTotal = numericValue(tier.agentSplit) + numericValue(tier.teamSplit);
-        const finalRow = index === state.form.tiers.length - 1;
-        if (!tier.from) tierErrors[tier.id] = "From required";
-        else if (!finalRow && !tier.to) tierErrors[tier.id] = "To required except final row";
-        else if (splitTotal !== 100) tierErrors[tier.id] = `Split total must equal 100%. Current: ${splitTotal}%`;
+        return {
+          ...current,
+          defaultAssignments: nextAssignments,
+          activeDialog: null,
+          assignDefaultsForm: getFreshAssignDefaultsForm(),
+          assignDefaultsErrors: {},
+          assignDefaultsSource: { from: "bulk" },
+          overwriteAssignDefaults: false,
+          pendingAssignmentSave: null,
+        };
       });
-      if (Object.keys(tierErrors).length > 0) nextErrors.tiers = tierErrors;
-    }
 
-    if (state.form.applyAsDefault && state.form.defaultMode === "specific" && state.form.selectedAgentIds.length === 0) {
-      nextErrors.selectedAgentIds = "Select at least one agent";
-    }
-
-    setState((current) => ({ ...current, errors: nextErrors }));
-    return Object.keys(nextErrors).length === 0;
-  }
-
-  function createPlanFromForm(): CommissionPlan {
-    return {
-      id: state.form.editingPlanId ?? crypto.randomUUID(),
-      name: state.form.planName.trim(),
-      type: state.form.planType,
-      agentSplit: numericValue(state.form.agentSplit),
-      teamSplit: numericValue(state.form.teamSplit),
-      feeType: "flat",
-      feeAmount: numericValue(state.form.feeAmount || "495"),
-      capAmount: numericValue(state.form.capAmount),
-      assignedAgentsCount: state.form.applyAsDefault ? selectedDefaultAgents.length : 0,
-      resetPeriod: state.form.resetPeriod,
-      basedOn: state.form.basedOn,
-      tiers: state.form.tiers.map((tier) => ({ ...tier })),
+      toast.success("Defaults assigned successfully");
     };
-  }
 
-  function needsOverwriteConfirmation() {
-    return state.form.applyAsDefault && selectedDefaultAgents.some((agent) => agent.hasDefault);
-  }
+    // Check for conflicts before committing
+    if (source.from === "plan" || effectivePlanId) {
+      const selectedTypesKeys = Object.keys(form.dealTypes).filter(k => form.dealTypes[k]);
+      const hasConflict = state.defaultAssignments.some(assignment => {
+        if (!targetAgentIds.includes(assignment.agentId)) return false;
+        if (assignment.planId === effectivePlanId) return false;
+        return selectedTypesKeys.some(k => assignment.dealTypes[k]);
+      });
 
-  function commitPlan(plan: CommissionPlan, overwriteConfirmed = false) {
-    setState((current) => {
-      const existingIndex = current.plans.findIndex((item) => item.id === plan.id);
-      const plans =
-        existingIndex >= 0
-          ? current.plans.map((item) => (item.id === plan.id ? plan : item))
-          : [...current.plans, plan];
+      if (hasConflict) {
+        setState(current => ({
+          ...current,
+          overwriteAssignDefaults: true,
+          pendingAssignmentSave: commitAssignment,
+        }));
+        return;
+      }
+    }
 
-      return {
-        ...current,
-        plans,
-        activePlanId: plan.id,
-        activeDialog: null,
-        planDialogMode: "add",
-        form: getFreshPlanForm(),
-        errors: {},
-        pendingPlan: null,
-        overwriteOpen: false,
-      };
-    });
-
-    toast(
-      plan.assignedAgentsCount > 0
-        ? "Commission plan added and defaults assigned"
-        : overwriteConfirmed
-          ? "Commission plan added and defaults assigned"
-          : "Commission plan added",
-    );
+    commitAssignment();
   }
 
   function handleSavePlan() {
@@ -3355,6 +3291,27 @@ export function CDASettings() {
         onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "assign-defaults" : null }))}
         onSave={handleSaveAssignDefaults}
       />
+
+      <AlertDialog
+        open={state.overwriteAssignDefaults}
+        onOpenChange={(open) => setState((current) => ({ ...current, overwriteAssignDefaults: open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Override existing assignments?</AlertDialogTitle>
+            <AlertDialogDescription>
+              One or more selected agents already have a different commission plan assigned to the selected representation types. 
+              Continuing will override their existing assignments for these representation types.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => state.pendingAssignmentSave && state.pendingAssignmentSave()}>
+              Override Defaults
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={state.overwriteOpen}

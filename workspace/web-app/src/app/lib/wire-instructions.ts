@@ -1,13 +1,19 @@
 export type WireAccountType = "checking" | "savings";
 export type CDAType =
   | "full-transparency"
-  | "radius-split-hidden-partner"
-  | "radius-split-hidden-associate"
-  | "team-split-hidden-partner"
-  | "gross-cda";
+  | "team-hidden"
+  | "radius-hidden"
+  | "full-gross";
 
 export type WireInstructionRecord = {
+  id: string;
   accountHolderName: string;
+  email: string;
+  phone: string;
+  recipientStreet: string;
+  recipientCity: string;
+  recipientState: string;
+  recipientZip: string;
   bankName: string;
   routingNumber: string;
   accountNumber: string;
@@ -33,6 +39,8 @@ export type WireInstructionsStore = {
   teamLeadAgentId: string;
   teamWireInstructions: WireInstructionRecord;
   agentWireInstructions: Record<string, WireInstructionRecord>;
+  sharedRecipients: WireInstructionRecord[];
+  privateRecipients: Record<string, WireInstructionRecord[]>;
   notifications: WireCompletionNotification[];
 };
 
@@ -53,13 +61,21 @@ export type WireValidationErrors = Partial<
 
 type WireValidationOptions = {
   requireCdaType?: boolean;
+  requireBankDetails?: boolean;
 };
 
 export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v1";
 
-export function createEmptyWireInstruction(): WireInstructionRecord {
+export function createEmptyWireInstruction(id?: string): WireInstructionRecord {
   return {
+    id: id ?? crypto.randomUUID(),
     accountHolderName: "",
+    email: "",
+    phone: "",
+    recipientStreet: "",
+    recipientCity: "",
+    recipientState: "",
+    recipientZip: "",
     bankName: "",
     routingNumber: "",
     accountNumber: "",
@@ -77,26 +93,35 @@ export function createEmptyWireInstruction(): WireInstructionRecord {
 export function createDefaultWireInstructionsStore(teamLeadAgentId: string, agentIds: string[]): WireInstructionsStore {
   return {
     teamLeadAgentId,
-    teamWireInstructions: createEmptyWireInstruction(),
+    teamWireInstructions: createEmptyWireInstruction("team-wire"),
     agentWireInstructions: agentIds.reduce<Record<string, WireInstructionRecord>>((acc, agentId) => {
-      acc[agentId] = createEmptyWireInstruction();
+      acc[agentId] = createEmptyWireInstruction(`agent-wire-${agentId}`);
       return acc;
     }, {}),
+    sharedRecipients: [],
+    privateRecipients: {},
     notifications: [],
   };
 }
 
 export function validateWireInstruction(record: WireInstructionRecord, options: WireValidationOptions = {}): WireValidationErrors {
   const errors: WireValidationErrors = {};
+  const enforceBankDetails = options.requireBankDetails ?? true;
+
   if (!record.accountHolderName.trim()) errors.accountHolderName = "Account holder required";
-  if (!record.bankName.trim()) errors.bankName = "Bank name required";
-  if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
-  if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
+  
+  if (enforceBankDetails) {
+    if (!record.bankName.trim()) errors.bankName = "Bank name required";
+    if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
+    if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
+    if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
+    if (!record.bankCity.trim()) errors.bankCity = "City required";
+    if (!record.bankState.trim()) errors.bankState = "State required";
+    if (!record.bankZip.trim()) errors.bankZip = "ZIP required";
+  }
+
   if (options.requireCdaType && !record.cdaType) errors.cdaType = "CDA type required";
-  if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
-  if (!record.bankCity.trim()) errors.bankCity = "City required";
-  if (!record.bankState.trim()) errors.bankState = "State required";
-  if (!record.bankZip.trim()) errors.bankZip = "ZIP required";
+  
   return errors;
 }
 
@@ -118,16 +143,27 @@ export function readWireInstructionsStore(fallback: WireInstructionsStore): Wire
     const parsed = JSON.parse(raw) as Partial<WireInstructionsStore>;
     return {
       teamLeadAgentId: parsed.teamLeadAgentId ?? fallback.teamLeadAgentId,
-      teamWireInstructions: { ...createEmptyWireInstruction(), ...(parsed.teamWireInstructions ?? {}) },
+      teamWireInstructions: { ...createEmptyWireInstruction("team-wire"), ...(parsed.teamWireInstructions ?? {}) },
       agentWireInstructions: {
         ...fallback.agentWireInstructions,
         ...Object.fromEntries(
           Object.entries(parsed.agentWireInstructions ?? {}).map(([agentId, record]) => [
             agentId,
-            { ...createEmptyWireInstruction(), ...record },
+            { ...createEmptyWireInstruction(`agent-wire-${agentId}`), ...record },
           ]),
         ),
       },
+      sharedRecipients: Array.isArray(parsed.sharedRecipients) 
+        ? parsed.sharedRecipients.map(r => ({ ...createEmptyWireInstruction(r.id), ...r }))
+        : fallback.sharedRecipients,
+      privateRecipients: typeof parsed.privateRecipients === 'object' && parsed.privateRecipients !== null
+        ? Object.fromEntries(
+            Object.entries(parsed.privateRecipients).map(([agentId, records]) => [
+              agentId,
+              Array.isArray(records) ? records.map(r => ({ ...createEmptyWireInstruction(r.id), ...r })) : [],
+            ])
+          )
+        : fallback.privateRecipients,
       notifications: Array.isArray(parsed.notifications) ? parsed.notifications : fallback.notifications,
     };
   } catch {

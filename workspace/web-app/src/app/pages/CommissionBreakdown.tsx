@@ -904,6 +904,7 @@ export function CommissionBreakdown() {
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfCdaType, setPdfCdaType] = useState<CDAType | "">("full-transparency");
   const [rejectInput, setRejectInput] = useState("");
   const hasCommentNotification = Boolean(rejectionNote);
   const taggedCommentCount = activityFeed.filter((entry) => entry.kind === "comment" && entry.taggedUserIds?.length).length;
@@ -1642,7 +1643,7 @@ export function CommissionBreakdown() {
                 variant="outline"
                 className="h-8 gap-1.5 rounded-lg border-primary px-4 text-xs text-primary"
                 disabled={isAuditor && !allAuditorWiresComplete}
-                onClick={() => setShowPdfPreview(true)}
+                onClick={() => { setPdfCdaType(teamWireDraft.cdaType || "full-transparency"); setShowPdfPreview(true); }}
               >
                 <Download className="size-3.5" />
                 PDF
@@ -2025,7 +2026,7 @@ export function CommissionBreakdown() {
                   {(preSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => (
                     <div key={ded.id} className="group flex items-center justify-between py-1.5">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>\n                        <Landmark className="size-3 text-muted-foreground ml-1 cursor-pointer hover:text-foreground" onClick={() => setShowWireSheet(true)} title="View Wiring Status" />
                         <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2059,7 +2060,7 @@ export function CommissionBreakdown() {
                         setFeeDialogTiming("pre-split");
                       }}
                     >
-                      <Plus className="size-3.5 mr-1" />Pre-split deduction
+                      <Plus className="size-3.5 mr-1" />Add Credit or Referral
                     </Button>
                   </div>
                   </>
@@ -2116,7 +2117,7 @@ export function CommissionBreakdown() {
                     return (
                       <div key={ded.id} className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs text-muted-foreground">{ded.name}</p>
+                          <p className="text-xs text-muted-foreground">{ded.name}</p>\n                        <Landmark className="size-3 text-muted-foreground ml-1 cursor-pointer hover:text-foreground" onClick={() => setShowWireSheet(true)} title="View Wiring Status" />
                           <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{ded.isRadiusFee ? "Paid by Agent" : "Paid by Both"}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2250,7 +2251,7 @@ export function CommissionBreakdown() {
                   {(sideGrossDeductions[activeSide.id] ?? []).map((ded) => (
                     <div key={ded.id} className="group flex items-center justify-between py-1.5">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>\n                        <Landmark className="size-3 text-muted-foreground ml-1 cursor-pointer hover:text-foreground" onClick={() => setShowWireSheet(true)} title="View Wiring Status" />
                         <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2318,7 +2319,7 @@ export function CommissionBreakdown() {
                   {(isTL || canEditAll) && !isLocked && (
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePreSplitDraft(true)}>
-                      <Plus className="size-3.5 mr-1" />Pre-split deduction
+                      <Plus className="size-3.5 mr-1" />Add Credit or Referral
                     </Button>
                   </div>
                   )}
@@ -2463,12 +2464,12 @@ export function CommissionBreakdown() {
                   setTxStatus("team_lead_confirmed");
                   const message = `Team lead confirmed commission breakdown for ${PROPERTY_ADDRESS}`;
                   logActivity(message);
-                  toast.success("Commission breakdown confirmed");
+                  toast.success("Breakdown Confirmed");
                 } else {
                   setTxStatus("agent_confirmed");
                   const message = `Agent confirmed commission breakdown for ${PROPERTY_ADDRESS}`;
                   logActivity(message);
-                  toast.success("Commission breakdown confirmed");
+                  toast.success("Breakdown Confirmed");
                 }
                 setRejectionNote("");
                 setShowConfirmDialog(false);
@@ -2489,6 +2490,22 @@ export function CommissionBreakdown() {
                 Commission Disbursement Authorization
               </DialogTitle>
               <div className="flex items-center gap-2">
+                {isAuditor && (
+                  <div className="flex items-center gap-2 mr-4">
+                    <span className="text-sm font-medium text-slate-600">CDA Type:</span>
+                    <Select value={pdfCdaType} onValueChange={(v) => setPdfCdaType(v as CDAType)}>
+                      <SelectTrigger className="w-[180px] h-10">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full-transparency">Full Transparency</SelectItem>
+                        <SelectItem value="team-hidden">Team Hidden</SelectItem>
+                        <SelectItem value="radius-hidden">Radius Hidden</SelectItem>
+                        <SelectItem value="full-gross">Full Gross</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button variant="outline" className="h-11 rounded-[10px] px-5 text-[15px] text-slate-700" onClick={() => window.print()}>
                   <Printer className="mr-2 size-4" />
                   Print
@@ -3278,10 +3295,9 @@ export function CommissionBreakdown() {
                               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select CDA type" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="full-transparency">Full Transparency</SelectItem>
-                                <SelectItem value="radius-split-hidden-partner">Radius Split Hidden Partner</SelectItem>
-                                <SelectItem value="radius-split-hidden-associate">Radius Split Hidden Associate</SelectItem>
-                                <SelectItem value="team-split-hidden-partner">Team Split Hidden Partner</SelectItem>
-                                <SelectItem value="gross-cda">Gross CDA</SelectItem>
+                                <SelectItem value="team-hidden">Team Hidden</SelectItem>
+                                <SelectItem value="radius-hidden">Radius Hidden</SelectItem>
+                                <SelectItem value="full-gross">Full Gross</SelectItem>
                               </SelectContent>
                             </Select>
                             {wireFormErrors.cdaType && <p className="text-[11px] text-destructive">{wireFormErrors.cdaType}</p>}
