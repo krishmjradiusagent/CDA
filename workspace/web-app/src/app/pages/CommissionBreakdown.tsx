@@ -1643,7 +1643,7 @@ export function CommissionBreakdown() {
                 variant="outline"
                 className="h-8 gap-1.5 rounded-lg border-primary px-4 text-xs text-primary"
                 disabled={isAuditor && !allAuditorWiresComplete}
-                onClick={() => { setPdfCdaType(teamWireDraft.cdaType || "full-transparency"); setShowPdfPreview(true); }}
+                onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
               >
                 <Download className="size-3.5" />
                 PDF
