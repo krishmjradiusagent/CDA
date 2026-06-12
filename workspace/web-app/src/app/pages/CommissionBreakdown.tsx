@@ -1444,7 +1444,7 @@ export function CommissionBreakdown() {
         <div className={cn(preview ? "space-y-2.5" : dense ? "space-y-2.5" : "space-y-3", inSheet ? "pt-1" : "pt-0", dense && "pb-2")}>
         <div className="flex items-center justify-between">
           <div>
-            {preview && <h3 className="text-sm font-semibold tracking-tight text-foreground">Recent comments</h3>}
+            {preview && <h3 className="text-sm font-semibold tracking-tight text-foreground">Comments & Activity</h3>}
           </div>
           <div className="flex items-center gap-2">
             {!preview && !inSheet && (
