@@ -127,6 +127,7 @@ type AssignDefaultsForm = {
   feeIds: string[];
   assignMode: "all" | "specific";
   selectedAgentIds: string[];
+  dealTypes: Record<string, boolean>;
   applyToActiveDeals: boolean;
 };
 
@@ -153,6 +154,7 @@ type AgentAssignment = {
   agentId: string;
   planId: string | null;
   feeIds: string[];
+  dealTypes: Record<string, boolean>;
   applyToActiveDeals: boolean;
 };
 
@@ -257,19 +259,41 @@ const seedFees: FeeRecord[] = [
 ];
 
 export const seedAssignments: AgentAssignment[] = [
-  { id: "as1", agentId: "a1", planId: "p1", feeIds: ["f1", "f2"], applyToActiveDeals: true },
-  { id: "as2", agentId: "a2", planId: "p2", feeIds: ["f3"], applyToActiveDeals: false },
-  { id: "as3", agentId: "a3", planId: "p1", feeIds: ["f1", "f2", "f3"], applyToActiveDeals: true },
-  { id: "as4", agentId: "a4", planId: "p3", feeIds: ["f4"], applyToActiveDeals: true },
-  { id: "as5", agentId: "a5", planId: "p2", feeIds: ["f2"], applyToActiveDeals: false },
-  { id: "as6", agentId: "a6", planId: "p1", feeIds: ["f1"], applyToActiveDeals: true },
-  { id: "as7", agentId: "a7", planId: "p1", feeIds: ["f1", "f3"], applyToActiveDeals: true },
-  { id: "as8", agentId: "a8", planId: "p2", feeIds: ["f2", "f4"], applyToActiveDeals: false },
-  { id: "as9", agentId: "a9", planId: "p3", feeIds: ["f3"], applyToActiveDeals: true },
+  { id: "as1", agentId: "a1", planId: "p1", feeIds: ["f1", "f2"], dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false }, applyToActiveDeals: true },
+  { id: "as2", agentId: "a2", planId: "p2", feeIds: ["f3"], dealTypes: { buyer: true, listing: false, referral: true, lease: false, "lease-listing": false }, applyToActiveDeals: false },
+  { id: "as3", agentId: "a3", planId: "p1", feeIds: ["f1", "f2", "f3"], dealTypes: { buyer: true, listing: true, referral: true, lease: true, "lease-listing": true }, applyToActiveDeals: true },
+  { id: "as4", agentId: "a4", planId: "p3", feeIds: ["f4"], dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false }, applyToActiveDeals: true },
+  { id: "as5", agentId: "a5", planId: "p2", feeIds: ["f2"], dealTypes: { buyer: true, listing: false, referral: false, lease: true, "lease-listing": false }, applyToActiveDeals: false },
+  { id: "as6", agentId: "a6", planId: "p1", feeIds: ["f1"], dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false }, applyToActiveDeals: true },
+  { id: "as7", agentId: "a7", planId: "p1", feeIds: ["f1", "f3"], dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false }, applyToActiveDeals: true },
+  { id: "as8", agentId: "a8", planId: "p2", feeIds: ["f2", "f4"], dealTypes: { buyer: true, listing: false, referral: false, lease: true, "lease-listing": false }, applyToActiveDeals: false },
+  { id: "as9", agentId: "a9", planId: "p3", feeIds: ["f3"], dealTypes: { buyer: true, listing: true, referral: true, lease: false, "lease-listing": false }, applyToActiveDeals: true },
 ];
 
 function getFreshAssignDefaultsForm(): AssignDefaultsForm {
-  return { planId: "", feeIds: [], assignMode: "specific", selectedAgentIds: [], applyToActiveDeals: false };
+  return {
+    planId: "",
+    feeIds: [],
+    assignMode: "specific",
+    selectedAgentIds: [],
+    dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false },
+    applyToActiveDeals: false,
+  };
+}
+
+const ASSIGNABLE_CDA_TYPES = ["buyer", "listing", "referral", "lease", "lease-listing"] as const;
+
+function formatDealTypes(types: Record<string, boolean>) {
+  const labels: Record<string, string> = {
+    buyer: "Buyer",
+    listing: "Listing",
+    seller: "Seller",
+    referral: "Referral",
+    lease: "Lease",
+    "lease-listing": "Lease listing",
+  };
+  const selected = Object.keys(types).filter((key) => types[key]).map((key) => labels[key] ?? key);
+  return selected.length ? selected.join(", ") : "No CDA types";
 }
 
 function getFreshPlanForm(): PlanForm {
@@ -764,7 +788,13 @@ function DealTypeMultiSelect({
   onChange: (types: Record<string, boolean>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const dealTypeOptions = ["Buyer", "Seller", "Lease", "Landlord"];
+  const dealTypeOptions = [
+    { key: "buyer", label: "Buyer" },
+    { key: "listing", label: "Listing" },
+    { key: "referral", label: "Referral" },
+    { key: "lease", label: "Lease" },
+    { key: "lease-listing", label: "Lease listing" },
+  ];
   const selectedKeys = Object.keys(selectedTypes).filter(k => selectedTypes[k]);
 
   const allSelected = selectedKeys.length === dealTypeOptions.length;
@@ -772,13 +802,12 @@ function DealTypeMultiSelect({
   if (allSelected) {
     triggerLabel = "Selected all deal types";
   } else if (selectedKeys.length === 1) {
-    triggerLabel = selectedKeys[0].charAt(0).toUpperCase() + selectedKeys[0].slice(1);
+    triggerLabel = dealTypeOptions.find((option) => option.key === selectedKeys[0])?.label ?? selectedKeys[0];
   } else if (selectedKeys.length > 1) {
-    triggerLabel = `${selectedKeys[0].charAt(0).toUpperCase() + selectedKeys[0].slice(1)} +${selectedKeys.length - 1} others`;
+    triggerLabel = `${dealTypeOptions.find((option) => option.key === selectedKeys[0])?.label ?? selectedKeys[0]} +${selectedKeys.length - 1} others`;
   }
 
-  function toggle(type: string) {
-    const key = type.toLowerCase();
+  function toggle(key: string) {
     onChange({
       ...selectedTypes,
       [key]: !selectedTypes[key],
@@ -801,8 +830,8 @@ function DealTypeMultiSelect({
           onClick={() => {
             const nextAllSelected = !allSelected;
             const next: Record<string, boolean> = {};
-            dealTypeOptions.forEach(opt => {
-              next[opt.toLowerCase()] = nextAllSelected;
+            dealTypeOptions.forEach((option) => {
+              next[option.key] = nextAllSelected;
             });
             onChange(next);
           }}
@@ -813,13 +842,13 @@ function DealTypeMultiSelect({
         </DropdownMenuItem>
         {dealTypeOptions.map((type) => (
           <DropdownMenuItem
-            key={type}
+            key={type.key}
             onSelect={(e) => e.preventDefault()}
-            onClick={() => toggle(type)}
+            onClick={() => toggle(type.key)}
             className="gap-3 cursor-pointer"
           >
-            <Checkbox checked={Boolean(selectedTypes[type.toLowerCase()])} className="pointer-events-none" />
-            <span className="flex-1 text-sm font-medium">{type}</span>
+            <Checkbox checked={Boolean(selectedTypes[type.key])} className="pointer-events-none" />
+            <span className="flex-1 text-sm font-medium">{type.label}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -1316,6 +1345,19 @@ function AssignDefaultsDialog({
               )}
             </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">
+              Apply To CDA Types <span className="text-destructive">*</span>
+            </Label>
+            <DealTypeMultiSelect
+              selectedTypes={form.dealTypes}
+              onChange={(dealTypes) => onFormChange({ dealTypes })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Dual-side CDA uses buyer plan for buy side and listing plan for sell side.
+            </p>
+          </div>
 
           {/* Active Deals */}
           <div className="flex items-start justify-between gap-4 rounded-md border px-4 py-3">
@@ -2215,6 +2257,10 @@ export function CDASettings() {
           const assignment = current.defaultAssignments.find((item) => item.agentId === agentId);
           return assignment?.applyToActiveDeals ?? false;
         }),
+        dealTypes: selectedAgentIds.reduce<Record<string, boolean> | null>((acc, agentId) => {
+          const assignment = current.defaultAssignments.find((item) => item.agentId === agentId && item.planId === plan.id);
+          return acc ?? assignment?.dealTypes ?? null;
+        }, null) ?? getFreshAssignDefaultsForm().dealTypes,
       },
       assignDefaultsErrors: {},
     }));
@@ -2234,6 +2280,10 @@ export function CDASettings() {
           const assignment = current.defaultAssignments.find((item) => item.agentId === agentId);
           return assignment?.applyToActiveDeals ?? false;
         }),
+        dealTypes: selectedAgentIds.reduce<Record<string, boolean> | null>((acc, agentId) => {
+          const assignment = current.defaultAssignments.find((item) => item.agentId === agentId && item.feeIds.includes(fee.id));
+          return acc ?? assignment?.dealTypes ?? null;
+        }, null) ?? getFreshAssignDefaultsForm().dealTypes,
       },
       assignDefaultsErrors: {},
     }));
@@ -2278,6 +2328,7 @@ export function CDASettings() {
               agentId,
               planId: source.planId,
               feeIds: existing?.feeIds ?? [],
+              dealTypes: form.dealTypes,
               applyToActiveDeals: form.applyToActiveDeals,
             };
           }),
@@ -2293,6 +2344,7 @@ export function CDASettings() {
             return {
               ...assignment,
               feeIds: nextFeeIds,
+              dealTypes: selected ? form.dealTypes : assignment.dealTypes,
               applyToActiveDeals: selected ? form.applyToActiveDeals : assignment.applyToActiveDeals,
             };
           })
@@ -2306,6 +2358,7 @@ export function CDASettings() {
             agentId,
             planId: null,
             feeIds: [source.feeId],
+            dealTypes: form.dealTypes,
             applyToActiveDeals: form.applyToActiveDeals,
           }));
 
@@ -2316,6 +2369,7 @@ export function CDASettings() {
           agentId,
           planId: effectivePlanId,
           feeIds: effectiveFeeIds,
+          dealTypes: form.dealTypes,
           applyToActiveDeals: form.applyToActiveDeals,
         }));
 
@@ -2631,6 +2685,7 @@ export function CDASettings() {
         feeIds: assignment.feeIds,
         assignMode: "specific",
         selectedAgentIds: [assignment.agentId],
+        dealTypes: assignment.dealTypes,
         applyToActiveDeals: assignment.applyToActiveDeals,
       },
       assignDefaultsErrors: {},

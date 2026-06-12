@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Loader2, Plus, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,11 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ScrollArea } from "../ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../ui/popover";
 
 export type FeeTier = {
   id: string;
@@ -30,6 +35,7 @@ export type FeeTier = {
 };
 
 export type PercentageBase = "property-value" | "pre-split" | "post-split";
+export type DealType = "buyer" | "seller" | "referral" | "lease" | "lease-listing";
 
 export interface FeeTypeDraft {
   id: string | null;
@@ -38,6 +44,10 @@ export interface FeeTypeDraft {
   amount: string;
   percentageBase: PercentageBase;
   appliesToMode: "team" | "agent" | "both";
+  coAgentSplitMode?: "split-equally" | "each-agent-pays";
+  payableToType?: "radius" | "team" | "external";
+  payableToName?: string;
+  dealTypes?: DealType[];
   agentIds: string[];
   timing: "pre-split" | "post-split";
   slidingScale: boolean;
@@ -89,6 +99,10 @@ function createDraft(
     amount: initialData?.amount ?? "",
     percentageBase: initialData?.percentageBase ?? "pre-split",
     appliesToMode,
+    coAgentSplitMode: initialData?.coAgentSplitMode ?? "split-equally",
+    payableToType: initialData?.payableToType ?? "radius",
+    payableToName: initialData?.payableToName ?? "Radius",
+    dealTypes: initialData?.dealTypes ?? ["buyer", "seller"],
     agentIds: initialData?.agentIds ?? [],
     timing,
     slidingScale: hideSlidingScale ? false : initialData?.slidingScale ?? false,
@@ -241,6 +255,89 @@ function TierRows({
   );
 }
 
+const CDA_TYPE_OPTIONS: { value: DealType; label: string }[] = [
+  { value: "buyer", label: "Buyer" },
+  { value: "seller", label: "Seller" },
+  { value: "referral", label: "Referral" },
+  { value: "lease", label: "Lease" },
+  { value: "lease-listing", label: "Lease listing" },
+];
+
+function CDATypeMultiSelect({
+  selected,
+  disabled,
+  onChange,
+}: {
+  selected: DealType[];
+  disabled?: boolean;
+  onChange: (next: DealType[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const allSelected = selected.length === CDA_TYPE_OPTIONS.length;
+
+  function toggleType(value: DealType) {
+    onChange(
+      selected.includes(value)
+        ? selected.filter((v) => v !== value)
+        : [...selected, value],
+    );
+  }
+
+  function toggleAll() {
+    onChange(allSelected ? [] : CDA_TYPE_OPTIONS.map((o) => o.value));
+  }
+
+  const summaryLabel =
+    selected.length === 0
+      ? "Select CDA types"
+      : allSelected
+        ? "All CDA types"
+        : selected.length <= 2
+          ? selected.map((v) => CDA_TYPE_OPTIONS.find((o) => o.value === v)?.label ?? v).join(", ")
+          : `${CDA_TYPE_OPTIONS.find((o) => o.value === selected[0])?.label ?? selected[0]} +${selected.length - 1} more`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="h-10 w-full justify-between font-normal text-sm"
+        >
+          <span className={selected.length === 0 ? "text-muted-foreground" : ""}>
+            {summaryLabel}
+          </span>
+          <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-1" align="start">
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+        >
+          <Checkbox checked={allSelected} />
+          <span className="font-medium">Select all</span>
+        </button>
+        <div className="my-1 h-px bg-border" />
+        {CDA_TYPE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => toggleType(option.value)}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+          >
+            <Checkbox checked={selected.includes(option.value)} />
+            {option.label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function FeeBuilderModal({
   open,
   title,
@@ -311,6 +408,8 @@ export function FeeBuilderModal({
     if (!draft.name.trim()) nextErrors.name = "Fee name required";
     if (!draft.slidingScale && numericValue(draft.amount) <= 0) nextErrors.amount = "Amount required";
     if (draft.slidingScale && draft.tiers.length === 0) nextErrors.tiers = "Add at least one tier";
+    if (!draft.payableToName?.trim()) nextErrors.payableToName = "Payable name required";
+    if (!draft.dealTypes?.length) nextErrors.dealTypes = "Select at least one CDA type";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
@@ -435,7 +534,8 @@ export function FeeBuilderModal({
               </div>
             )}
 
-            {/* When Applied — hidden when timing is pre-selected from context */}
+            {/* When Applied + Fee Payer */}
+            <div className="grid grid-cols-2 gap-4">
             {!hideTimingField && (
             <div className="space-y-1.5">
               <Label>When Applied</Label>
@@ -455,23 +555,93 @@ export function FeeBuilderModal({
             </div>
             )}
 
-            {/* Fee Payer */}
-            <div className="space-y-1.5">
-              <Label>Fee Payer</Label>
-              <Select
-                value={draft.appliesToMode}
-                disabled={isExistingFeeSelected}
-                onValueChange={(value) => updateField("appliesToMode", value as FeeTypeDraft["appliesToMode"])}
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="agent">Agent</SelectItem>
-                  <SelectItem value="team">Team</SelectItem>
-                  <SelectItem value="both">Both (split equally)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label>Fee Payer</Label>
+                <Select
+                  value={draft.appliesToMode}
+                  disabled={isExistingFeeSelected}
+                  onValueChange={(value) => updateField("appliesToMode", value as FeeTypeDraft["appliesToMode"])}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="agent">Agent</SelectItem>
+                    <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="both">Both (split equally)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Co-Agent Splits</Label>
+                <Select
+                  value={draft.coAgentSplitMode ?? "split-equally"}
+                  disabled={isExistingFeeSelected}
+                  onValueChange={(value) => updateField("coAgentSplitMode", value as FeeTypeDraft["coAgentSplitMode"])}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="split-equally">Split equally</SelectItem>
+                    <SelectItem value="each-agent-pays">Each agent pays</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Per agent in one side.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Payable To</Label>
+                <Select
+                  value={draft.payableToType ?? "radius"}
+                  disabled={isExistingFeeSelected}
+                  onValueChange={(value) => {
+                    const payableToType = value as FeeTypeDraft["payableToType"];
+                    updateField("payableToType", payableToType);
+                    if (payableToType === "radius") updateField("payableToName", "Radius");
+                    if (payableToType === "team") updateField("payableToName", "Keystone Team");
+                    if (payableToType === "external") updateField("payableToName", "");
+                  }}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="radius">Radius</SelectItem>
+                    <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="external">External</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="payable-name">Payable name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="payable-name"
+                  className="h-10"
+                  placeholder="Name"
+                  value={draft.payableToName ?? ""}
+                  aria-invalid={Boolean(errors.payableToName)}
+                  disabled={isExistingFeeSelected}
+                  onChange={(event) => updateField("payableToName", event.target.value)}
+                />
+                {errors.payableToName ? <p className="text-xs text-destructive">{errors.payableToName}</p> : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Assign to CDA types</Label>
+                <CDATypeMultiSelect
+                  selected={draft.dealTypes ?? []}
+                  disabled={isExistingFeeSelected}
+                  onChange={(next) => updateField("dealTypes", next)}
+                />
+                {errors.dealTypes ? <p className="text-xs text-destructive">{errors.dealTypes}</p> : null}
+              </div>
             </div>
 
             {!hideSlidingScale && (
@@ -554,8 +724,8 @@ export function FeeBuilderModal({
               </>
             )}
 
-            {/* Contributes to Cap + visibility */}
-            <div className={`grid gap-4 ${draft.timing === "post-split" ? "grid-cols-2" : "grid-cols-1"}`}>
+            {/* Contributes to Cap */}
+            <div className="grid gap-4">
               <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
                 <div className="space-y-0.5">
                   <Label htmlFor="contributes-cap" className="text-sm">Contributes to Cap</Label>
@@ -568,23 +738,6 @@ export function FeeBuilderModal({
                   onCheckedChange={(checked) => updateField("contributesToCap", checked)}
                 />
               </div>
-
-              {draft.timing === "post-split" && (
-                <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="visible-cda" className="text-sm">Visible on Commission Breakdown</Label>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {visibilityLocked ? "Agent-paid fees stay visible." : "Team-paid fees can be hidden."}
-                    </p>
-                  </div>
-                  <Switch
-                    id="visible-cda"
-                    checked={draft.visibleOnCda}
-                    disabled={isExistingFeeSelected || visibilityLocked}
-                    onCheckedChange={(checked) => updateField("visibleOnCda", checked)}
-                  />
-                </div>
-              )}
             </div>
 
           </div>

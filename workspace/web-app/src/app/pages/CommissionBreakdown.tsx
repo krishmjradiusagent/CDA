@@ -23,6 +23,7 @@ import {
   Radar,
   Calendar,
   Activity,
+  AtSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -103,7 +104,12 @@ import {
   isWireInstructionComplete,
   maskSensitiveValue,
   readWireInstructionsStore,
+  validateWireInstruction,
+  writeWireInstructionsStore,
   type WireInstructionRecord,
+  type WireValidationErrors,
+  type WireAccountType,
+  type CDAType,
 } from "../lib/wire-instructions";
 
 type SideId = "listing" | "buyer";
@@ -195,10 +201,10 @@ const CONTACTS = [
 ];
 
 const COMMISSION_PLANS: CommissionPlanOption[] = [
-  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% office", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20 },
-  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% office", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30 },
+  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% team", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20 },
+  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% team", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30 },
   { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0 },
-  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% office", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40 },
+  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% team", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40 },
 ];
 
 const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
@@ -247,7 +253,7 @@ const PDF_PREVIEW_DETAILS = [
   { label: "Client Name", value: "Michael Loft" },
   { label: "Gross Commission", value: "$25,000.00" },
   { label: "Agent Net Total", value: "$18,650.00" },
-  { label: "Company Dollar", value: "$4,100.00" },
+  { label: "Team Dollar", value: "$4,100.00" },
   { label: "Finalized By", value: "Jessica (Auditor)" },
 ];
 
@@ -258,7 +264,7 @@ const PDF_FINAL_NUMBERS = [
   { label: "Agent Net Total", value: "$18,650.00", tone: "text-emerald-700", description: "Total to all agents after deductions" },
   { label: "Team Portion", value: "$4,850.00", description: "20% team split" },
   { label: "Radius Fee", value: "$750.00", badge: "Auditor Entry", badgeClassName: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700" },
-  { label: "Company Dollar", value: "$4,100.00", tone: "text-emerald-700", description: "Final company revenue" },
+  { label: "Team Dollar", value: "$4,100.00", tone: "text-emerald-700", description: "Final team revenue" },
 ];
 
 const PROPERTY_ADDRESS = "1284 Willow Creek Dr";
@@ -720,7 +726,7 @@ function EditableValue({
 
 export function CommissionBreakdown() {
   const [agentComment, setAgentComment] = useState("");
-  type ActivityEntry = { id: string; author: string; role: Role; text: string; timestamp: string; kind: "comment" | "activity" };
+  type ActivityEntry = { id: string; author: string; role: Role; text: string; timestamp: string; kind: "comment" | "activity"; taggedUserIds?: string[] };
   type ActivityView = "comments" | "activity" | "all";
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
     { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: `Commission breakdown draft created for ${PROPERTY_ADDRESS}.`, timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
@@ -742,7 +748,67 @@ export function CommissionBreakdown() {
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
   const [showWireSheet, setShowWireSheet] = useState(false);
+  const [wireFormMode, setWireFormMode] = useState<"none" | "team" | "agent" | "external">("none");
+  const [wireFormDraft, setWireFormDraft] = useState<WireInstructionRecord>(createEmptyWireInstruction());
+  const [wireFormErrors, setWireFormErrors] = useState<WireValidationErrors>({});
+  const [wireExternalName, setWireExternalName] = useState("");
+  const [wireExternalNameError, setWireExternalNameError] = useState("");
+  const [wireFormAgentId, setWireFormAgentId] = useState<string>("");
+  const [wireStoreVersion, setWireStoreVersion] = useState(0);
+  function openWireForm(mode: "team" | "agent" | "external") {
+    setWireFormMode(mode);
+    setWireFormErrors({});
+    setWireExternalName("");
+    setWireExternalNameError("");
+    if (mode === "team") {
+      setWireFormDraft({ ...wireStore.teamWireInstructions });
+    } else if (mode === "agent") {
+      const firstAgentId = sidesData.flatMap((s) => s.agents).find((a) => !a.external)?.id ?? CURRENT_AGENT_ID;
+      setWireFormAgentId(firstAgentId);
+      setWireFormDraft({ ...(wireStore.agentWireInstructions[firstAgentId] ?? createEmptyWireInstruction()) });
+    } else {
+      setWireFormDraft(createEmptyWireInstruction());
+    }
+  }
+  function saveWireForm() {
+    if (wireFormMode === "external" && !wireExternalName.trim()) {
+      setWireExternalNameError("Name is mandatory for external wire");
+      return;
+    }
+    const requireCda = wireFormMode === "team";
+    const errors = validateWireInstruction(wireFormDraft, { requireCdaType: requireCda });
+    if (Object.keys(errors).length > 0) {
+      setWireFormErrors(errors);
+      return;
+    }
+    const currentStore = readWireInstructionsStore(
+      createDefaultWireInstructionsStore(
+        CURRENT_TEAM_LEAD_ID,
+        Array.from(new Set(sidesData.flatMap((side) => side.agents.map((a) => a.id)).concat([CURRENT_TEAM_LEAD_ID, CURRENT_AGENT_ID]))),
+      ),
+    );
+    const now = new Date().toISOString();
+    const updatedRecord = { ...wireFormDraft, updatedAt: now };
+    if (wireFormMode === "team") {
+      currentStore.teamWireInstructions = updatedRecord;
+    } else if (wireFormMode === "agent") {
+      currentStore.agentWireInstructions[wireFormAgentId] = updatedRecord;
+    } else {
+      const extId = `ext-wire-${Date.now()}`;
+      currentStore.agentWireInstructions[extId] = updatedRecord;
+    }
+    writeWireInstructionsStore(currentStore);
+    setWireStoreVersion((v) => v + 1);
+    const label = wireFormMode === "team" ? "Team" : wireFormMode === "agent" ? "Agent" : `External (${wireExternalName.trim()})`;
+    toast.success(`${label} wire instructions saved`);
+    setWireFormMode("none");
+  }
   const [activityView, setActivityView] = useState<ActivityView>("all");
+  const commentTagPeople = [
+    { id: "agent-a1", name: "Mark Perez", label: "Agent" },
+    { id: "tl-a3", name: "Sarah Kim", label: "Team Lead" },
+    { id: "auditor-u1", name: "Jessica Hall", label: "Auditor" },
+  ];
   const roleNames: Record<Role, string> = { agent: "You", team_lead: "You", radius_auditing: "You", soul_auditor: "You" };
   function makeTimestamp() {
     return new Intl.DateTimeFormat("en-US", {
@@ -753,7 +819,7 @@ export function CommissionBreakdown() {
       minute: "2-digit",
     }).format(new Date()).replace(",", " ·");
   }
-  function logActivity(text: string, kind: "comment" | "activity" = "activity") {
+  function logActivity(text: string, kind: "comment" | "activity" = "activity", taggedUserIds: string[] = []) {
     setActivityFeed((prev) => [
       ...prev,
       {
@@ -763,15 +829,19 @@ export function CommissionBreakdown() {
         text,
         timestamp: makeTimestamp(),
         kind,
+        taggedUserIds,
       },
     ]);
   }
   function handleSendComment() {
     const text = agentComment.trim();
     if (!text) return;
-    logActivity(text, "comment");
+    const taggedUserIds = commentTagPeople
+      .filter((person) => text.toLowerCase().includes(`@${person.name}`.toLowerCase()))
+      .map((person) => person.id);
+    logActivity(text, "comment", taggedUserIds);
     setAgentComment("");
-    toast.success("Comment sent");
+    toast.success(taggedUserIds.length ? "Comment sent to tagged user" : "Comment sent");
   }
   function renderCommentTrigger() {
     return (
@@ -782,9 +852,9 @@ export function CommissionBreakdown() {
         aria-label="Open comments"
       >
         <MessageCircleMore className="size-4" />
-        {hasCommentNotification && (
+        {(hasCommentNotification || taggedCommentCount > 0) && (
           <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
-            1
+            {hasCommentNotification ? 1 : taggedCommentCount}
           </span>
         )}
       </button>
@@ -836,6 +906,7 @@ export function CommissionBreakdown() {
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [rejectInput, setRejectInput] = useState("");
   const hasCommentNotification = Boolean(rejectionNote);
+  const taggedCommentCount = activityFeed.filter((entry) => entry.kind === "comment" && entry.taggedUserIds?.length).length;
   const [expandedSideAgentId, setExpandedSideAgentId] = useState<string | null>(null);
   const [_showAgentPreSplitDialog] = useState(false);
   const [_agentPreSplitLabel] = useState("");
@@ -937,7 +1008,8 @@ export function CommissionBreakdown() {
           Array.from(new Set(sidesData.flatMap((side) => side.agents.map((agent) => agent.id)).concat([CURRENT_TEAM_LEAD_ID, CURRENT_AGENT_ID]))),
         ),
       ),
-    [sidesData],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sidesData, wireStoreVersion],
   );
   const teamWireComplete = isWireInstructionComplete(wireStore.teamWireInstructions, { requireCdaType: true });
   const agentWireComplete = isWireInstructionComplete(
@@ -1264,6 +1336,20 @@ export function CommissionBreakdown() {
                       <span className={cn("text-muted-foreground", compact || dense ? "text-[11px]" : "text-xs")}>{entry.timestamp}</span>
                     </div>
                     <p className={cn("text-foreground/85", compact ? "mt-1.5 line-clamp-2 text-[13px] leading-5" : dense ? "mt-1.5 text-[13px] leading-5" : "mt-2 text-sm leading-6")}>{entry.text}</p>
+                    {entry.taggedUserIds?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {entry.taggedUserIds.map((taggedUserId) => {
+                          const person = commentTagPeople.find((item) => item.id === taggedUserId);
+                          if (!person) return null;
+                          return (
+                            <Badge key={taggedUserId} variant="outline" className="h-5 rounded-full px-2 text-[10px]">
+                              <AtSign className="size-3" />
+                              {person.name} notified
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1334,6 +1420,19 @@ export function CommissionBreakdown() {
 
         <div className={cn(dense && "sticky bottom-0 z-10 -mx-1 bg-gradient-to-t from-background via-background/95 to-transparent px-1 pt-3", !dense && "static")}>
         <div className={cn("rounded-xl border border-border/80 bg-background shadow-sm", preview ? "px-4 py-3" : dense ? "px-3.5 py-2.5 shadow-lg" : "px-5 py-3.5")}>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            {commentTagPeople.map((person) => (
+              <button
+                key={person.id}
+                type="button"
+                className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setAgentComment((current) => `${current}${current.trim() ? " " : ""}@${person.name} `)}
+              >
+                <AtSign className="size-3" />
+                {person.name}
+              </button>
+            ))}
+          </div>
           <div className="relative">
             <Textarea
               value={agentComment}
@@ -1344,7 +1443,7 @@ export function CommissionBreakdown() {
                   handleSendComment();
                 }
               }}
-              placeholder="Add comment"
+              placeholder="Add comment. Use @name to notify only tagged people."
               rows={preview ? 2 : 3}
               className={cn("resize-none border-0 bg-transparent px-1 py-1 pr-12 shadow-none focus-visible:ring-0", preview ? "min-h-[68px] text-sm" : dense ? "min-h-[56px] text-[13px]" : "min-h-[88px] text-sm")}
             />
@@ -1907,11 +2006,11 @@ export function CommissionBreakdown() {
                     )}>
                       <AlertDescription className="text-[11px] leading-5">
                         <span className="font-semibold">
-                          {selectedCapStatus === "reached" ? "Cap reached." : "Cap almost reached."}
+                          {selectedCapStatus === "reached" ? "Capped already." : "You will cap with this deal."}
                         </span>{" "}
                         {selectedCapStatus === "reached"
-                          ? `This deal uses capped split logic, so payout may be lower than straight calculation. ${currency(selectedCapUsed)} used of ${currency(selectedCapAmount)} cap.`
-                          : `${currency(selectedCapRemaining)} remaining on ${currency(selectedCapAmount)} cap. If this deal crosses cap, split math adjusts automatically.`}
+                          ? `${currency(selectedCapUsed)} used of ${currency(selectedCapAmount)} cap.`
+                          : `Estimated progress to cap: ${currency(selectedCapUsed + selectedAgent.capApplied)} of ${currency(selectedCapAmount)}.`}
                       </AlertDescription>
                     </Alert>
                   )}
@@ -1975,7 +2074,7 @@ export function CommissionBreakdown() {
                           ? "Adjusted by cap logic"
                           : selectedCapStatus === "near"
                             ? `Cap warning: ${currency(selectedCapRemaining)} left`
-                            : `${roundCurrency(selectedAgent.splitRate * 100)}% company split`}
+                            : `${roundCurrency(selectedAgent.splitRate * 100)}% team split`}
                       </p>
                     </div>
                     <div className="min-w-[120px] text-right">
@@ -2092,7 +2191,7 @@ export function CommissionBreakdown() {
                   <Separator className="my-3" />
 
                   <div className="flex items-center justify-between py-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company Dollar Contribution</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team Dollar Contribution</p>
                     <div className="min-w-[120px] text-right">
                       <button onClick={() => setShowCDCDialog(true)} className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]">
                         {currency(selectedAgent.companyDollarContribution)}
@@ -2127,7 +2226,7 @@ export function CommissionBreakdown() {
                       { label: "Gross", value: currency(grossIncome), icon: TrendingUp, gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)", muted: "#6366f1", strong: "#1e1b4b" },
                       { label: "After Deductions", value: currency(grossCommissionAfterDeductions), icon: CircleDollarSign, gradient: "linear-gradient(135deg, #ddd6fe, #c4b5fd)", muted: "#7c3aed", strong: "#2e1065" },
                       { label: "To Agents", value: currency(totalAgentPayout), icon: User, gradient: "linear-gradient(135deg, #bbf7d0, #86efac)", muted: "#16a34a", strong: "#14532d" },
-                      { label: "To Office", value: currency(activeSideOfficeShare), icon: Building2, gradient: "linear-gradient(135deg, #fef3c7, #fde68a)", muted: "#d97706", strong: "#451a03" },
+                      { label: "To Team", value: currency(activeSideOfficeShare), icon: Building2, gradient: "linear-gradient(135deg, #fef3c7, #fde68a)", muted: "#d97706", strong: "#451a03" },
                     ].map(({ label, value, icon: Icon, gradient, muted, strong }) => (
                       <div key={label} className="rounded-lg px-3 py-2.5" style={{ background: gradient }}>
                         <div className="flex items-center gap-1.5">
@@ -2275,7 +2374,7 @@ export function CommissionBreakdown() {
                     })}
                     <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Office income</p>
+                        <p className="text-sm font-semibold text-foreground">Team income</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">After pre-split deductions and agent payouts</p>
                       </div>
                       <div className="text-right">
@@ -2300,7 +2399,7 @@ export function CommissionBreakdown() {
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {activeSide.agents.length > 1
                                 ? "Summation of all agents' Radius fees"
-                                : "Office-side fee applied to this side"}
+                                : "Team-side fee applied to this side"}
                             </p>
                           </div>
                         </div>
@@ -2364,12 +2463,12 @@ export function CommissionBreakdown() {
                   setTxStatus("team_lead_confirmed");
                   const message = `Team lead confirmed commission breakdown for ${PROPERTY_ADDRESS}`;
                   logActivity(message);
-                  toast.success(message);
+                  toast.success("Commission breakdown confirmed");
                 } else {
                   setTxStatus("agent_confirmed");
                   const message = `Agent confirmed commission breakdown for ${PROPERTY_ADDRESS}`;
                   logActivity(message);
-                  toast.success(message);
+                  toast.success("Commission breakdown confirmed");
                 }
                 setRejectionNote("");
                 setShowConfirmDialog(false);
@@ -2592,18 +2691,18 @@ export function CommissionBreakdown() {
         existingFeeOptions={availableFeeOptions}
       />
 
-      {/* Company Dollar Contribution dialog */}
+      {/* Team Dollar Contribution dialog */}
       <Dialog open={showCDCDialog} onOpenChange={setShowCDCDialog}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Company dollar contribution</DialogTitle>
+            <DialogTitle>Team dollar contribution</DialogTitle>
             <DialogDescription>Learn more about how this value is calculated.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 px-6 py-4">
-            <p className="text-sm text-muted-foreground">Company dollar contribution consists of the following things:</p>
+            <p className="text-sm text-muted-foreground">Team dollar contribution consists of the following things:</p>
             <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>— Company portion of the split</li>
-              <li>— Total amount of all pre and post-split deductions paid back to the company</li>
+              <li>— Team portion of the split</li>
+              <li>— Total amount of all pre and post-split deductions paid back to the team</li>
             </ul>
           </div>
           <DialogFooter className="border-t px-6 py-4">
@@ -3042,13 +3141,13 @@ export function CommissionBreakdown() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={showWireSheet} onOpenChange={setShowWireSheet}>
+      <Sheet open={showWireSheet} onOpenChange={(open) => { setShowWireSheet(open); if (!open) setWireFormMode("none"); }}>
         <SheetContent side="right" showCloseButton={false} className="w-full gap-0 sm:max-w-xl">
           <SheetHeader className="border-b px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <SheetTitle className="text-[15px] leading-6">Wire Instructions Status</SheetTitle>
-                <SheetDescription className="mt-0.5 text-[13px]">Read-only wire status for brokerage and each agent on this deal.</SheetDescription>
+                <SheetDescription className="mt-0.5 text-[13px]">Manage wire instructions for team, agents, and external parties on this deal.</SheetDescription>
               </div>
               <SheetClose className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <X className="size-4" />
@@ -3066,6 +3165,172 @@ export function CommissionBreakdown() {
                   </AlertDescription>
                 </Alert>
               )}
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-background px-3 py-2">
+                <Button variant={wireFormMode === "team" ? "default" : "outline"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => openWireForm("team")}>
+                  <Landmark className="size-3.5" />
+                  {wireFormMode === "team" ? "Editing team wire" : "Add team wire"}
+                </Button>
+                <Button variant={wireFormMode === "agent" ? "default" : "outline"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => openWireForm("agent")}>
+                  <User className="size-3.5" />
+                  {wireFormMode === "agent" ? "Editing agent wire" : "Add agent wire"}
+                </Button>
+                <Button variant={wireFormMode === "external" ? "default" : "outline"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => openWireForm("external")}>
+                  <Plus className="size-3.5" />
+                  {wireFormMode === "external" ? "Editing external wire" : "Add external wire"}
+                </Button>
+              </div>
+
+              {/* ── Wire Instruction Inline Form ── */}
+              {wireFormMode !== "none" && (
+                <Card className="rounded-[14px] border-primary/30 bg-primary/[0.02] py-0 gap-0 shadow-none overflow-hidden">
+                  <CardContent className="px-4 py-4">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {wireFormMode === "team" ? "Team Wire Instructions" : wireFormMode === "agent" ? "Agent Wire Instructions" : "External Wire Instructions"}
+                        </h3>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => setWireFormMode("none")}>
+                          <X className="size-3" />
+                          Cancel
+                        </Button>
+                      </div>
+
+                      {/* External name (mandatory) */}
+                      {wireFormMode === "external" && (
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-sm font-medium">Payable Name <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={wireExternalName}
+                            onChange={(e) => { setWireExternalName(e.target.value); setWireExternalNameError(""); }}
+                            placeholder="e.g., Keller Williams Realty"
+                            className="h-9"
+                          />
+                          {wireExternalNameError && <p className="text-xs text-destructive">{wireExternalNameError}</p>}
+                        </div>
+                      )}
+
+                      {/* Agent selector */}
+                      {wireFormMode === "agent" && (
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-sm font-medium">Select Agent</Label>
+                          <Select
+                            value={wireFormAgentId}
+                            onValueChange={(id) => {
+                              setWireFormAgentId(id);
+                              setWireFormDraft({ ...(wireStore.agentWireInstructions[id] ?? createEmptyWireInstruction()) });
+                              setWireFormErrors({});
+                            }}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Choose agent" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sidesData.flatMap((s) => s.agents).filter((a) => !a.external).map((agent) => (
+                                <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      {/* Core wire fields */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">Account Holder Name</Label>
+                          <Input value={wireFormDraft.accountHolderName} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountHolderName: e.target.value }))} className="h-9 text-sm" placeholder="Full legal name" />
+                          {wireFormErrors.accountHolderName && <p className="text-[11px] text-destructive">{wireFormErrors.accountHolderName}</p>}
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">Bank Name</Label>
+                          <Input value={wireFormDraft.bankName} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankName: e.target.value }))} className="h-9 text-sm" placeholder="e.g., Chase Bank" />
+                          {wireFormErrors.bankName && <p className="text-[11px] text-destructive">{wireFormErrors.bankName}</p>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">Routing Number (ABA)</Label>
+                          <Input value={wireFormDraft.routingNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, routingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) }))} className="h-9 text-sm font-mono" placeholder="9 digits" inputMode="numeric" maxLength={9} />
+                          {wireFormErrors.routingNumber && <p className="text-[11px] text-destructive">{wireFormErrors.routingNumber}</p>}
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">Account Number</Label>
+                          <Input value={wireFormDraft.accountNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountNumber: e.target.value }))} className="h-9 text-sm font-mono" placeholder="Account number" />
+                          {wireFormErrors.accountNumber && <p className="text-[11px] text-destructive">{wireFormErrors.accountNumber}</p>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">Account Type</Label>
+                          <Select value={wireFormDraft.accountType} onValueChange={(v) => setWireFormDraft((d) => ({ ...d, accountType: v as WireAccountType }))}>
+                            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="checking">Checking</SelectItem>
+                              <SelectItem value="savings">Savings</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {wireFormMode === "team" && (
+                          <div className="flex flex-col gap-1.5">
+                            <Label className="text-xs font-medium">CDA Type</Label>
+                            <Select value={wireFormDraft.cdaType} onValueChange={(v) => setWireFormDraft((d) => ({ ...d, cdaType: v as CDAType }))}>
+                              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select CDA type" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="full-transparency">Full Transparency</SelectItem>
+                                <SelectItem value="radius-split-hidden-partner">Radius Split Hidden Partner</SelectItem>
+                                <SelectItem value="radius-split-hidden-associate">Radius Split Hidden Associate</SelectItem>
+                                <SelectItem value="team-split-hidden-partner">Team Split Hidden Partner</SelectItem>
+                                <SelectItem value="gross-cda">Gross CDA</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {wireFormErrors.cdaType && <p className="text-[11px] text-destructive">{wireFormErrors.cdaType}</p>}
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Address */}
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs font-medium">Bank Street Address</Label>
+                        <Input value={wireFormDraft.bankStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
+                        {wireFormErrors.bankStreet && <p className="text-[11px] text-destructive">{wireFormErrors.bankStreet}</p>}
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">City</Label>
+                          <Input value={wireFormDraft.bankCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
+                          {wireFormErrors.bankCity && <p className="text-[11px] text-destructive">{wireFormErrors.bankCity}</p>}
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">State</Label>
+                          <Input value={wireFormDraft.bankState} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
+                          {wireFormErrors.bankState && <p className="text-[11px] text-destructive">{wireFormErrors.bankState}</p>}
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">ZIP</Label>
+                          <Input value={wireFormDraft.bankZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
+                          {wireFormErrors.bankZip && <p className="text-[11px] text-destructive">{wireFormErrors.bankZip}</p>}
+                        </div>
+                      </div>
+
+                      {/* Special instructions */}
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs font-medium">Special Instructions / Memo</Label>
+                        <Textarea value={wireFormDraft.specialInstructions} onChange={(e) => setWireFormDraft((d) => ({ ...d, specialInstructions: e.target.value }))} className="min-h-[60px] text-sm" placeholder="Optional memo or reference" />
+                      </div>
+
+                      {/* Save */}
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => setWireFormMode("none")}>Cancel</Button>
+                        <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={saveWireForm}>Save Wire Instructions</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {auditorWireParties.map((party) => (
                 <Card key={party.id} className="rounded-[14px] border-border py-0 gap-0 shadow-none overflow-hidden">
                   <CardContent className="px-4 py-3">
@@ -3102,6 +3367,10 @@ export function CommissionBreakdown() {
                           <div className="space-y-1">
                             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Account Type</p>
                             <p className="text-sm text-foreground">{formatWireAccountType(party.record.accountType)}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Address</p>
+                            <p className="text-sm text-foreground">{[party.record.bankStreet, party.record.bankCity, party.record.bankState, party.record.bankZip].filter(Boolean).join(", ") || "—"}</p>
                           </div>
                         </div>
                       ) : (

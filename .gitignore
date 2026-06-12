@@ -31,3 +31,7 @@ dist/
 .switchboard/*.db-shm
 .switchboard/*.db-wal
 # <<< Switchboard managed exclusions <<<
+
+# MagicPath directories
+mpath*
+

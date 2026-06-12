@@ -534,6 +534,18 @@ export function TransactionDetail() {
                     </div>
                   </div>
                 </div>
+                <div className="mt-4 grid grid-cols-3 gap-3 rounded-[10px] border border-[#e5e7eb] bg-[#f9fafb] px-4 py-3">
+                  {[
+                    { label: "Commission deduction", value: "$250" },
+                    { label: "Credit", value: "$200" },
+                    { label: "Referral fee", value: "$50" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <p className="text-[12px] font-medium text-[#6a7282] leading-4">{item.label}</p>
+                      <p className="mt-1 text-[14px] font-semibold text-[#101828] leading-5">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

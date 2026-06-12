@@ -13,6 +13,7 @@ import {
 } from "../components/finance";
 import { Separator } from "../components/ui/separator";
 import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import {
   Plus,
@@ -85,6 +86,18 @@ export function BreakdownPage() {
   ];
 
   const selectedAgent = agentData.find((a) => a.agentId === selectedAgentId) || agentData[0];
+  const auditRows = [
+    { property: "1284 Willow Creek Dr", agent: "Ila Corcoran", agentConfirmed: true, tlConfirmed: false },
+    { property: "45 Rosemont Ave", agent: "Michael Tran", agentConfirmed: false, tlConfirmed: true },
+    { property: "910 Market St", agent: "Sarah Jenkins", agentConfirmed: true, tlConfirmed: true },
+    { property: "22 Palm Court", agent: "David Chen", agentConfirmed: false, tlConfirmed: false },
+  ];
+  function confirmationLabel(row: { agentConfirmed: boolean; tlConfirmed: boolean }) {
+    if (row.agentConfirmed && row.tlConfirmed) return "Confirmed";
+    if (row.agentConfirmed) return "TL pending";
+    if (row.tlConfirmed) return "Agent pending";
+    return "Agent/TL pending";
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20">
@@ -135,6 +148,35 @@ export function BreakdownPage() {
       </header>
 
       <div className="max-w-[1320px] mx-auto px-8 py-6">
+        {/* Transaction Context Card */}
+        <Card className="mb-6">
+          <CardContent className="pt-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold">Auditor dashboard list view</h2>
+                <p className="text-xs text-muted-foreground">Commission approval confirmation status per CDA.</p>
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <div className="grid grid-cols-[1.4fr_1fr_1fr] bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Property</span>
+                <span>Agent</span>
+                <span>Commission approval confirmation</span>
+              </div>
+              {auditRows.map((row) => {
+                const label = confirmationLabel(row);
+                return (
+                  <div key={row.property} className="grid grid-cols-[1.4fr_1fr_1fr] items-center border-t px-4 py-3 text-sm">
+                    <span className="font-medium">{row.property}</span>
+                    <span className="text-muted-foreground">{row.agent}</span>
+                    <Badge variant={label === "Confirmed" ? "secondary" : "outline"} className="w-fit">{label}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Transaction Context Card */}
         <Card className="mb-6">
           <CardContent className="pt-6">
