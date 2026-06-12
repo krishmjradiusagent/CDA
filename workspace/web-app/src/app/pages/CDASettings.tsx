@@ -1,3 +1,4 @@
+import { type FeeTypeDraft } from "../components/finance/fee-builder-modal";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
@@ -24,7 +25,7 @@ import {
   Trash2,
   X,
   UserCheck,
-  Users,
+  User, Users, Shield,
   ChevronRight,
   Library,
   type LucideIcon,
@@ -61,6 +62,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "../components/ui/dropdown-menu";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -194,6 +196,7 @@ type CommissionPlan = {
   basedOn: BasedOn;
   tiers: TierRow[];
 };
+
 
 type FeeRecord = FeeTypeDraft & { id: string };
 
@@ -1607,324 +1610,180 @@ function formatCdaType(cdaType: WireInstructionRecord["cdaType"]) {
   return TEAM_CDA_TYPE_OPTIONS.find((option) => option.value === cdaType)?.label ?? "Not provided";
 }
 
-function WireInstructionsFormCard({
-  idPrefix,
-  record,
-  errors,
-  revealSensitive,
-  showCdaType = false,
-  onToggleSensitive,
-  onChange,
-  onSave,
-  onCancel,
-}: {
-  idPrefix: string;
-  record: WireInstructionRecord;
-  errors: WireValidationErrors;
-  revealSensitive: boolean;
-  showCdaType?: boolean;
-  onToggleSensitive: () => void;
-  onChange: (patch: Partial<WireInstructionRecord>) => void;
-  onSave: () => void;
-  onCancel?: () => void;
-}) {
-  const [activeSensitiveField, setActiveSensitiveField] = useState<"routingNumber" | "accountNumber" | null>(null);
-  const showRoutingValue = revealSensitive || activeSensitiveField === "routingNumber";
-  const showAccountValue = revealSensitive || activeSensitiveField === "accountNumber";
-
-  return (
-    <section className="flex flex-col gap-4">
-      <Card className="rounded-[14px] border-border shadow-none">
-        <CardContent className="p-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "account-holder")} className="text-sm font-medium">Account Holder / Recipient Name *</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "account-holder")}
-                value={record.accountHolderName}
-                aria-invalid={Boolean(errors.accountHolderName)}
-                onChange={(e) => onChange({ accountHolderName: e.target.value })}
-                className="h-10"
-              />
-              {errors.accountHolderName && <p className="text-xs text-destructive">{errors.accountHolderName}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "email")} className="text-sm font-medium">Email</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "email")}
-                value={record.email || ""}
-                onChange={(e) => onChange({ email: e.target.value })}
-                className="h-10"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "phone")} className="text-sm font-medium">Phone</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "phone")}
-                value={record.phone || ""}
-                onChange={(e) => onChange({ phone: e.target.value })}
-                className="h-10"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "recipient-street")} className="text-sm font-medium">Recipient Address</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "recipient-street")}
-                value={record.recipientStreet || ""}
-                placeholder="Street"
-                onChange={(e) => onChange({ recipientStreet: e.target.value })}
-                className="h-10 mb-2"
-              />
-              <div className="grid grid-cols-3 gap-2">
-                <Input value={record.recipientCity || ""} placeholder="City" onChange={(e) => onChange({ recipientCity: e.target.value })} className="h-10 col-span-1" />
-                <Input value={record.recipientState || ""} placeholder="State" onChange={(e) => onChange({ recipientState: e.target.value })} className="h-10 col-span-1" />
-                <Input value={record.recipientZip || ""} placeholder="ZIP" onChange={(e) => onChange({ recipientZip: e.target.value })} className="h-10 col-span-1" />
-              </div>
-            </div>
-
-            <div className="col-span-1 md:col-span-2">
-              <Separator className="my-2" />
-              <h4 className="text-sm font-semibold mb-4">Banking Details (Optional for External)</h4>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "bank-name")} className="text-sm font-medium">Bank Name</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "bank-name")}
-                value={record.bankName}
-                aria-invalid={Boolean(errors.bankName)}
-                onChange={(e) => onChange({ bankName: e.target.value })}
-                className="h-10"
-              />
-              {errors.bankName && <p className="text-xs text-destructive">{errors.bankName}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "routing")} className="text-sm font-medium">Routing Number (ABA)</Label>
-              <div className="relative">
-                <Input
-                  id={buildWireFieldId(idPrefix, "routing")}
-                  value={showRoutingValue ? record.routingNumber : ""}
-                  placeholder={showRoutingValue ? "Enter routing number" : record.routingNumber ? maskSensitiveValue(record.routingNumber) : "Enter routing number"}
-                  aria-invalid={Boolean(errors.routingNumber)}
-                  inputMode="numeric"
-                  onFocus={() => setActiveSensitiveField("routingNumber")}
-                  onBlur={() => setActiveSensitiveField((current) => (current === "routingNumber" ? null : current))}
-                  onChange={(e) => onChange({ routingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) })}
-                  className="h-10 pr-10"
-                />
-                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 size-8" onClick={onToggleSensitive} aria-label={revealSensitive ? "Mask routing and account number" : "Reveal routing and account number"}>
-                  {revealSensitive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </Button>
-              </div>
-              {errors.routingNumber && <p className="text-xs text-destructive">{errors.routingNumber}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "account-number")} className="text-sm font-medium">Account Number</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "account-number")}
-                value={showAccountValue ? record.accountNumber : ""}
-                placeholder={showAccountValue ? "Enter account number" : record.accountNumber ? maskSensitiveValue(record.accountNumber) : "Enter account number"}
-                aria-invalid={Boolean(errors.accountNumber)}
-                onFocus={() => setActiveSensitiveField("accountNumber")}
-                onBlur={() => setActiveSensitiveField((current) => (current === "accountNumber" ? null : current))}
-                onChange={(e) => onChange({ accountNumber: e.target.value.replace(/\s/g, "") })}
-                className="h-10"
-              />
-              {errors.accountNumber && <p className="text-xs text-destructive">{errors.accountNumber}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Account Type</Label>
-              <Select value={record.accountType} onValueChange={(value) => onChange({ accountType: value as WireInstructionRecord["accountType"] })}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="checking">Checking</SelectItem>
-                  <SelectItem value="savings">Savings</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {showCdaType && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">CDA Type</Label>
-                <Select value={record.cdaType} onValueChange={(value) => onChange({ cdaType: value as CDAType })}>
-                  <SelectTrigger className="h-10" aria-invalid={Boolean(errors.cdaType)}>
-                    <SelectValue placeholder="Select CDA type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TEAM_CDA_TYPE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.cdaType && <p className="text-xs text-destructive">{errors.cdaType}</p>}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "bank-street")} className="text-sm font-medium">Bank Street Address</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "bank-street")}
-                value={record.bankStreet}
-                aria-invalid={Boolean(errors.bankStreet)}
-                onChange={(e) => onChange({ bankStreet: e.target.value })}
-                className="h-10"
-              />
-              {errors.bankStreet && <p className="text-xs text-destructive">{errors.bankStreet}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "bank-city")} className="text-sm font-medium">City</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "bank-city")}
-                value={record.bankCity}
-                aria-invalid={Boolean(errors.bankCity)}
-                onChange={(e) => onChange({ bankCity: e.target.value })}
-                className="h-10"
-              />
-              {errors.bankCity && <p className="text-xs text-destructive">{errors.bankCity}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "bank-state")} className="text-sm font-medium">State</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "bank-state")}
-                value={record.bankState}
-                aria-invalid={Boolean(errors.bankState)}
-                onChange={(e) => onChange({ bankState: e.target.value })}
-                className="h-10"
-              />
-              {errors.bankState && <p className="text-xs text-destructive">{errors.bankState}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={buildWireFieldId(idPrefix, "bank-zip")} className="text-sm font-medium">ZIP</Label>
-              <Input
-                id={buildWireFieldId(idPrefix, "bank-zip")}
-                value={record.bankZip}
-                aria-invalid={Boolean(errors.bankZip)}
-                onChange={(e) => onChange({ bankZip: e.target.value })}
-                className="h-10"
-              />
-              {errors.bankZip && <p className="text-xs text-destructive">{errors.bankZip}</p>}
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            <Label htmlFor={buildWireFieldId(idPrefix, "special-instructions")} className="text-sm font-medium">Special Instructions / Memo</Label>
-            <Textarea
-              id={buildWireFieldId(idPrefix, "special-instructions")}
-              value={record.specialInstructions}
-              onChange={(e) => onChange({ specialInstructions: e.target.value })}
-              className="min-h-[92px]"
-            />
-          </div>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
-              {record.updatedAt ? `Last updated ${new Date(record.updatedAt).toLocaleString()}` : "Not saved yet"}
-            </p>
-            <div className="flex gap-2">
-              {onCancel && <Button variant="outline" onClick={onCancel}>Cancel</Button>}
-              <Button onClick={onSave}>Save Wire Instructions</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
-
-function WireInstructionsSummaryCard({
+function WireInstructionDialog({
+  open,
+  onOpenChange,
   title,
   description,
   record,
-  revealSensitive,
-  showCdaType = false,
-  onToggleSensitive,
-  onEdit,
+  errors,
+  showCdaType,
+  onChange,
+  onSave,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description?: string;
   record: WireInstructionRecord;
-  revealSensitive: boolean;
+  errors: WireValidationErrors;
   showCdaType?: boolean;
-  onToggleSensitive: () => void;
-  onEdit: () => void;
+  onChange: (patch: Partial<WireInstructionRecord>) => void;
+  onSave: () => void;
 }) {
-  const routingNumber = revealSensitive ? record.routingNumber || "Not provided" : maskSensitiveValue(record.routingNumber);
-  const accountNumber = revealSensitive ? record.accountNumber || "Not provided" : maskSensitiveValue(record.accountNumber);
-  const address = [record.bankStreet, record.bankCity, record.bankState, record.bankZip].filter(Boolean).join(", ");
-
   return (
-    <Card className="rounded-[14px] border-border shadow-none">
-      <CardContent className="p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <div className="flex flex-col gap-6 py-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="wire-name">Account Holder / Recipient Name *</Label>
+              <Input
+                id="wire-name"
+                placeholder="e.g., John Doe"
+                value={record.accountHolderName}
+                onChange={(e) => onChange({ accountHolderName: e.target.value })}
+                className={cn(errors.accountHolderName && "border-destructive")}
+              />
+              {errors.accountHolderName && <p className="text-[11px] text-destructive">{errors.accountHolderName}</p>}
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={onToggleSensitive}
-                aria-label={revealSensitive ? "Mask routing and account number" : "Reveal routing and account number"}
-              >
-                {revealSensitive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-                <Edit3 className="mr-2 size-4" />
-                Edit
-              </Button>
+            <div className="space-y-2">
+              <Label htmlFor="wire-email">Email</Label>
+              <Input
+                id="wire-email"
+                type="email"
+                placeholder="name@example.com"
+                value={record.email || ""}
+                onChange={(e) => onChange({ email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wire-phone">Phone</Label>
+              <Input
+                id="wire-phone"
+                type="tel"
+                placeholder="(555) 555-5555"
+                value={record.phone || ""}
+                onChange={(e) => onChange({ phone: e.target.value })}
+              />
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Holder Name</p>
-              <p className="text-sm text-foreground">{record.accountHolderName}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bank Name</p>
-              <p className="text-sm text-foreground">{record.bankName}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Routing Number (ABA)</p>
-              <p className="text-sm text-foreground">{routingNumber}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Number</p>
-              <p className="text-sm text-foreground">{accountNumber}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account Type</p>
-              <p className="text-sm text-foreground">{formatWireAccountType(record.accountType)}</p>
-            </div>
-            {showCdaType && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">CDA Type</p>
-                <p className="text-sm text-foreground">{formatCdaType(record.cdaType)}</p>
+          
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-foreground">Recipient Address</h4>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 space-y-2">
+                <Input
+                  placeholder="Street"
+                  value={record.recipientStreet || ""}
+                  onChange={(e) => onChange({ recipientStreet: e.target.value })}
+                />
               </div>
-            )}
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bank Address</p>
-              <p className="text-sm text-foreground">{address || "Not provided"}</p>
+              <div className="grid grid-cols-3 gap-4 sm:col-span-2">
+                <Input
+                  placeholder="City"
+                  className="col-span-1"
+                  value={record.recipientCity || ""}
+                  onChange={(e) => onChange({ recipientCity: e.target.value })}
+                />
+                <Input
+                  placeholder="State"
+                  className="col-span-1"
+                  value={record.recipientState || ""}
+                  onChange={(e) => onChange({ recipientState: e.target.value })}
+                />
+                <Input
+                  placeholder="ZIP"
+                  className="col-span-1"
+                  value={record.recipientZip || ""}
+                  onChange={(e) => onChange({ recipientZip: e.target.value })}
+                />
+              </div>
             </div>
           </div>
-          {record.specialInstructions && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Special Instructions / Memo</p>
-              <p className="text-sm text-foreground">{record.specialInstructions}</p>
+
+          <Separator />
+          
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-foreground">Banking Details (Optional)</h4>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="wire-bank-name">Bank Name</Label>
+                <Input
+                  id="wire-bank-name"
+                  placeholder="e.g., Chase Bank"
+                  value={record.bankName || ""}
+                  onChange={(e) => onChange({ bankName: e.target.value })}
+                  className={cn(errors.bankName && "border-destructive")}
+                />
+                {errors.bankName && <p className="text-[11px] text-destructive">{errors.bankName}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wire-routing">Routing Number (ABA)</Label>
+                <Input
+                  id="wire-routing"
+                  placeholder="9-digit ABA number"
+                  value={record.routingNumber || ""}
+                  onChange={(e) => onChange({ routingNumber: e.target.value })}
+                  className={cn(errors.routingNumber && "border-destructive")}
+                />
+                {errors.routingNumber && <p className="text-[11px] text-destructive">{errors.routingNumber}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wire-account">Account Number</Label>
+                <Input
+                  id="wire-account"
+                  placeholder="Account number"
+                  value={record.accountNumber || ""}
+                  onChange={(e) => onChange({ accountNumber: e.target.value })}
+                  className={cn(errors.accountNumber && "border-destructive")}
+                />
+                {errors.accountNumber && <p className="text-[11px] text-destructive">{errors.accountNumber}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wire-account-type">Account Type</Label>
+                <Select value={record.accountType || "checking"} onValueChange={(v) => onChange({ accountType: v })}>
+                  <SelectTrigger id="wire-account-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="checking">Checking</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {showCdaType && (
+                <div className="space-y-2">
+                  <Label htmlFor="wire-cda-type">CDA Type</Label>
+                  <Select value={record.cdaType || "full-transparency"} onValueChange={(v) => onChange({ cdaType: v })}>
+                    <SelectTrigger id="wire-cda-type" className={cn(errors.cdaType && "border-destructive")}>
+                      <SelectValue placeholder="Select CDA type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full-transparency">Full Transparency</SelectItem>
+                      <SelectItem value="team-hidden">Team Hidden</SelectItem>
+                      <SelectItem value="radius-hidden">Radius Hidden</SelectItem>
+                      <SelectItem value="full-gross">Full Gross</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.cdaType && <p className="text-[11px] text-destructive">{errors.cdaType}</p>}
+                </div>
+              )}
             </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            {record.updatedAt ? `Last updated ${new Date(record.updatedAt).toLocaleString()}` : "Not saved yet"}
-          </p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={onSave}>Save Instructions</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
-
 function WireStatusBadge({ complete }: { complete: boolean }) {
   return complete ? (
     <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200">Complete</Badge>
@@ -1938,10 +1797,11 @@ export function CDASettings() {
     () => createDefaultWireInstructionsStore(CURRENT_TEAM_LEAD_ID, agents.map((agent) => agent.id)),
     [],
   );
+  const [userRole, setUserRole] = useState<"agent" | "team_lead" | "radius_auditing" | "soul_auditor">("team_lead");
   const [state, setState] = useState<{
     plans: CommissionPlan[];
     activePlanId: string | null;
-    activeDialog: DialogName;
+    activeDialog: DialogName | "wire-instruction";
     planDialogMode: DialogMode;
     form: PlanForm;
     errors: PlanErrors;
@@ -1963,6 +1823,9 @@ export function CDASettings() {
     isAssigning: boolean;
     overwriteAssignDefaults: boolean;
     pendingAssignmentSave: (() => void) | null;
+    wireDraft: WireInstructionRecord | null;
+    wireType: "team" | "shared" | "private" | null;
+    wireErrors: WireValidationErrors;
   }>({
     plans: seedPlans,
     activePlanId: null,
@@ -1988,18 +1851,12 @@ export function CDASettings() {
     isAssigning: false,
     overwriteAssignDefaults: false,
     pendingAssignmentSave: null,
+    wireDraft: null,
+    wireType: null,
+    wireErrors: {},
   });
-  const [wireRoleView, setWireRoleView] = useState<WireRoleView>("team_lead");
-  const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
-  const [teamWireDraft, setTeamWireDraft] = useState<WireInstructionRecord>(() => readWireInstructionsStore(defaultWireStore).teamWireInstructions);
-  const [agentWireDraft, setAgentWireDraft] = useState<WireInstructionRecord>(() => readWireInstructionsStore(defaultWireStore).agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
-  const [teamWireErrors, setTeamWireErrors] = useState<WireValidationErrors>({});
-  const [agentWireErrors, setAgentWireErrors] = useState<WireValidationErrors>({});
-  const [revealTeamSensitive, setRevealTeamSensitive] = useState(false);
-  const [revealAgentSensitive, setRevealAgentSensitive] = useState(false);
-  const [teamWireEditing, setTeamWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS));
-  const [agentWireEditing, setAgentWireEditing] = useState(() => !isWireInstructionComplete(readWireInstructionsStore(defaultWireStore).agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction()));
-  const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
+    const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
+                  const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
   const currentAgent = agents.find((agent) => agent.id === CURRENT_AGENT_ID) ?? agents[0];
   const unreadWireNotifications = wireStore.notifications.filter((item) => !item.read);
 
@@ -2012,14 +1869,10 @@ export function CDASettings() {
   useEffect(() => {
     const nextStore = readWireInstructionsStore(defaultWireStore);
     setWireStore(nextStore);
-    setTeamWireDraft(nextStore.teamWireInstructions);
-    setAgentWireDraft(nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
-    setTeamWireEditing(!isWireInstructionComplete(nextStore.teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS));
-    setAgentWireEditing(!isWireInstructionComplete(nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction()));
   }, [defaultWireStore]);
 
   useEffect(() => {
-    if (wireRoleView !== "team_lead" || unreadWireNotifications.length === 0) return;
+    if (userRole !== "team_lead" || unreadWireNotifications.length === 0) return;
     unreadWireNotifications.forEach((notification) => {
       toast.success(`${notification.agentName} completed wire instructions`);
     });
@@ -2029,47 +1882,42 @@ export function CDASettings() {
     };
     setWireStore(nextStore);
     writeWireInstructionsStore(nextStore);
-  }, [wireRoleView, unreadWireNotifications, wireStore]);
+  }, [userRole, unreadWireNotifications, wireStore]);
 
-  function saveTeamWireInstructions() {
-    const errors = validateWireInstruction(teamWireDraft, TEAM_WIRE_COMPLETION_OPTIONS);
-    setTeamWireErrors(errors);
+  function saveWireDialog() {
+    const isTeam = state.wireType === "team";
+    const options = isTeam ? TEAM_WIRE_COMPLETION_OPTIONS : { requireBankDetails: false };
+    const errors = validateWireInstruction(state.wireDraft!, options);
+    
     if (Object.keys(errors).length > 0) {
-      toast.error("Fix team wire instruction errors");
+      setState(current => ({ ...current, wireErrors: errors }));
+      toast.error("Please fix wire instruction errors");
       return;
     }
 
-    const nextStore: WireInstructionsStore = {
-      ...wireStore,
-      teamWireInstructions: {
-        ...teamWireDraft,
-        updatedAt: new Date().toISOString(),
-      },
-    };
-    setWireStore(nextStore);
-    setTeamWireDraft(nextStore.teamWireInstructions);
-    writeWireInstructionsStore(nextStore);
-    setTeamWireEditing(false);
-    toast.success("Team wire instructions saved");
-  }
-
-  function saveAgentWireInstructions() {
-    const errors = validateWireInstruction(agentWireDraft);
-    setAgentWireErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      toast.error("Fix personal wire instruction errors");
-      return;
-    }
-
-    const previousRecord = wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction();
-    const wasComplete = isWireInstructionComplete(previousRecord);
     const nextRecord = {
-      ...agentWireDraft,
+      ...state.wireDraft!,
       updatedAt: new Date().toISOString(),
     };
-    const isCompleteNow = isWireInstructionComplete(nextRecord);
-    const nextNotifications = !wasComplete && isCompleteNow
-      ? [
+
+    let nextStore = { ...wireStore };
+
+    if (state.wireType === "team") {
+      nextStore.teamWireInstructions = nextRecord;
+    } else if (state.wireType === "shared") {
+      const idx = nextStore.sharedRecipients.findIndex(r => r.id === nextRecord.id);
+      if (idx >= 0) {
+        nextStore.sharedRecipients[idx] = nextRecord;
+      } else {
+        nextStore.sharedRecipients.push({ ...nextRecord, id: crypto.randomUUID() });
+      }
+    } else if (state.wireType === "private") {
+      const previousRecord = nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction();
+      const wasComplete = isWireInstructionComplete(previousRecord, options);
+      const isCompleteNow = isWireInstructionComplete(nextRecord, options);
+      
+      if (!wasComplete && isCompleteNow) {
+        nextStore.notifications = [
           {
             id: crypto.randomUUID(),
             agentId: currentAgent.id,
@@ -2077,36 +1925,68 @@ export function CDASettings() {
             createdAt: new Date().toISOString(),
             read: false,
           },
-          ...wireStore.notifications,
-        ]
-      : wireStore.notifications;
+          ...nextStore.notifications,
+        ];
+      }
+      
+      const targetAgentId = nextRecord.id && nextRecord.id !== CURRENT_AGENT_ID 
+        ? nextRecord.id 
+        : CURRENT_AGENT_ID;
+        
+      nextStore.agentWireInstructions = {
+        ...nextStore.agentWireInstructions,
+        [targetAgentId]: nextRecord,
+      };
+    }
 
-    const nextStore: WireInstructionsStore = {
-      ...wireStore,
-      agentWireInstructions: {
-        ...wireStore.agentWireInstructions,
-        [CURRENT_AGENT_ID]: nextRecord,
-      },
-      notifications: nextNotifications,
-    };
     setWireStore(nextStore);
-    setAgentWireDraft(nextRecord);
     writeWireInstructionsStore(nextStore);
-    setAgentWireEditing(false);
-    toast.success("My wire instructions saved");
+    
+    setState(current => ({ 
+      ...current, 
+      activeDialog: null,
+      wireDraft: null,
+      wireType: null,
+      wireErrors: {}
+    }));
+    
+    toast.success(`${state.wireType === "team" ? "Team" : state.wireType === "shared" ? "Shared" : "Private"} wire instructions saved`);
+  }
+
+  function openWireDialog(type: "team" | "shared" | "private", record?: WireInstructionRecord) {
+    let draft = record;
+    if (!draft) {
+      if (type === "team") draft = wireStore.teamWireInstructions;
+      else if (type === "private") draft = wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction();
+      else draft = createEmptyWireInstruction();
+    }
+    
+    setState(current => ({
+      ...current,
+      activeDialog: "wire-instruction",
+      wireType: type,
+      wireDraft: { ...draft! },
+      wireErrors: {}
+    }));
   }
 
   function renderWireInstructions() {
     const teamComplete = isWireInstructionComplete(wireStore.teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS);
-    const agentStatuses = agents
-      .filter((agent) => agent.id !== CURRENT_TEAM_LEAD_ID)
-      .map((agent) => ({
-        agent,
-        complete: isWireInstructionComplete(wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction()),
-      }));
-    const currentAgentComplete = isWireInstructionComplete(wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction());
-    const showTeamForm = teamWireEditing || !teamComplete;
-    const showAgentForm = agentWireEditing || !currentAgentComplete;
+    const sharedRecipients = wireStore.sharedRecipients || [];
+    
+    const rawPrivateRecipients = userRole === "agent" 
+      ? [[CURRENT_AGENT_ID, wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(`agent-wire-${CURRENT_AGENT_ID}`)]] as const
+      : Object.entries(wireStore.agentWireInstructions);
+
+    const privateRecipients = rawPrivateRecipients.map(([agentId, r]) => {
+      const agent = agents.find(a => a.id === agentId);
+      return {
+        ...r,
+        accountHolderName: r.accountHolderName || agent?.name || "Unnamed Agent"
+      };
+    });
+      
+    const canManageTeamAndShared = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
 
     return (
       <section className="flex flex-col gap-4">
@@ -2134,100 +2014,169 @@ export function CDASettings() {
                 </AlertDescription>
               </Alert>
             )}
-            {showTeamForm ? (
-              <WireInstructionsFormCard
-                idPrefix="team-wire"
-                record={teamWireDraft}
-                errors={teamWireErrors}
-                revealSensitive={revealTeamSensitive}
-                showCdaType
-                onToggleSensitive={() => setRevealTeamSensitive((prev) => !prev)}
-                onChange={(patch) => setTeamWireDraft((current) => ({ ...current, ...patch }))}
-                onSave={saveTeamWireInstructions}
-              />
-            ) : (
-              <WireInstructionsSummaryCard
-                title="Saved Team Wire Instructions"
-                description="Brokerage payout destination shown on generated CDA documents."
-                record={teamWireDraft}
-                revealSensitive={revealTeamSensitive}
-                showCdaType
-                onToggleSensitive={() => setRevealTeamSensitive((prev) => !prev)}
-                onEdit={() => setTeamWireEditing(true)}
-              />
-            )}
+            
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold">Team Instruction</h3>
+              {canManageTeamAndShared && (
+                <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
+                  <Plus className="size-4 mr-1" /> Add / Edit Team Wire
+                </Button>
+              )}
+            </div>
+            
+            <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-b">
+                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                    <TableHead className="w-[50px] pr-6"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                    <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
+                    <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                    <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
+                    <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
+                    <TableCell className="pr-6 text-right">
+                      {canManageTeamAndShared && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <MoreVertical className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                            <DropdownMenuItem onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
+                              <Edit3 className="size-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </Card>
           </TabsContent>
 
           <TabsContent value="shared" className="flex flex-col gap-4">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-semibold">Shared Recipients</h3>
-              <Button size="sm" onClick={() => {
-                setState(s => ({...s, activeDialog: "add-fee"})); // Using existing dialog or a new one to add recipient
-              }}>
-                <Plus className="size-4 mr-1" /> Add Recipient
-              </Button>
+              {canManageTeamAndShared && (
+                <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("shared")}>
+                  <Plus className="size-4 mr-1" /> Add Recipient
+                </Button>
+              )}
             </div>
-            {wireStore.sharedRecipients.length === 0 ? (
-              <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center">
-                No shared recipients yet. Add vendors or escrow companies here.
+            {sharedRecipients.length === 0 ? (
+              <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
+                <p>No shared recipients yet. Add vendors or escrow companies here.</p>
               </div>
             ) : (
-              <div className="border border-border/50 rounded-[14px] overflow-hidden">
+              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/20">
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead></TableHead>
+                    <TableRow className="hover:bg-transparent border-b">
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                      <TableHead className="w-[50px] pr-6"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {wireStore.sharedRecipients.map(r => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.accountHolderName}</TableCell>
-                        <TableCell>{r.email || "-"}</TableCell>
+                    {sharedRecipients.map(r => (
+                      <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                        <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || "Unnamed Agent"}</TableCell>
+                        <TableCell className="text-sm">{r.email || "-"}</TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                        <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
                         <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">Edit</Button>
+                        <TableCell className="pr-6 text-right">
+                          {canManageTeamAndShared && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="size-8">
+                                  <MoreVertical className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                                <DropdownMenuItem onClick={() => openWireDialog("shared", r)}>
+                                  <Edit3 className="size-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </Card>
             )}
           </TabsContent>
 
           <TabsContent value="private" className="flex flex-col gap-4">
-            {!currentAgentComplete && (
-              <Alert className="border-amber-200 bg-amber-50">
-                <Bell className="text-amber-700" />
-                <AlertTitle className="text-amber-900">My wire instructions incomplete</AlertTitle>
-                <AlertDescription className="text-amber-800">
-                  Complete personal wire instructions before CDA can be generated for escrow payout.
-                </AlertDescription>
-              </Alert>
-            )}
-            {showAgentForm ? (
-              <WireInstructionsFormCard
-                idPrefix="agent-wire"
-                record={agentWireDraft}
-                errors={agentWireErrors}
-                revealSensitive={revealAgentSensitive}
-                onToggleSensitive={() => setRevealAgentSensitive((prev) => !prev)}
-                onChange={(patch) => setAgentWireDraft((current) => ({ ...current, ...patch }))}
-                onSave={saveAgentWireInstructions}
-              />
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold">My Private Recipients</h3>
+              <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("private")}>
+                <Plus className="size-4 mr-1" /> Add Recipient
+              </Button>
+            </div>
+            {privateRecipients.length === 0 ? (
+              <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
+                <p>No private wire instructions added.</p>
+              </div>
             ) : (
-              <WireInstructionsSummaryCard
-                title="Saved My Wire Instructions"
-                description="Personal payout destination shown on generated CDA documents."
-                record={agentWireDraft}
-                revealSensitive={revealAgentSensitive}
-                onToggleSensitive={() => setRevealAgentSensitive((prev) => !prev)}
-                onEdit={() => setAgentWireEditing(true)}
-              />
+              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent border-b">
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                      <TableHead className="w-[50px] pr-6"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {privateRecipients.map(r => (
+                      <TableRow key={r.id || CURRENT_AGENT_ID} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                        <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || "Unnamed Agent"}</TableCell>
+                        <TableCell className="text-sm">{r.email || "-"}</TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                        <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
+                        <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
+                        <TableCell className="pr-6 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="size-8">
+                                <MoreVertical className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                              <DropdownMenuItem onClick={() => openWireDialog("private", r)}>
+                                <Edit3 className="size-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
             )}
           </TabsContent>
         </Tabs>
@@ -3337,7 +3286,25 @@ export function CDASettings() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <CDAFlowSwitcher />
+            <div className="flex items-center gap-2">
+              <CDAFlowSwitcher />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 gap-1.5 px-2">
+                    {userRole === "agent" ? <User className="size-3.5" /> : userRole === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
+                    {userRole === "agent" ? "Agent view" : userRole === "team_lead" ? "Team Lead view" : userRole === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Switch role</DropdownMenuLabel>
+                  {(["agent", "team_lead", "radius_auditing", "soul_auditor"] as const).map((r) => (
+                    <DropdownMenuItem key={r} onClick={() => setUserRole(r)} className={cn(userRole === r && "bg-accent")}>
+                      {r === "agent" ? "Agent" : r === "team_lead" ? "Team Lead" : r === "soul_auditor" ? "SOUL Auditor" : "Auditor"}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -3387,6 +3354,19 @@ export function CDASettings() {
           */}
         </div>
       </main>
+
+      {state.wireDraft && state.wireType && (
+        <WireInstructionDialog
+          open={state.activeDialog === "wire-instruction"}
+          onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "wire-instruction" : null }))}
+          title={`${state.wireType === "team" ? "Team" : state.wireType === "shared" ? "Shared" : "Private"} Wire Instruction`}
+          record={state.wireDraft}
+          errors={state.wireErrors}
+          showCdaType={state.wireType === "team"}
+          onChange={(patch) => setState((current) => ({ ...current, wireDraft: { ...current.wireDraft!, ...patch } }))}
+          onSave={saveWireDialog}
+        />
+      )}
 
       <AddPlanDialog
         open={state.activeDialog === "add-plan"}

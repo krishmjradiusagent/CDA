@@ -106,18 +106,20 @@ export function createDefaultWireInstructionsStore(teamLeadAgentId: string, agen
 
 export function validateWireInstruction(record: WireInstructionRecord, options: WireValidationOptions = {}): WireValidationErrors {
   const errors: WireValidationErrors = {};
-  const enforceBankDetails = options.requireBankDetails ?? true;
+  const enforceBankDetails = options.requireBankDetails ?? false;
 
+  // Only name is mandatory across all forms now based on requirements.
   if (!record.accountHolderName.trim()) errors.accountHolderName = "Account holder required";
   
   if (enforceBankDetails) {
-    if (!record.bankName.trim()) errors.bankName = "Bank name required";
-    if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
-    if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
-    if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
-    if (!record.bankCity.trim()) errors.bankCity = "City required";
-    if (!record.bankState.trim()) errors.bankState = "State required";
-    if (!record.bankZip.trim()) errors.bankZip = "ZIP required";
+    // Bank details are optional per new requirements. Only name is required.
+    // if (!record.bankName.trim()) errors.bankName = "Bank name required";
+    // if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
+    // if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
+    // if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
+    // if (!record.bankCity.trim()) errors.bankCity = "City required";
+    // if (!record.bankState.trim()) errors.bankState = "State required";
+    // if (!record.bankZip.trim()) errors.bankZip = "ZIP required";
   }
 
   if (options.requireCdaType && !record.cdaType) errors.cdaType = "CDA type required";
@@ -126,7 +128,7 @@ export function validateWireInstruction(record: WireInstructionRecord, options: 
 }
 
 export function isWireInstructionComplete(record: WireInstructionRecord, options: WireValidationOptions = {}) {
-  return Object.keys(validateWireInstruction(record, options)).length === 0;
+  return Object.keys(validateWireInstruction(record, { requireBankDetails: true, ...options })).length === 0;
 }
 
 export function maskSensitiveValue(value: string, visibleDigits = 4) {

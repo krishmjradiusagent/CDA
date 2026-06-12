@@ -536,67 +536,67 @@ export function FeeBuilderModal({
               </div>
             )}
 
-            {/* When Applied + Fee Payer */}
-            <div className="grid grid-cols-2 gap-4">
-            {!hideTimingField && (
-            <div className="space-y-1.5">
-              <Label>When Applied</Label>
-              <Select
-                value={draft.timing}
-                disabled={isExistingFeeSelected}
-                onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pre-split">Pre-Split</SelectItem>
-                  <SelectItem value="post-split">Post-Split</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            )}
+                        {/* Row 3: When Applied, Fee Payer, Co-Agent Splits */}
+            <div className="grid grid-cols-3 gap-3">
+              {!hideTimingField && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">When Applied</Label>
+                <Select
+                  value={draft.timing}
+                  disabled={isExistingFeeSelected}
+                  onValueChange={(value) => updateField("timing", value as FeeTypeDraft["timing"])}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pre-split" className="text-xs">Pre-Split</SelectItem>
+                    <SelectItem value="post-split" className="text-xs">Post-Split</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              )}
 
               <div className="space-y-1.5">
-                <Label>Fee Payer</Label>
+                <Label className="text-xs">Fee Payer</Label>
                 <Select
                   value={draft.appliesToMode}
                   disabled={isExistingFeeSelected}
                   onValueChange={(value) => updateField("appliesToMode", value as FeeTypeDraft["appliesToMode"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="agent">Agent</SelectItem>
-                    <SelectItem value="team">Team</SelectItem>
-                    <SelectItem value="both">Both (split equally)</SelectItem>
+                    <SelectItem value="agent" className="text-xs">Agent</SelectItem>
+                    <SelectItem value="team" className="text-xs">Team</SelectItem>
+                    <SelectItem value="both" className="text-xs">Both</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Co-Agent Splits</Label>
+                <Label className="text-xs">Co-Agent Splits</Label>
                 <Select
                   value={draft.coAgentSplitMode ?? "split-equally"}
                   disabled={isExistingFeeSelected}
                   onValueChange={(value) => updateField("coAgentSplitMode", value as FeeTypeDraft["coAgentSplitMode"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="split-equally">Split equally</SelectItem>
-                    <SelectItem value="each-agent-pays">Each agent pays</SelectItem>
+                    <SelectItem value="split-equally" className="text-xs">Split equally</SelectItem>
+                    <SelectItem value="each-agent-pays" className="text-xs">Each agent pays</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Per agent in one side.</p>
               </div>
+            </div>
 
+            {/* Row 4: Payable To, Payable Name, CDA Types */}
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label>Payable To</Label>
+                <Label className="text-xs">Payable To</Label>
                 <Select
                   value={draft.payableToType ?? "radius"}
                   disabled={isExistingFeeSelected}
@@ -608,41 +608,39 @@ export function FeeBuilderModal({
                     if (payableToType === "external") updateField("payableToName", "");
                   }}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="radius">Radius</SelectItem>
-                    <SelectItem value="team">Team</SelectItem>
-                    <SelectItem value="external">External</SelectItem>
+                    <SelectItem value="radius" className="text-xs">Radius</SelectItem>
+                    <SelectItem value="team" className="text-xs">Team</SelectItem>
+                    <SelectItem value="external" className="text-xs">External</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="payable-name">Payable name <span className="text-destructive">*</span></Label>
+                <Label htmlFor="payable-name" className="text-xs">Payable Name</Label>
                 <Input
                   id="payable-name"
-                  className="h-10"
+                  className="h-9 text-xs"
                   placeholder="Name"
                   value={draft.payableToName ?? ""}
                   aria-invalid={Boolean(errors.payableToName)}
                   disabled={isExistingFeeSelected}
                   onChange={(event) => updateField("payableToName", event.target.value)}
                 />
-                {errors.payableToName ? <p className="text-xs text-destructive">{errors.payableToName}</p> : null}
+                {errors.payableToName ? <p className="text-[10px] text-destructive">{errors.payableToName}</p> : null}
               </div>
 
               <div className="space-y-1.5">
-                <Label>Assign to CDA types</Label>
+                <Label className="text-xs">CDA Types</Label>
                 <CDATypeMultiSelect
                   selected={draft.dealTypes ?? []}
                   disabled={isExistingFeeSelected}
                   onChange={(next) => updateField("dealTypes", next)}
                 />
-                {errors.dealTypes ? <p className="text-xs text-destructive">{errors.dealTypes}</p> : null}
+                {errors.dealTypes ? <p className="text-[10px] text-destructive">{errors.dealTypes}</p> : null}
               </div>
             </div>
 
