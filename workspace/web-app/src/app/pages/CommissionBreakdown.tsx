@@ -724,8 +724,32 @@ function EditableValue({
   );
 }
 
+
+function getCursorXY(input: HTMLTextAreaElement, selectionPoint: number) {
+  const div = document.createElement('div');
+  const copyStyle = getComputedStyle(input);
+  for (const prop of Array.from(copyStyle)) {
+    div.style.setProperty(prop, copyStyle.getPropertyValue(prop), copyStyle.getPropertyPriority(prop));
+  }
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.textContent = input.value.substring(0, selectionPoint);
+  const span = document.createElement('span');
+  span.textContent = input.value.substring(selectionPoint) || '.';
+  div.appendChild(span);
+  document.body.appendChild(div);
+  const x = span.offsetLeft;
+  const y = span.offsetTop;
+  document.body.removeChild(div);
+  return { x, y };
+}
+
 export function CommissionBreakdown() {
   const [agentComment, setAgentComment] = useState("");
+  const [mentionSearch, setMentionSearch] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionCoords, setMentionCoords] = useState<{x: number, y: number} | null>(null);
   type ActivityEntry = { id: string; author: string; role: Role; text: string; timestamp: string; kind: "comment" | "activity"; taggedUserIds?: string[] };
   type ActivityView = "comments" | "activity" | "all";
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
@@ -1044,6 +1068,38 @@ export function CommissionBreakdown() {
   }, [sidesData, teamWireComplete, wireStore]);
   const incompleteWirePartyNames = auditorWireParties.filter((party) => !party.complete).map((party) => party.name);
   const allAuditorWiresComplete = incompleteWirePartyNames.length === 0;
+
+  const checkDeductionWireStatus = (dedName: string) => {
+    const matching = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
+      (r) => r.accountHolderName?.toLowerCase() === dedName.toLowerCase()
+    );
+    return matching ? isWireInstructionComplete(matching, { requireBankDetails: false }) : false;
+  };
+
+  const DeductionWireIcon = ({ dedName, onClick }: { dedName: string; onClick: () => void }) => {
+    const isFilled = checkDeductionWireStatus(dedName);
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button 
+            type="button" 
+            className={cn(
+              "relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
+              isFilled ? "bg-muted hover:bg-muted/80 text-muted-foreground" : "bg-amber-100 hover:bg-amber-200 text-amber-600"
+            )} 
+            onClick={onClick}
+          >
+            <Landmark className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-xs">
+          {isFilled ? "Wire instructions complete" : "Action Required: Wire instructions missing. Click to add."}
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
+
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -1434,12 +1490,53 @@ export function CommissionBreakdown() {
               </button>
             ))}
           </div>
+          
           <div className="relative">
+            {mentionSearch !== null && (
+              <div
+                className="absolute z-50 bg-background border border-border shadow-md rounded-md overflow-hidden min-w-[150px] max-h-[150px] overflow-y-auto"
+                style={{ left: mentionCoords?.x ?? 0, top: (mentionCoords?.y ?? 0) + 20 }}
+              >
+                {commentTagPeople
+                  .filter((p) => p.name.toLowerCase().includes(mentionSearch.toLowerCase()))
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="block w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
+                      onClick={() => {
+                        const before = agentComment.slice(0, mentionIndex);
+                        const after = agentComment.slice(mentionIndex + mentionSearch.length + 1);
+                        setAgentComment(`${before}@${p.name} ${after}`);
+                        setMentionSearch(null);
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                  {commentTagPeople.filter((p) => p.name.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-1.5 text-sm text-muted-foreground">No matches</div>
+                  )}
+              </div>
+            )}
             <Textarea
               value={agentComment}
-              onChange={(e) => setAgentComment(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setAgentComment(val);
+                const caret = e.target.selectionStart;
+                const textBeforeCaret = val.slice(0, caret);
+                const match = textBeforeCaret.match(/@([\w\s]*)$/);
+                if (match) {
+                  setMentionSearch(match[1]);
+                  setMentionIndex(match.index!);
+                  setMentionCoords(getCursorXY(e.target, match.index!));
+                } else {
+                  setMentionSearch(null);
+                }
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && mentionSearch === null) {
                   e.preventDefault();
                   handleSendComment();
                 }
@@ -2026,7 +2123,8 @@ export function CommissionBreakdown() {
                   {(preSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => (
                     <div key={ded.id} className="group flex items-center justify-between py-1.5">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>\n                        <Landmark className="size-3 text-muted-foreground ml-1 cursor-pointer hover:text-foreground" onClick={() => setShowWireSheet(true)} title="View Wiring Status" />
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <DeductionWireIcon dedName={ded.name} onClick={() => setShowWireSheet(true)} />
                         <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2117,7 +2215,8 @@ export function CommissionBreakdown() {
                     return (
                       <div key={ded.id} className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs text-muted-foreground">{ded.name}</p>\n                        <Landmark className="size-3 text-muted-foreground ml-1 cursor-pointer hover:text-foreground" onClick={() => setShowWireSheet(true)} title="View Wiring Status" />
+                          <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <DeductionWireIcon dedName={ded.name} onClick={() => setShowWireSheet(true)} />
                           <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{ded.isRadiusFee ? "Paid by Agent" : "Paid by Both"}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2251,7 +2350,8 @@ export function CommissionBreakdown() {
                   {(sideGrossDeductions[activeSide.id] ?? []).map((ded) => (
                     <div key={ded.id} className="group flex items-center justify-between py-1.5">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>\n                        <Landmark className="size-3 text-muted-foreground ml-1 cursor-pointer hover:text-foreground" onClick={() => setShowWireSheet(true)} title="View Wiring Status" />
+                        <p className="text-xs text-muted-foreground">{ded.name}</p>
+                        <DeductionWireIcon dedName={ded.name} onClick={() => setShowWireSheet(true)} />
                         <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
                       </div>
                       <div className="flex items-center gap-2">
