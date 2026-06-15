@@ -1126,15 +1126,15 @@ export function CommissionBreakdown() {
           <button 
             type="button" 
             className={cn(
-              "relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
-              isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-muted hover:bg-muted/80 text-muted-foreground"
+              "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
+              isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-amber-100 hover:bg-amber-200 text-amber-700"
             )} 
             onClick={() => {
               setWireFormMode("none");
               onClick();
             }}
           >
-            {isFilled ? <Check className="size-3.5" /> : <Landmark className="size-3.5" />}
+            {isFilled ? <Check className="size-4" /> : <Landmark className="size-4" />}
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">
