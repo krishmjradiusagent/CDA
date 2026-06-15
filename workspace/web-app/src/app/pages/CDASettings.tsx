@@ -96,6 +96,7 @@ import {
 } from "../components/ui/breadcrumb";
 import { Toaster } from "../components/ui/sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { ScrollArea } from "../components/ui/scroll-area";
 import { 
   FeeBadge, 
   TierBuilderRow, 
@@ -132,6 +133,7 @@ type AssignDefaultsForm = {
   selectedAgentIds: string[];
   dealTypes: Record<string, boolean>;
   applyToActiveDeals: boolean;
+  actionType: "assign" | "unassign";
 };
 
 const TEAM_WIRE_COMPLETION_OPTIONS = { requireCdaType: true } as const;
@@ -281,6 +283,7 @@ function getFreshAssignDefaultsForm(): AssignDefaultsForm {
     selectedAgentIds: [],
     dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false },
     applyToActiveDeals: false,
+    actionType: "assign",
   };
 }
 
@@ -1267,6 +1270,19 @@ function AssignDefaultsDialog({
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
+          {/* Action Toggle for Bulk Updates */}
+          {showAssignTo && source.from !== "fee" && (
+            <Tabs 
+              value={form.actionType} 
+              onValueChange={(v) => onFormChange({ actionType: v as any })}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="assign">Assign</TabsTrigger>
+                <TabsTrigger value="unassign">Unassign</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
 
           {/* Locked agent summary (Case 3) */}
           {lockedAgent && (
@@ -1327,7 +1343,9 @@ function AssignDefaultsDialog({
           {/* Assignment controls (Cases 1, 2, 4) */}
           {showAssignTo && (
             <div className="flex flex-col gap-3">
-              <Label className="text-sm font-medium">Assign To</Label>
+              <Label className="text-sm font-medium">
+                {form.actionType === "unassign" ? "Remove From" : "Assign To"}
+              </Label>
               <AgentMultiSelect
                 selectedAgentIds={form.selectedAgentIds}
                 lockedAgentId={lockedAgentId}
@@ -1342,14 +1360,16 @@ function AssignDefaultsDialog({
           {source.from !== "fee" && (
             <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium">
-                Apply To CDA Types <span className="text-destructive">*</span>
+                {form.actionType === "unassign" ? "Remove From CDA Types" : "Apply To CDA Types"} <span className="text-destructive">*</span>
               </Label>
               <DealTypeMultiSelect
                 selectedTypes={form.dealTypes}
                 onChange={(dealTypes) => onFormChange({ dealTypes })}
               />
               <p className="text-xs text-muted-foreground">
-                Dual-side CDA uses buyer plan for buy side and listing plan for sell side.
+                {form.actionType === "unassign" 
+                  ? "Select the transaction types to remove from the selected agents for this plan."
+                  : "Dual-side CDA uses buyer plan for buy side and listing plan for sell side."}
               </p>
             </div>
           )}
@@ -1358,8 +1378,14 @@ function AssignDefaultsDialog({
 
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isAssigning}>Cancel</Button>
-          <Button onClick={onSave} disabled={!isValid || isAssigning}>
-            {isAssigning ? "Saving…" : editMode ? "Update Defaults" : "Assign Defaults"}
+          <Button onClick={onSave} disabled={!isValid || isAssigning} variant={form.actionType === "unassign" ? "destructive" : "default"}>
+            {isAssigning 
+              ? "Saving…" 
+              : form.actionType === "unassign" 
+                ? "Remove Defaults" 
+                : editMode 
+                  ? "Update Defaults" 
+                  : "Assign Defaults"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1841,6 +1867,7 @@ export function CDASettings() {
     wireErrors: {},
   });
     const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
+    const [teamWireSearch, setTeamWireSearch] = useState("");
                   const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
   const currentAgent = agents.find((agent) => agent.id === CURRENT_AGENT_ID) ?? agents[0];
   const unreadWireNotifications = wireStore.notifications.filter((item) => !item.read);
@@ -2157,49 +2184,69 @@ export function CDASettings() {
               <div className="flex flex-col gap-3 mt-4">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-sm font-semibold">Team Agent Wires</h3>
+                  <div className="relative w-[280px]">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search agents..." 
+                      className="pl-9 h-9"
+                      value={teamWireSearch}
+                      onChange={(e) => setTeamWireSearch(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-b">
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Agent Name</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                        <TableHead className="w-[50px] pr-6"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {otherAgents.map(agent => {
-                        const r = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction(`agent-wire-${agent.id}`);
-                        return (
-                          <TableRow key={agent.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                            <TableCell className="pl-6 font-medium text-sm text-foreground">{agent.name}</TableCell>
-                            <TableCell className="text-sm">{r.email || "-"}</TableCell>
-                            <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                            <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
-                            <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
-                            <TableCell className="pr-6 text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="size-8">
-                                    <MoreVertical className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
-                                  <DropdownMenuItem onClick={() => openWireDialog("private", r)}>
-                                    <Edit3 className="size-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                  <ScrollArea className="max-h-[400px]">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                        <TableRow className="hover:bg-transparent border-b">
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Agent Name</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                          <TableHead className="w-[50px] pr-6"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {otherAgents
+                          .filter(agent => agent.name.toLowerCase().includes(teamWireSearch.toLowerCase()))
+                          .map(agent => {
+                          const r = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction(`agent-wire-${agent.id}`);
+                          return (
+                            <TableRow key={agent.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                              <TableCell className="pl-6 font-medium text-sm text-foreground">{agent.name}</TableCell>
+                              <TableCell className="text-sm">{r.email || "-"}</TableCell>
+                              <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                              <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
+                              <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
+                              <TableCell className="pr-6 text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="size-8">
+                                      <MoreVertical className="size-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                                    <DropdownMenuItem onClick={() => openWireDialog("private", r)}>
+                                      <Edit3 className="size-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {otherAgents.filter(agent => agent.name.toLowerCase().includes(teamWireSearch.toLowerCase())).length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                              No agents found matching "{teamWireSearch}"
                             </TableCell>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
                 </Card>
               </div>
             )}
@@ -2304,98 +2351,101 @@ export function CDASettings() {
       setState((current) => {
         let nextAssignments = [...current.defaultAssignments];
 
-        if (source.from === "plan" || effectivePlanId) {
-          const targetSet = new Set(targetAgentIds);
+        if (source.from === "plan" || effectivePlanId || source.from === "bulk" || source.from === "agent") {
           const selectedTypesKeys = Object.keys(form.dealTypes).filter(k => form.dealTypes[k]);
           
           targetAgentIds.forEach(agentId => {
-            // First, remove the overlapping deal types from existing assignments for this agent
-            nextAssignments = nextAssignments.map(assignment => {
-              if (assignment.agentId === agentId && assignment.planId !== effectivePlanId) {
-                const newDealTypes = { ...assignment.dealTypes };
-                selectedTypesKeys.forEach(k => { newDealTypes[k] = false; });
-                return { ...assignment, dealTypes: newDealTypes };
-              }
-              return assignment;
-            }).filter(assignment => {
-              // Keep if it has at least one deal type, OR if it has fees
-              const hasDealTypes = Object.values(assignment.dealTypes).some(v => v);
-              return hasDealTypes || assignment.feeIds.length > 0;
-            });
-
-            // Now, find if there's an exact assignment for this plan already
-            const existingSamePlan = nextAssignments.find(a => a.agentId === agentId && a.planId === effectivePlanId);
-            if (existingSamePlan) {
-              existingSamePlan.dealTypes = { ...existingSamePlan.dealTypes, ...form.dealTypes };
-              existingSamePlan.feeIds = Array.from(new Set([...existingSamePlan.feeIds, ...effectiveFeeIds]));
-              existingSamePlan.applyToActiveDeals = form.applyToActiveDeals;
-            } else {
-              nextAssignments.push({
-                id: crypto.randomUUID(),
-                agentId,
-                planId: effectivePlanId,
-                feeIds: effectiveFeeIds,
-                dealTypes: form.dealTypes,
-                applyToActiveDeals: form.applyToActiveDeals,
+            if (form.actionType === "unassign") {
+              // Unassign logic
+              nextAssignments = nextAssignments.map(assignment => {
+                if (assignment.agentId === agentId && assignment.planId === effectivePlanId) {
+                  const newDealTypes = { ...assignment.dealTypes };
+                  selectedTypesKeys.forEach(k => { newDealTypes[k] = false; });
+                  return { ...assignment, dealTypes: newDealTypes };
+                }
+                return assignment;
+              }).filter(assignment => {
+                const hasDealTypes = Object.values(assignment.dealTypes).some(v => v);
+                return hasDealTypes || assignment.feeIds.length > 0;
               });
+            } else {
+              // Assign logic
+              nextAssignments = nextAssignments.map(assignment => {
+                // If the agent is assigned to a different plan, remove the overlapping deal types
+                if (assignment.agentId === agentId && assignment.planId !== effectivePlanId) {
+                  const newDealTypes = { ...assignment.dealTypes };
+                  selectedTypesKeys.forEach(k => { newDealTypes[k] = false; });
+                  return { ...assignment, dealTypes: newDealTypes };
+                }
+                return assignment;
+              }).filter(assignment => {
+                const hasDealTypes = Object.values(assignment.dealTypes).some(v => v);
+                return hasDealTypes || assignment.feeIds.length > 0;
+              });
+
+              const existingSamePlan = nextAssignments.find(a => a.agentId === agentId && a.planId === effectivePlanId);
+              if (existingSamePlan) {
+                // Only merge the TRUE values so we don't accidentally wipe out unselected types
+                const newDealTypes = { ...existingSamePlan.dealTypes };
+                selectedTypesKeys.forEach(k => { newDealTypes[k] = true; });
+                existingSamePlan.dealTypes = newDealTypes;
+                existingSamePlan.feeIds = Array.from(new Set([...existingSamePlan.feeIds, ...effectiveFeeIds]));
+                existingSamePlan.applyToActiveDeals = form.applyToActiveDeals;
+              } else {
+                // For new assignment, we only set the selected types to true
+                const newDealTypes = { buyer: false, listing: false, referral: false, lease: false, "lease-listing": false };
+                selectedTypesKeys.forEach(k => { (newDealTypes as any)[k] = true; });
+                nextAssignments.push({
+                  id: crypto.randomUUID(),
+                  agentId,
+                  planId: effectivePlanId,
+                  feeIds: effectiveFeeIds,
+                  dealTypes: newDealTypes,
+                  applyToActiveDeals: form.applyToActiveDeals,
+                });
+              }
             }
           });
         } else if (source.from === "fee") {
           const targetSet = new Set(targetAgentIds);
-          nextAssignments = nextAssignments.map((assignment) => {
-            if (targetSet.has(assignment.agentId)) {
-              return {
-                ...assignment,
-                feeIds: Array.from(new Set([...assignment.feeIds, source.feeId])),
-                applyToActiveDeals: form.applyToActiveDeals
-              };
-            }
-            return assignment;
-          });
-          // For agents that have NO assignments at all, create a blank one with just the fee
-          targetAgentIds.forEach(agentId => {
-            if (!nextAssignments.some(a => a.agentId === agentId)) {
-              nextAssignments.push({
-                id: crypto.randomUUID(),
-                agentId,
-                planId: null,
-                feeIds: [source.feeId],
-                dealTypes: { buyer: false, listing: false, referral: false, lease: false, "lease-listing": false },
-                applyToActiveDeals: form.applyToActiveDeals,
-              });
-            }
-          });
-        } else if (source.from === "bulk" || source.from === "agent") {
-          // Same logic as plan, just applying default plan + fees
-          const targetSet = new Set(targetAgentIds);
-          const selectedTypesKeys = Object.keys(form.dealTypes).filter(k => form.dealTypes[k]);
-          
-          targetAgentIds.forEach(agentId => {
-            nextAssignments = nextAssignments.map(assignment => {
-              if (assignment.agentId === agentId && assignment.planId !== effectivePlanId) {
-                const newDealTypes = { ...assignment.dealTypes };
-                selectedTypesKeys.forEach(k => { newDealTypes[k] = false; });
-                return { ...assignment, dealTypes: newDealTypes };
+          if (form.actionType === "unassign") {
+            nextAssignments = nextAssignments.map((assignment) => {
+              if (targetSet.has(assignment.agentId)) {
+                return {
+                  ...assignment,
+                  feeIds: assignment.feeIds.filter(id => id !== source.feeId)
+                };
               }
               return assignment;
-            }).filter(assignment => Object.values(assignment.dealTypes).some(v => v) || assignment.feeIds.length > 0);
-
-            const existingSamePlan = nextAssignments.find(a => a.agentId === agentId && a.planId === effectivePlanId);
-            if (existingSamePlan) {
-              existingSamePlan.dealTypes = { ...existingSamePlan.dealTypes, ...form.dealTypes };
-              existingSamePlan.feeIds = Array.from(new Set([...existingSamePlan.feeIds, ...effectiveFeeIds]));
-              existingSamePlan.applyToActiveDeals = form.applyToActiveDeals;
-            } else {
-              nextAssignments.push({
-                id: crypto.randomUUID(),
-                agentId,
-                planId: effectivePlanId,
-                feeIds: effectiveFeeIds,
-                dealTypes: form.dealTypes,
-                applyToActiveDeals: form.applyToActiveDeals,
-              });
-            }
-          });
+            }).filter(assignment => {
+              const hasDealTypes = Object.values(assignment.dealTypes).some(v => v);
+              return hasDealTypes || assignment.feeIds.length > 0;
+            });
+          } else {
+            nextAssignments = nextAssignments.map((assignment) => {
+              if (targetSet.has(assignment.agentId)) {
+                return {
+                  ...assignment,
+                  feeIds: Array.from(new Set([...assignment.feeIds, source.feeId])),
+                  applyToActiveDeals: form.applyToActiveDeals
+                };
+              }
+              return assignment;
+            });
+            // For agents that have NO assignments at all, create a blank one with just the fee
+            targetAgentIds.forEach(agentId => {
+              if (!nextAssignments.some(a => a.agentId === agentId)) {
+                nextAssignments.push({
+                  id: crypto.randomUUID(),
+                  agentId,
+                  planId: null,
+                  feeIds: [source.feeId],
+                  dealTypes: { buyer: false, listing: false, referral: false, lease: false, "lease-listing": false },
+                  applyToActiveDeals: form.applyToActiveDeals,
+                });
+              }
+            });
+          }
         }
 
         return {
