@@ -800,7 +800,7 @@ export function CommissionBreakdown() {
         );
         if (existing) {
           setWireExternalName(existing.payableName || extName);
-          setWireFormDraft({ ...existing });
+          setWireFormDraft({ ...existing, id: `ext-${extName}`, _oldId: existing.id !== `ext-${extName}` ? existing.id : undefined } as any);
           return;
         }
       }
@@ -833,6 +833,14 @@ export function CommissionBreakdown() {
       currentStore.agentWireInstructions[wireFormAgentId] = updatedRecord;
     } else {
       updatedRecord.payableName = wireExternalName.trim();
+      const draftRecord = updatedRecord as any;
+      if (draftRecord._oldId) {
+        const oldIdx = currentStore.sharedRecipients.findIndex((r) => r.id === draftRecord._oldId);
+        if (oldIdx >= 0) {
+          currentStore.sharedRecipients.splice(oldIdx, 1);
+        }
+        delete draftRecord._oldId;
+      }
       const existingIdx = currentStore.sharedRecipients.findIndex((r) => r.id === updatedRecord.id);
       if (existingIdx >= 0) {
         currentStore.sharedRecipients[existingIdx] = updatedRecord;
