@@ -1130,11 +1130,7 @@ export function CommissionBreakdown() {
               isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-muted hover:bg-muted/80 text-muted-foreground"
             )} 
             onClick={() => {
-              if (!isFilled) {
-                openWireForm("external", undefined, dedName);
-              } else {
-                setWireFormMode("none");
-              }
+              setWireFormMode("none");
               onClick();
             }}
           >

@@ -1981,7 +1981,7 @@ export function CDASettings() {
             <Bell className="text-amber-700" />
             <AlertTitle className="text-amber-900">Team wire instructions incomplete</AlertTitle>
             <AlertDescription className="text-amber-800">
-              Complete brokerage wire instructions. CDA generation should block until payout destination exists.
+              Complete brokerage wire instructions. Commission breakdown generation should block until payout destination exists.
             </AlertDescription>
           </Alert>
         )}
