@@ -3514,20 +3514,6 @@ export function CommissionBreakdown() {
                             </Select>
                           </div>
 
-                          {/* External name (mandatory) */}
-                          {wireFormMode === "external" && (
-                            <div className="flex flex-col gap-1.5">
-                              <Label className="text-sm font-medium">Payable Name <span className="text-destructive">*</span></Label>
-                              <Input
-                                value={wireExternalName}
-                                onChange={(e) => { setWireExternalName(e.target.value); setWireExternalNameError(""); }}
-                                placeholder="e.g., Keller Williams Realty"
-                                className="h-9"
-                              />
-                              {wireExternalNameError && <p className="text-xs text-destructive">{wireExternalNameError}</p>}
-                            </div>
-                          )}
-
                           {/* Agent selector */}
                           {wireFormMode === "agent" && (
                             <div className="flex flex-col gap-1.5 mb-4">
