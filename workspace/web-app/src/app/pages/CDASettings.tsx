@@ -1270,19 +1270,6 @@ function AssignDefaultsDialog({
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
-          {/* Action Toggle for Bulk Updates */}
-          {showAssignTo && source.from !== "fee" && (
-            <Tabs 
-              value={form.actionType} 
-              onValueChange={(v) => onFormChange({ actionType: v as any })}
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="assign">Assign</TabsTrigger>
-                <TabsTrigger value="unassign">Unassign</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
 
           {/* Locked agent summary (Case 3) */}
           {lockedAgent && (
@@ -1344,7 +1331,7 @@ function AssignDefaultsDialog({
           {showAssignTo && (
             <div className="flex flex-col gap-3">
               <Label className="text-sm font-medium">
-                {form.actionType === "unassign" ? "Remove From" : "Assign To"}
+                Assign To
               </Label>
               <AgentMultiSelect
                 selectedAgentIds={form.selectedAgentIds}
@@ -1360,17 +1347,12 @@ function AssignDefaultsDialog({
           {source.from !== "fee" && (
             <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium">
-                {form.actionType === "unassign" ? "Remove From CDA Types" : "Apply To CDA Types"} <span className="text-destructive">*</span>
+                Apply To Commission Breakdown Types <span className="text-destructive">*</span>
               </Label>
               <DealTypeMultiSelect
                 selectedTypes={form.dealTypes}
                 onChange={(dealTypes) => onFormChange({ dealTypes })}
               />
-              <p className="text-xs text-muted-foreground">
-                {form.actionType === "unassign" 
-                  ? "Select the transaction types to remove from the selected agents for this plan."
-                  : "Dual-side CDA uses buyer plan for buy side and listing plan for sell side."}
-              </p>
             </div>
           )}
 
@@ -1378,14 +1360,12 @@ function AssignDefaultsDialog({
 
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isAssigning}>Cancel</Button>
-          <Button onClick={onSave} disabled={!isValid || isAssigning} variant={form.actionType === "unassign" ? "destructive" : "default"}>
+          <Button onClick={onSave} disabled={!isValid || isAssigning} variant="default">
             {isAssigning 
               ? "Saving…" 
-              : form.actionType === "unassign" 
-                ? "Remove Defaults" 
-                : editMode 
-                  ? "Update Defaults" 
-                  : "Assign Defaults"}
+              : editMode 
+                ? "Update Defaults" 
+                : "Assign Defaults"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1835,7 +1815,7 @@ export function CDASettings() {
     overwriteAssignDefaults: boolean;
     pendingAssignmentSave: (() => void) | null;
     wireDraft: WireInstructionRecord | null;
-    wireType: "team" | "shared" | "private" | null;
+    wireType: "team" | "shared" | "private" | "private_recipient" | null;
     wireErrors: WireValidationErrors;
   }>({
     plans: seedPlans,
@@ -1867,8 +1847,9 @@ export function CDASettings() {
     wireErrors: {},
   });
     const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
-    const [teamWireSearch, setTeamWireSearch] = useState("");
-                  const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
+  const [searchQuery, setSearchQuery] = useState("");
+  const [privateRecipientSearch, setPrivateRecipientSearch] = useState("");
+  const teamLeadAgent = agents.find((agent) => agent.id === CURRENT_TEAM_LEAD_ID) ?? agents[0];
   const currentAgent = agents.find((agent) => agent.id === CURRENT_AGENT_ID) ?? agents[0];
   const unreadWireNotifications = wireStore.notifications.filter((item) => !item.read);
 
@@ -1923,6 +1904,23 @@ export function CDASettings() {
       } else {
         nextStore.sharedRecipients.push({ ...nextRecord, id: crypto.randomUUID() });
       }
+    } else if (state.wireType === "private_recipient") {
+      const privateRecips = nextStore.privateRecipients[CURRENT_AGENT_ID] || [];
+      const draftRecord = nextRecord as any;
+      if (draftRecord._oldId) {
+        const oldIdx = privateRecips.findIndex((r) => r.id === draftRecord._oldId);
+        if (oldIdx >= 0) {
+          privateRecips.splice(oldIdx, 1);
+        }
+        delete draftRecord._oldId;
+      }
+      const existingIdx = privateRecips.findIndex((r) => r.id === nextRecord.id);
+      if (existingIdx >= 0) {
+        privateRecips[existingIdx] = nextRecord;
+      } else {
+        privateRecips.push(nextRecord);
+      }
+      nextStore.privateRecipients[CURRENT_AGENT_ID] = privateRecips;
     } else if (state.wireType === "private") {
       const previousRecord = nextStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction();
       const wasComplete = isWireInstructionComplete(previousRecord, options);
@@ -1965,7 +1963,7 @@ export function CDASettings() {
     toast.success(`${state.wireType === "team" ? "Team" : state.wireType === "shared" ? "Shared" : "Private"} wire instructions saved`);
   }
 
-  function openWireDialog(type: "team" | "shared" | "private", record?: WireInstructionRecord) {
+  function openWireDialog(type: "team" | "shared" | "private" | "private_recipient", record?: WireInstructionRecord) {
     let draft = record;
     if (!draft) {
       if (type === "team") draft = wireStore.teamWireInstructions;
@@ -2180,76 +2178,80 @@ export function CDASettings() {
               </Card>
             </div>
 
-            {userRole === "team_lead" && otherAgents.length > 0 && (
-              <div className="flex flex-col gap-3 mt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-semibold">Team Agent Wires</h3>
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-semibold">Private Recipients</h3>
+                <div className="flex items-center gap-3">
                   <div className="relative w-[280px]">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      placeholder="Search agents..." 
+                      placeholder="Search recipients..." 
                       className="pl-9 h-9"
-                      value={teamWireSearch}
-                      onChange={(e) => setTeamWireSearch(e.target.value)}
+                      value={privateRecipientSearch}
+                      onChange={(e) => setPrivateRecipientSearch(e.target.value)}
                     />
                   </div>
+                  <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary h-9" onClick={() => openWireDialog("private_recipient")}>
+                    <Plus className="size-4 mr-1" /> Instructions
+                  </Button>
                 </div>
-                <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
-                  <ScrollArea className="max-h-[400px]">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                        <TableRow className="hover:bg-transparent border-b">
-                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Agent Name</TableHead>
-                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
-                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                          <TableHead className="w-[50px] pr-6"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {otherAgents
-                          .filter(agent => agent.name.toLowerCase().includes(teamWireSearch.toLowerCase()))
-                          .map(agent => {
-                          const r = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction(`agent-wire-${agent.id}`);
-                          return (
-                            <TableRow key={agent.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                              <TableCell className="pl-6 font-medium text-sm text-foreground">{agent.name}</TableCell>
-                              <TableCell className="text-sm">{r.email || "-"}</TableCell>
-                              <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                              <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
-                              <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
-                              <TableCell className="pr-6 text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="size-8">
-                                      <MoreVertical className="size-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
-                                    <DropdownMenuItem onClick={() => openWireDialog("private", r)}>
-                                      <Edit3 className="size-4 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                        {otherAgents.filter(agent => agent.name.toLowerCase().includes(teamWireSearch.toLowerCase())).length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                              No agents found matching "{teamWireSearch}"
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </Card>
               </div>
-            )}
+              {(wireStore.privateRecipients[CURRENT_AGENT_ID] || []).length === 0 ? (
+                <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
+                  <p>No private recipients yet. Add vendors or escrow companies here.</p>
+                </div>
+              ) : (
+                <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b">
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                        <TableHead className="w-[50px] pr-6"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(wireStore.privateRecipients[CURRENT_AGENT_ID] || [])
+                        .filter(r => (r.accountHolderName || r.payableName || "").toLowerCase().includes(privateRecipientSearch.toLowerCase()))
+                        .map((r) => (
+                        <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                          <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || r.payableName || "Unnamed Recipient"}</TableCell>
+                          <TableCell className="text-sm">{r.email || "-"}</TableCell>
+                          <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                          <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
+                          <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
+                          <TableCell className="pr-6 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="size-8">
+                                  <MoreVertical className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                                <DropdownMenuItem onClick={() => openWireDialog("private_recipient", r)}>
+                                  <Edit3 className="size-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(wireStore.privateRecipients[CURRENT_AGENT_ID] || []).filter(r => (r.accountHolderName || r.payableName || "").toLowerCase().includes(privateRecipientSearch.toLowerCase())).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                            No private recipients found matching "{privateRecipientSearch}"
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </section>

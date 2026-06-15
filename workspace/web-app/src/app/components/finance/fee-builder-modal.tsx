@@ -281,7 +281,7 @@ export function FeeBuilderModal({
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className={`grid gap-4 ${hideTimingField ? "grid-cols-2" : "grid-cols-3"}`}>
               {!hideTimingField && (
                 <div className="space-y-1.5">
                   <Label>When Applied</Label>

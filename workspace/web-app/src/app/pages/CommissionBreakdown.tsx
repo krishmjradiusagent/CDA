@@ -783,8 +783,11 @@ export function CommissionBreakdown() {
   const [wireExternalNameError, setWireExternalNameError] = useState("");
   const [wireFormAgentId, setWireFormAgentId] = useState<string>("");
   const [wireStoreVersion, setWireStoreVersion] = useState(0);
+  const [wireSelectionMode, setWireSelectionMode] = useState<string | undefined>(undefined);
+
   function openWireForm(mode: "team" | "agent" | "external", agentIdOverride?: string, externalNameOverride?: string) {
     setWireFormMode(mode);
+    setWireSelectionMode(undefined);
     setWireFormErrors({});
     if (mode === "team") {
       setWireFormDraft({ ...wireStore.teamWireInstructions });
@@ -795,7 +798,7 @@ export function CommissionBreakdown() {
     } else {
       const extName = externalNameOverride ?? "";
       if (extName) {
-        const existing = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
+        const existing = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients || {}).flat()].find(
           (r) => r.id === `ext-${extName}` || (r.payableName?.toLowerCase() === extName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === extName.toLowerCase())
         );
         if (existing) {
@@ -928,6 +931,8 @@ export function CommissionBreakdown() {
 
   // New dedicated popup for Credits / Referrals (simplified)
   const [showCreditReferralDialog, setShowCreditReferralDialog] = useState(false);
+  const [creditPayableTo, setCreditPayableTo] = useState("external");
+  const [creditPayableName, setCreditPayableName] = useState("");
   const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
   const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
   // Keep retired hooks stable for dev fast-refresh on this page.
@@ -1119,7 +1124,7 @@ export function CommissionBreakdown() {
   const allAuditorWiresComplete = incompleteWirePartyNames.length === 0;
 
   const checkDeductionWireStatus = (dedName: string) => {
-    const matching = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
+    const matching = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients || {}).flat()].find(
       (r) => r.id === `ext-${dedName}` || (r.payableName?.toLowerCase() === dedName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === dedName.toLowerCase())
     );
     return matching ? isWireInstructionComplete(matching, { requireBankDetails: true }) : false;
@@ -1157,6 +1162,24 @@ export function CommissionBreakdown() {
   };
 
 
+
+  const allSavedWires = useMemo(() => {
+    const raw = [
+      ...wireStore.sharedRecipients,
+      ...Object.values(wireStore.privateRecipients || {}).flat(),
+      ...Object.values(wireStore.agentWireInstructions),
+      wireStore.teamWireInstructions
+    ].filter(r => r && r.updatedAt);
+    
+    const unique = new Map();
+    for (const item of raw) {
+      const id = String(item.id || `fallback-id-${Math.random()}`);
+      if (!unique.has(id)) {
+        unique.set(id, { ...item, id });
+      }
+    }
+    return Array.from(unique.values());
+  }, [wireStore]);
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -2875,30 +2898,49 @@ export function CommissionBreakdown() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 px-6 py-5 text-sm">
-            <div>
-              <Label className="text-xs">Description</Label>
-              <Input placeholder="Referral fee - John Smith" className="mt-1.5" />
-            </div>
+            <div className="space-y-4 px-6 py-5 text-sm">
+              <div>
+                <Label className="text-xs">Description</Label>
+                <Input placeholder="Referral fee - John Smith" className="mt-1.5" />
+              </div>
 
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Amount</Label>
                 <Input placeholder="500" className="mt-1.5" />
               </div>
-              <div>
-                <Label className="text-xs">Payable To</Label>
-                <Select defaultValue="external">
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="radius">Radius</SelectItem>
-                    <SelectItem value="team">Team</SelectItem>
-                    <SelectItem value="external">External / Referral</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Payable To</Label>
+                  <Select value={creditPayableTo} onValueChange={setCreditPayableTo}>
+                    <SelectTrigger className="mt-1.5 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="radius">Radius</SelectItem>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="external">External / Referral</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Payable Name</Label>
+                  {creditPayableTo === "external" ? (
+                    <Input 
+                      placeholder="e.g., Keller Williams Realty" 
+                      className="mt-1.5"
+                      value={creditPayableName}
+                      onChange={(e) => setCreditPayableName(e.target.value)}
+                    />
+                  ) : (
+                    <Input 
+                      className="mt-1.5 bg-muted/50 text-muted-foreground cursor-not-allowed border-dashed"
+                      value={creditPayableTo === "radius" ? "Radius" : "Brokerage"}
+                      readOnly
+                      disabled
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
           <DialogFooter className="border-t px-6 py-4">
             <Button variant="outline" onClick={() => setShowCreditReferralDialog(false)}>Cancel</Button>
@@ -3442,13 +3484,13 @@ export function CommissionBreakdown() {
 
                       {/* Agent selector */}
                       {wireFormMode === "agent" && (
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-col gap-1.5 mb-4">
                           <Label className="text-sm font-medium">Select Agent</Label>
                           <Select
                             value={wireFormAgentId}
                             onValueChange={(id) => {
                               setWireFormAgentId(id);
-                              setWireFormDraft({ ...(wireStore.agentWireInstructions[id] ?? createEmptyWireInstruction()) });
+                              setWireSelectionMode(undefined);
                               setWireFormErrors({});
                             }}
                           >
@@ -3456,15 +3498,52 @@ export function CommissionBreakdown() {
                               <SelectValue placeholder="Choose agent" />
                             </SelectTrigger>
                             <SelectContent>
-                              {sidesData.flatMap((s) => s.agents).filter((a) => !a.external).map((agent) => (
-                                <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                              {Array.from(new Map(sidesData.flatMap((s) => s.agents).filter((a) => !a.external).map(a => [a.id, a])).values()).map((agent) => (
+                                <SelectItem key={agent.id} value={agent.id || `agent-${Math.random()}`}>{agent.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
                       )}
 
-                      <Separator />
+                      <div className="flex flex-col gap-1.5 mb-4">
+                        <Label className="text-sm font-medium">Instruction Source</Label>
+                        <Select 
+                          value={wireSelectionMode} 
+                          onValueChange={(v) => {
+                            setWireSelectionMode(v);
+                            setWireFormErrors({});
+                            if (v === "manual") {
+                              const d = createEmptyWireInstruction(wireFormMode === "external" ? `ext-${wireExternalName}` : undefined);
+                              d.payableName = wireExternalName;
+                              d.accountHolderName = wireFormMode === "team" ? "Brokerage" : wireFormMode === "agent" ? (sidesData.flatMap((s) => s.agents).find(a => a.id === wireFormAgentId)?.name || "") : wireExternalName;
+                              setWireFormDraft(d);
+                            } else if (v) {
+                              const match = allSavedWires.find(r => r.id === v);
+                              if (match) {
+                                setWireFormDraft({...match, id: wireFormDraft.id, _oldId: match.id, payableName: wireExternalName} as any);
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="Select existing or manually enter" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manually enter (+)</SelectItem>
+                            {allSavedWires.length > 0 && <SelectGroup>
+                              <SelectLabel>Existing Instructions</SelectLabel>
+                              {allSavedWires.map(r => (
+                                <SelectItem key={r.id} value={r.id}>{r.payableName || r.accountHolderName || r.bankName}</SelectItem>
+                              ))}
+                            </SelectGroup>}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {wireSelectionMode !== undefined && (
+                        <>
+                          <Separator />
 
                       {/* Recipient */}
                       <div className="flex flex-col gap-1.5">
@@ -3584,11 +3663,13 @@ export function CommissionBreakdown() {
                         <Label className="text-xs font-medium">Special Instructions / Memo</Label>
                         <Textarea value={wireFormDraft.specialInstructions} onChange={(e) => setWireFormDraft((d) => ({ ...d, specialInstructions: e.target.value }))} className="min-h-[60px] text-sm" placeholder="Optional memo or reference" />
                       </div>
+                    </>
+                  )}
 
                       {/* Save */}
                       <div className="flex items-center justify-end gap-2 pt-1">
                         <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => setWireFormMode("none")}>Cancel</Button>
-                        <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={saveWireForm}>Save Wire Instructions</Button>
+                        <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Wire Instructions</Button>
                       </div>
                     </div>
                   </CardContent>
