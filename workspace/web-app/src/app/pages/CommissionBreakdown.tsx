@@ -25,6 +25,7 @@ import {
   Activity,
   AtSign,
   Check,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -812,7 +813,7 @@ export function CommissionBreakdown() {
       return;
     }
     const requireCda = wireFormMode === "team";
-    const errors = validateWireInstruction(wireFormDraft, { requireCdaType: requireCda });
+    const errors = validateWireInstruction(wireFormDraft, { requireBankDetails: true, requireCdaType: requireCda });
     if (Object.keys(errors).length > 0) {
       setWireFormErrors(errors);
       return;
@@ -1127,14 +1128,14 @@ export function CommissionBreakdown() {
             type="button" 
             className={cn(
               "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
-              isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-amber-100 hover:bg-amber-200 text-amber-700"
+              isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-[#5A5FF2]/10 hover:bg-[#5A5FF2]/20 text-[#5A5FF2]"
             )} 
             onClick={() => {
               setWireFormMode("none");
               onClick();
             }}
           >
-            {isFilled ? <Check className="size-4" /> : <Landmark className="size-4" />}
+            {isFilled ? <CheckCircle2 className="size-4" /> : <Landmark className="size-4" />}
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">
@@ -3380,7 +3381,7 @@ export function CommissionBreakdown() {
                 </div>
               )}
               
-              {wireFormMode === "none" && auditorWireParties.length > 0 && (
+              {wireFormMode === "none" && !wireStore.teamWireInstructions?.updatedAt && auditorWireParties.length > 0 && (
                 <div className="flex justify-end">
                   <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={() => openWireForm("team")}>
                     <Plus className="size-3.5 mr-1.5" />
@@ -3456,7 +3457,7 @@ export function CommissionBreakdown() {
 
                       {/* Recipient */}
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Recipient / Account Holder Name</Label>
+                        <Label className="text-xs font-medium">Recipient / Account Holder Name <span className="text-destructive">*</span></Label>
                         <Input value={wireFormDraft.accountHolderName} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountHolderName: e.target.value }))} className="h-9 text-sm" placeholder="Full legal name" />
                         {wireFormErrors.accountHolderName && <p className="text-[11px] text-destructive">{wireFormErrors.accountHolderName}</p>}
                       </div>
@@ -3497,18 +3498,18 @@ export function CommissionBreakdown() {
 
                       {/* Banking */}
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Bank Name</Label>
+                        <Label className="text-xs font-medium">Bank Name <span className="text-destructive">*</span></Label>
                         <Input value={wireFormDraft.bankName} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankName: e.target.value }))} className="h-9 text-sm" placeholder="e.g., Chase Bank" />
                         {wireFormErrors.bankName && <p className="text-[11px] text-destructive">{wireFormErrors.bankName}</p>}
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Routing Number (ABA)</Label>
+                          <Label className="text-xs font-medium">Routing Number (ABA) <span className="text-destructive">*</span></Label>
                           <Input value={wireFormDraft.routingNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, routingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) }))} className="h-9 text-sm font-mono" placeholder="9 digits" inputMode="numeric" maxLength={9} />
                           {wireFormErrors.routingNumber && <p className="text-[11px] text-destructive">{wireFormErrors.routingNumber}</p>}
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Account Number</Label>
+                          <Label className="text-xs font-medium">Account Number <span className="text-destructive">*</span></Label>
                           <Input value={wireFormDraft.accountNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountNumber: e.target.value }))} className="h-9 text-sm font-mono" placeholder="Account number" />
                           {wireFormErrors.accountNumber && <p className="text-[11px] text-destructive">{wireFormErrors.accountNumber}</p>}
                         </div>
@@ -3526,7 +3527,7 @@ export function CommissionBreakdown() {
                         </div>
                         {wireFormMode === "team" && (
                           <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs font-medium">CDA Type</Label>
+                            <Label className="text-xs font-medium">CDA Type <span className="text-destructive">*</span></Label>
                             <Select value={wireFormDraft.cdaType} onValueChange={(v) => setWireFormDraft((d) => ({ ...d, cdaType: v as CDAType }))}>
                               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select CDA type" /></SelectTrigger>
                               <SelectContent>
@@ -3545,23 +3546,23 @@ export function CommissionBreakdown() {
 
                       {/* Address */}
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Bank Street Address</Label>
+                        <Label className="text-xs font-medium">Bank Street Address <span className="text-destructive">*</span></Label>
                         <Input value={wireFormDraft.bankStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
                         {wireFormErrors.bankStreet && <p className="text-[11px] text-destructive">{wireFormErrors.bankStreet}</p>}
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">City</Label>
+                          <Label className="text-xs font-medium">City <span className="text-destructive">*</span></Label>
                           <Input value={wireFormDraft.bankCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
                           {wireFormErrors.bankCity && <p className="text-[11px] text-destructive">{wireFormErrors.bankCity}</p>}
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">State</Label>
+                          <Label className="text-xs font-medium">State <span className="text-destructive">*</span></Label>
                           <Input value={wireFormDraft.bankState} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
                           {wireFormErrors.bankState && <p className="text-[11px] text-destructive">{wireFormErrors.bankState}</p>}
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">ZIP</Label>
+                          <Label className="text-xs font-medium">ZIP <span className="text-destructive">*</span></Label>
                           <Input value={wireFormDraft.bankZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
                           {wireFormErrors.bankZip && <p className="text-[11px] text-destructive">{wireFormErrors.bankZip}</p>}
                         </div>
