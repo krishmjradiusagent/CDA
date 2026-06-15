@@ -10,6 +10,10 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
+import { Checkbox } from "../ui/checkbox";
+import { ScrollArea } from "../ui/scroll-area";
+import { Plus, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -39,6 +43,9 @@ export interface FeeTypeDraft {
   slidingScale: boolean;
   tiers: FeeTier[];
   contributesToCap: boolean;
+  notLessThan: { enabled: boolean; amount: string };
+  notToExceed: { enabled: boolean; amount: string };
+  visibleOnCda?: boolean;
 }
 
 export type ExistingFeeOption = FeeTypeDraft & { id: string };
@@ -79,7 +86,48 @@ function makeDraft(initial?: Partial<FeeTypeDraft>): FeeTypeDraft {
     slidingScale: initial?.slidingScale ?? false,
     tiers: initial?.tiers ?? [],
     contributesToCap: initial?.contributesToCap ?? false,
+    notLessThan: initial?.notLessThan ?? { enabled: false, amount: "" },
+    notToExceed: initial?.notToExceed ?? { enabled: false, amount: "" },
+    visibleOnCda: initial?.visibleOnCda ?? false,
   };
+}
+
+
+function TierRows({ draft, onDraftChange }: { draft: FeeTypeDraft; onDraftChange: (next: FeeTypeDraft) => void; }) {
+  const [flashTierId, setFlashTierId] = useState<string | null>(null);
+  function updateTier(tierId: string, patch: Partial<FeeTier>) {
+    onDraftChange({ ...draft, tiers: draft.tiers.map((t) => (t.id === tierId ? { ...t, ...patch } : t)) });
+  }
+  function addTier() {
+    const newTier: FeeTier = { id: crypto.randomUUID(), from: "", to: "", fee: "" };
+    onDraftChange({ ...draft, tiers: [...draft.tiers, newTier] });
+    setFlashTierId(newTier.id);
+    window.setTimeout(() => setFlashTierId(null), 600);
+  }
+  function removeTier(tierId: string) {
+    onDraftChange({ ...draft, tiers: draft.tiers.filter((t) => t.id !== tierId) });
+  }
+  return (
+    <div className="space-y-2">
+      <ScrollArea className="max-h-[200px]">
+        <div className="space-y-2">
+          {draft.tiers.map((tier) => (
+            <div key={tier.id} className={`grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-md border p-2 transition-all duration-300 ${flashTierId === tier.id ? "bg-primary/10" : "bg-background"}`}>
+              <div className="relative"><Input className="h-9 text-xs" placeholder="Over" value={tier.from} onChange={(e) => updateTier(tier.id, { from: e.target.value })} /></div>
+              <div className="relative"><Input className="h-9 text-xs" placeholder="Up to" value={tier.to} onChange={(e) => updateTier(tier.id, { to: e.target.value })} /></div>
+              <div className="relative">
+                {draft.type === "flat" && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>}
+                <Input className={`h-9 text-xs ${draft.type === "flat" ? "pl-6" : "pr-6"}`} placeholder={draft.type === "flat" ? "0.00" : "0"} inputMode="decimal" value={tier.fee} onChange={(e) => updateTier(tier.id, { fee: e.target.value })} />
+                {draft.type === "percentage" && <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>}
+              </div>
+              <Button variant="ghost" size="icon" className="size-9 text-muted-foreground transition-opacity hover:text-foreground" onClick={() => removeTier(tier.id)}><X className="size-4" /></Button>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+      <Button variant="outline" size="sm" onClick={addTier} className="w-full"><Plus className="size-4" /> Add Tier</Button>
+    </div>
+  );
 }
 
 export function FeeBuilderModal({
@@ -145,7 +193,7 @@ export function FeeBuilderModal({
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -164,7 +212,7 @@ export function FeeBuilderModal({
               <Label htmlFor="fee-name">Fee Name</Label>
               <Input
                 id="fee-name"
-                className="h-10 w-full"
+                className="h-10"
                 placeholder="e.g., Transaction Coordinator Fee"
                 value={draft.name}
                 onChange={(e) => update("name", e.target.value)}
@@ -178,7 +226,7 @@ export function FeeBuilderModal({
                   value={draft.type}
                   onValueChange={(v) => update("type", v as FeeTypeDraft["type"])}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -197,7 +245,7 @@ export function FeeBuilderModal({
                     </span>
                   )}
                   <Input
-                    className={`h-10 w-full ${draft.type === "flat" ? "pl-7" : "pr-8"}`}
+                    className={`h-10 ${draft.type === "flat" ? "pl-7" : "pr-8"}`}
                     inputMode="decimal"
                     placeholder={draft.type === "flat" ? "495" : "2.5"}
                     value={draft.amount}
@@ -219,7 +267,7 @@ export function FeeBuilderModal({
                   value={draft.percentageBase}
                   onValueChange={(v) => update("percentageBase", v as PercentageBase)}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -233,7 +281,7 @@ export function FeeBuilderModal({
               </div>
             )}
 
-            <div className={`grid gap-4 ${hideTimingField ? "grid-cols-2" : "grid-cols-3"}`}>
+            <div className="grid grid-cols-3 gap-4">
               {!hideTimingField && (
                 <div className="space-y-1.5">
                   <Label>When Applied</Label>
@@ -241,7 +289,7 @@ export function FeeBuilderModal({
                     value={draft.timing}
                     onValueChange={(v) => update("timing", v as FeeTypeDraft["timing"])}
                   >
-                    <SelectTrigger className="h-10 w-full">
+                    <SelectTrigger className="h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -258,7 +306,7 @@ export function FeeBuilderModal({
                   value={draft.appliesToMode}
                   onValueChange={(v) => update("appliesToMode", v as FeeTypeDraft["appliesToMode"])}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -275,7 +323,7 @@ export function FeeBuilderModal({
                   value={draft.coAgentSplitMode ?? "split-equally"}
                   onValueChange={(v) => update("coAgentSplitMode", v as FeeTypeDraft["coAgentSplitMode"])}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -293,7 +341,7 @@ export function FeeBuilderModal({
                   value={draft.payableToType ?? "radius"}
                   onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
                 >
-                  <SelectTrigger className="h-10 w-full">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -313,7 +361,7 @@ export function FeeBuilderModal({
                     value={draft.payableToExternalId ?? ""}
                     onValueChange={handleExternalPayee}
                   >
-                    <SelectTrigger className="h-10 w-full">
+                    <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select external payee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -325,12 +373,58 @@ export function FeeBuilderModal({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="flex h-10 w-full items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+                  <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
                     {draft.payableToName ?? ""}
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Sliding Scale — full row */}
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label htmlFor="sliding-scale" className="text-sm">Sliding Scale</Label>
+                <p className="text-xs text-muted-foreground">Enable tiered fee values.</p>
+              </div>
+              <Switch id="sliding-scale" checked={draft.slidingScale} onCheckedChange={(checked) => update("slidingScale", checked)} />
+            </div>
+
+            {/* Sliding Scale inline section */}
+            {draft.slidingScale && (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <TierRows draft={draft} onDraftChange={setDraft} />
+                
+                {/* Cap constraints */}
+                <div className="flex items-center gap-4 pt-1">
+                  <div className="flex flex-1 items-center gap-2">
+                    <Checkbox id="not-less-than" checked={draft.notLessThan.enabled} onCheckedChange={(c) => update("notLessThan", { ...draft.notLessThan, enabled: Boolean(c) })} />
+                    <Label htmlFor="not-less-than" className="text-sm font-normal text-muted-foreground whitespace-nowrap">Not less than</Label>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input className="h-9 pl-7 text-sm" value={draft.notLessThan.amount} inputMode="decimal" disabled={!draft.notLessThan.enabled} onChange={(e) => update("notLessThan", { ...draft.notLessThan, amount: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="flex flex-1 items-center gap-2">
+                    <Checkbox id="not-to-exceed" checked={draft.notToExceed.enabled} onCheckedChange={(c) => update("notToExceed", { ...draft.notToExceed, enabled: Boolean(c) })} />
+                    <Label htmlFor="not-to-exceed" className="text-sm font-normal text-muted-foreground whitespace-nowrap">Not to exceed</Label>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <Input className="h-9 pl-7 text-sm" value={draft.notToExceed.amount} inputMode="decimal" disabled={!draft.notToExceed.enabled} onChange={(e) => update("notToExceed", { ...draft.notToExceed, amount: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Contributes to Cap */}
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label htmlFor="contributes-cap" className="text-sm">Contributes to Cap</Label>
+                <p className="text-xs text-muted-foreground truncate">Count toward cap.</p>
+              </div>
+              <Switch id="contributes-cap" checked={draft.contributesToCap} onCheckedChange={(checked) => update("contributesToCap", checked)} />
+            </div>
+
           </div>
         </div>
 

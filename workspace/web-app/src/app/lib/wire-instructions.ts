@@ -7,6 +7,7 @@ export type CDAType =
 
 export type WireInstructionRecord = {
   id: string;
+  payableName?: string;
   accountHolderName: string;
   email: string;
   phone: string;
@@ -65,11 +66,12 @@ type WireValidationOptions = {
   requireBankDetails?: boolean;
 };
 
-export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v1";
+export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v2";
 
 export function createEmptyWireInstruction(id?: string): WireInstructionRecord {
   return {
     id: id ?? crypto.randomUUID(),
+    payableName: "",
     accountHolderName: "",
     email: "",
     phone: "",
@@ -114,14 +116,13 @@ export function validateWireInstruction(record: WireInstructionRecord, options: 
   if (!record.accountHolderName.trim()) errors.accountHolderName = "Account holder required";
   
   if (enforceBankDetails) {
-    // Bank details are optional per new requirements. Only name is required.
-    // if (!record.bankName.trim()) errors.bankName = "Bank name required";
-    // if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
-    // if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
-    // if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
-    // if (!record.bankCity.trim()) errors.bankCity = "City required";
-    // if (!record.bankState.trim()) errors.bankState = "State required";
-    // if (!record.bankZip.trim()) errors.bankZip = "ZIP required";
+    if (!record.bankName.trim()) errors.bankName = "Bank name required";
+    if (!/^\d{9}$/.test(record.routingNumber.trim())) errors.routingNumber = "Routing number must be 9 digits";
+    if (!record.accountNumber.trim()) errors.accountNumber = "Account number required";
+    if (!record.bankStreet.trim()) errors.bankStreet = "Street required";
+    if (!record.bankCity.trim()) errors.bankCity = "City required";
+    if (!record.bankState.trim()) errors.bankState = "State required";
+    if (!record.bankZip.trim()) errors.bankZip = "ZIP required";
   }
 
   if (options.requireCdaType && !record.cdaType) errors.cdaType = "CDA type required";

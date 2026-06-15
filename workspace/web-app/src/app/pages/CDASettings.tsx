@@ -1339,33 +1339,21 @@ function AssignDefaultsDialog({
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">
-              Apply To CDA Types <span className="text-destructive">*</span>
-            </Label>
-            <DealTypeMultiSelect
-              selectedTypes={form.dealTypes}
-              onChange={(dealTypes) => onFormChange({ dealTypes })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Dual-side CDA uses buyer plan for buy side and listing plan for sell side.
-            </p>
-          </div>
-
-          {/* Active Deals */}
-          <div className="flex items-start justify-between gap-4 rounded-md border px-4 py-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="active-deals" className="text-sm font-medium">Apply to under contract deals</Label>
+          {source.from !== "fee" && (
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium">
+                Apply To CDA Types <span className="text-destructive">*</span>
+              </Label>
+              <DealTypeMultiSelect
+                selectedTypes={form.dealTypes}
+                onChange={(dealTypes) => onFormChange({ dealTypes })}
+              />
               <p className="text-xs text-muted-foreground">
-                Recalculates CDA forecasts for active transactions.
+                Dual-side CDA uses buyer plan for buy side and listing plan for sell side.
               </p>
             </div>
-            <Switch
-              id="active-deals"
-              checked={form.applyToActiveDeals}
-              onCheckedChange={(checked) => onFormChange({ applyToActiveDeals: checked })}
-            />
-          </div>
+          )}
+
         </div>
 
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
@@ -2317,7 +2305,8 @@ export function CDASettings() {
             if (targetSet.has(assignment.agentId)) {
               return {
                 ...assignment,
-                feeIds: Array.from(new Set([...assignment.feeIds, source.feeId]))
+                feeIds: Array.from(new Set([...assignment.feeIds, source.feeId])),
+                applyToActiveDeals: form.applyToActiveDeals
               };
             }
             return assignment;
@@ -2331,7 +2320,7 @@ export function CDASettings() {
                 planId: null,
                 feeIds: [source.feeId],
                 dealTypes: { buyer: false, listing: false, referral: false, lease: false, "lease-listing": false },
-                applyToActiveDeals: false,
+                applyToActiveDeals: form.applyToActiveDeals,
               });
             }
           });

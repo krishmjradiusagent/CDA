@@ -24,6 +24,7 @@ import {
   Calendar,
   Activity,
   AtSign,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -781,11 +782,9 @@ export function CommissionBreakdown() {
   const [wireExternalNameError, setWireExternalNameError] = useState("");
   const [wireFormAgentId, setWireFormAgentId] = useState<string>("");
   const [wireStoreVersion, setWireStoreVersion] = useState(0);
-  function openWireForm(mode: "team" | "agent" | "external", agentIdOverride?: string) {
+  function openWireForm(mode: "team" | "agent" | "external", agentIdOverride?: string, externalNameOverride?: string) {
     setWireFormMode(mode);
     setWireFormErrors({});
-    setWireExternalName("");
-    setWireExternalNameError("");
     if (mode === "team") {
       setWireFormDraft({ ...wireStore.teamWireInstructions });
     } else if (mode === "agent") {
@@ -793,7 +792,18 @@ export function CommissionBreakdown() {
       setWireFormAgentId(firstAgentId);
       setWireFormDraft({ ...(wireStore.agentWireInstructions[firstAgentId] ?? createEmptyWireInstruction()) });
     } else {
-      setWireFormDraft(createEmptyWireInstruction());
+      const extName = externalNameOverride ?? "";
+      setWireExternalName(extName);
+      if (extName) {
+        const existing = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
+          (r) => (r.payableName?.toLowerCase() === extName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === extName.toLowerCase())
+        );
+        if (existing) {
+          setWireFormDraft({ ...existing });
+          return;
+        }
+      }
+      setWireFormDraft({ ...createEmptyWireInstruction(), accountHolderName: extName, payableName: extName });
     }
   }
   function saveWireForm() {
@@ -820,8 +830,15 @@ export function CommissionBreakdown() {
     } else if (wireFormMode === "agent") {
       currentStore.agentWireInstructions[wireFormAgentId] = updatedRecord;
     } else {
-      const extId = `ext-wire-${Date.now()}`;
-      currentStore.agentWireInstructions[extId] = updatedRecord;
+      updatedRecord.payableName = wireExternalName.trim();
+      const existingIdx = currentStore.sharedRecipients.findIndex(
+        (r) => (r.payableName?.toLowerCase() === updatedRecord.payableName?.toLowerCase()) || (r.accountHolderName.toLowerCase() === updatedRecord.accountHolderName.toLowerCase())
+      );
+      if (existingIdx >= 0) {
+        currentStore.sharedRecipients[existingIdx] = updatedRecord;
+      } else {
+        currentStore.sharedRecipients.push(updatedRecord);
+      }
     }
     writeWireInstructionsStore(currentStore);
     setWireStoreVersion((v) => v + 1);
@@ -1046,17 +1063,48 @@ export function CommissionBreakdown() {
     wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(),
   );
   const auditorWireParties = useMemo(() => {
-    // Only include Team by default. Agents should be added manually via "+ Add wire instruction"
-    const parties = [
-      {
+    const parties: any[] = [];
+
+    if (wireStore.teamWireInstructions?.updatedAt) {
+      parties.push({
         id: "team",
         name: `${sidesData.find((side) => side.id === "listing")?.subline ?? "Brokerage"} - Team`,
         roleLabel: "Team",
         detailLabel: "Brokerage wire instructions",
         complete: teamWireComplete,
         record: wireStore.teamWireInstructions,
-      },
-    ];
+      });
+    }
+
+    Object.keys(wireStore.agentWireInstructions).forEach((agentId) => {
+      const record = wireStore.agentWireInstructions[agentId];
+      if (record?.updatedAt) {
+        const agentName = sidesData.flatMap((s) => s.agents).find((a) => a.id === agentId)?.name ?? "Agent";
+        parties.push({
+          id: `agent-${agentId}`,
+          name: agentName,
+          roleLabel: "Agent",
+          detailLabel: "Agent wire instructions",
+          complete: isWireInstructionComplete(record),
+          record,
+        });
+      }
+    });
+
+    wireStore.sharedRecipients.forEach((record) => {
+      if (record?.updatedAt) {
+        const dedName = record.payableName || record.accountHolderName;
+        parties.push({
+          id: `ext-${dedName}`,
+          name: dedName,
+          roleLabel: "External",
+          detailLabel: "Deduction payee",
+          complete: isWireInstructionComplete(record, { requireBankDetails: true }),
+          record: record,
+        });
+      }
+    });
+
     return parties;
   }, [sidesData, teamWireComplete, wireStore]);
   const incompleteWirePartyNames = auditorWireParties.filter((party) => !party.complete).map((party) => party.name);
@@ -1064,13 +1112,14 @@ export function CommissionBreakdown() {
 
   const checkDeductionWireStatus = (dedName: string) => {
     const matching = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
-      (r) => r.accountHolderName?.toLowerCase() === dedName.toLowerCase()
+      (r) => (r.payableName?.toLowerCase() === dedName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === dedName.toLowerCase())
     );
-    return matching ? isWireInstructionComplete(matching, { requireBankDetails: false }) : false;
+    return matching ? isWireInstructionComplete(matching, { requireBankDetails: true }) : false;
   };
 
   const DeductionWireIcon = ({ dedName, onClick }: { dedName: string; onClick: () => void }) => {
     const isFilled = checkDeductionWireStatus(dedName);
+
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -1078,15 +1127,22 @@ export function CommissionBreakdown() {
             type="button" 
             className={cn(
               "relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
-              isFilled ? "bg-muted hover:bg-muted/80 text-muted-foreground" : "bg-amber-100 hover:bg-amber-200 text-amber-600"
+              isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-muted hover:bg-muted/80 text-muted-foreground"
             )} 
-            onClick={onClick}
+            onClick={() => {
+              if (!isFilled) {
+                openWireForm("external", undefined, dedName);
+              } else {
+                setWireFormMode("none");
+              }
+              onClick();
+            }}
           >
-            <Landmark className="size-3.5" />
+            {isFilled ? <Check className="size-3.5" /> : <Landmark className="size-3.5" />}
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">
-          {isFilled ? "Wire instructions complete" : "Action Required: Wire instructions missing. Click to add."}
+          {isFilled ? "Wire instructions complete. Click to view/edit." : "Add wire instructions"}
         </TooltipContent>
       </Tooltip>
     );
@@ -3322,7 +3378,7 @@ export function CommissionBreakdown() {
                   </AlertDescription>
                 </Alert>
               )}
-              {wireFormMode === "none" && auditorWireParties.length === 0 && (
+              {wireFormMode === "none" && (
                 <div className="flex justify-end">
                   <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={() => openWireForm("team")}>
                     <Plus className="size-3.5" />
@@ -3548,6 +3604,8 @@ export function CommissionBreakdown() {
                               onClick={() => {
                                 if (party.id === "team") {
                                   openWireForm("team");
+                                } else if (party.id.startsWith("ext-")) {
+                                  openWireForm("external", undefined, party.name);
                                 } else {
                                   const agentId = party.id.split("-").slice(1).join("-");
                                   openWireForm("agent", agentId);
