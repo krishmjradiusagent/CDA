@@ -113,7 +113,7 @@ function FeeAmountInput({
         placeholder={placeholder}
         aria-invalid={invalid}
         disabled={disabled}
-        className={`h-10 ${prefix ? "pl-7" : ""} ${suffix ? "pr-8" : ""}`}
+        className={`h-10 w-full ${prefix ? "pl-7" : ""} ${suffix ? "pr-8" : ""}`}
         onChange={(event) => onChange(event.target.value)}
       />
       {suffix ? (

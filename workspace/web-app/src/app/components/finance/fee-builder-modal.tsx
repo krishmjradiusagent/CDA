@@ -145,7 +145,7 @@ export function FeeBuilderModal({
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -164,7 +164,7 @@ export function FeeBuilderModal({
               <Label htmlFor="fee-name">Fee Name</Label>
               <Input
                 id="fee-name"
-                className="h-10"
+                className="h-10 w-full"
                 placeholder="e.g., Transaction Coordinator Fee"
                 value={draft.name}
                 onChange={(e) => update("name", e.target.value)}
@@ -178,7 +178,7 @@ export function FeeBuilderModal({
                   value={draft.type}
                   onValueChange={(v) => update("type", v as FeeTypeDraft["type"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -197,7 +197,7 @@ export function FeeBuilderModal({
                     </span>
                   )}
                   <Input
-                    className={`h-10 ${draft.type === "flat" ? "pl-7" : "pr-8"}`}
+                    className={`h-10 w-full ${draft.type === "flat" ? "pl-7" : "pr-8"}`}
                     inputMode="decimal"
                     placeholder={draft.type === "flat" ? "495" : "2.5"}
                     value={draft.amount}
@@ -219,7 +219,7 @@ export function FeeBuilderModal({
                   value={draft.percentageBase}
                   onValueChange={(v) => update("percentageBase", v as PercentageBase)}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -233,7 +233,7 @@ export function FeeBuilderModal({
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className={`grid gap-4 ${hideTimingField ? "grid-cols-2" : "grid-cols-3"}`}>
               {!hideTimingField && (
                 <div className="space-y-1.5">
                   <Label>When Applied</Label>
@@ -241,7 +241,7 @@ export function FeeBuilderModal({
                     value={draft.timing}
                     onValueChange={(v) => update("timing", v as FeeTypeDraft["timing"])}
                   >
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-10 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -258,7 +258,7 @@ export function FeeBuilderModal({
                   value={draft.appliesToMode}
                   onValueChange={(v) => update("appliesToMode", v as FeeTypeDraft["appliesToMode"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -275,7 +275,7 @@ export function FeeBuilderModal({
                   value={draft.coAgentSplitMode ?? "split-equally"}
                   onValueChange={(v) => update("coAgentSplitMode", v as FeeTypeDraft["coAgentSplitMode"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -293,7 +293,7 @@ export function FeeBuilderModal({
                   value={draft.payableToType ?? "radius"}
                   onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -313,7 +313,7 @@ export function FeeBuilderModal({
                     value={draft.payableToExternalId ?? ""}
                     onValueChange={handleExternalPayee}
                   >
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className="h-10 w-full">
                       <SelectValue placeholder="Select external payee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -325,7 +325,7 @@ export function FeeBuilderModal({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+                  <div className="flex h-10 w-full items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
                     {draft.payableToName ?? ""}
                   </div>
                 )}

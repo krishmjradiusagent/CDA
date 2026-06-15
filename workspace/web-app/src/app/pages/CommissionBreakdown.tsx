@@ -233,7 +233,7 @@ const initialSides: Side[] = [
     award: 1,
     gross: 49500,
     agents: [
-      { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
+      
     ],
     active: true,
   },
@@ -243,7 +243,9 @@ const initialSides: Side[] = [
     subline: "Jeanne Gould",
     award: 0,
     gross: 49500,
-    agents: [],
+    agents: [
+      { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
+    ],
     active: false,
   },
 ];
@@ -898,6 +900,9 @@ export function CommissionBreakdown() {
   const [feeDialogTiming, setFeeDialogTiming] = useState<"pre-split" | "post-split" | null>(null);
   const [feeDialogTarget, setFeeDialogTarget] = useState<"side" | "agent">("side");
   const [showInlineSidePreSplitDraft, setShowInlineSidePreSplitDraft] = useState(false);
+
+  // New dedicated popup for Credits / Referrals (simplified)
+  const [showCreditReferralDialog, setShowCreditReferralDialog] = useState(false);
   const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
   const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
   // Keep retired hooks stable for dev fast-refresh on this page.
@@ -1041,6 +1046,7 @@ export function CommissionBreakdown() {
     wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(),
   );
   const auditorWireParties = useMemo(() => {
+    // Only include Team by default. Agents should be added manually via "+ Add wire instruction"
     const parties = [
       {
         id: "team",
@@ -1050,19 +1056,6 @@ export function CommissionBreakdown() {
         complete: teamWireComplete,
         record: wireStore.teamWireInstructions,
       },
-      ...sidesData.flatMap((side) =>
-        side.agents.map((agent) => {
-          const record = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction();
-          return {
-            id: `${side.id}-${agent.id}`,
-            name: agent.name,
-            roleLabel: "Agent",
-            detailLabel: `${agent.role} - ${side.title}`,
-            complete: isWireInstructionComplete(record),
-            record,
-          };
-        }),
-      ),
     ];
     return parties;
   }, [sidesData, teamWireComplete, wireStore]);
@@ -2418,7 +2411,7 @@ export function CommissionBreakdown() {
                   )}
                   {(isTL || canEditAll) && !isLocked && (
                   <div className="pt-1">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => setShowInlineSidePreSplitDraft(true)}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => { setShowCreditReferralDialog(true); }}>
                       <Plus className="size-3.5 mr-1" />Add Credit or Referral
                     </Button>
                   </div>
@@ -2807,6 +2800,53 @@ export function CommissionBreakdown() {
         hideSlidingScale
         existingFeeOptions={availableFeeOptions}
       />
+
+      {/* Credits / Referrals simplified popup (new) */}
+      <Dialog open={showCreditReferralDialog} onOpenChange={setShowCreditReferralDialog}>
+        <DialogContent className="gap-0 p-0 sm:max-w-md">
+          <DialogHeader className="border-b px-6 pb-4 pt-5">
+            <DialogTitle>Add Credit or Referral</DialogTitle>
+            <DialogDescription>
+              Payable to is set in this flow. Wire instructions come later.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 px-6 py-5 text-sm">
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Input placeholder="Referral fee - John Smith" className="mt-1.5" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Amount</Label>
+                <Input placeholder="500" className="mt-1.5" />
+              </div>
+              <div>
+                <Label className="text-xs">Payable To</Label>
+                <Select defaultValue="external">
+                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="radius">Radius</SelectItem>
+                    <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="external">External / Referral</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setShowCreditReferralDialog(false)}>Cancel</Button>
+            <Button onClick={() => {
+              setShowCreditReferralDialog(false);
+              toast.success("Credit/Referral added");
+            }}>
+              Add Credit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Team Dollar Contribution dialog */}
       <Dialog open={showCDCDialog} onOpenChange={setShowCDCDialog}>
@@ -3282,7 +3322,7 @@ export function CommissionBreakdown() {
                   </AlertDescription>
                 </Alert>
               )}
-              {wireFormMode === "none" && (
+              {wireFormMode === "none" && auditorWireParties.length === 0 && (
                 <div className="flex justify-end">
                   <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={() => openWireForm("team")}>
                     <Plus className="size-3.5" />
@@ -3500,8 +3540,7 @@ export function CommissionBreakdown() {
                           ) : (
                             <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Incomplete - Action needed</Badge>
                           )}
-                          {party.complete && (
-                            <Button
+                          <Button
                               variant="ghost"
                               size="icon"
                               className="size-7 text-muted-foreground hover:text-foreground"
@@ -3517,7 +3556,6 @@ export function CommissionBreakdown() {
                             >
                               <Pencil className="size-3.5" />
                             </Button>
-                          )}
                         </div>
                       </div>
                       {party.complete ? (
