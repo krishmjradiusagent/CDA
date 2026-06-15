@@ -3370,19 +3370,25 @@ export function CommissionBreakdown() {
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <div className="flex flex-col gap-3">
-              {!allAuditorWiresComplete && (
-                <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                  <Info className="text-amber-700" />
-                  <AlertDescription className="text-amber-800">
-                    Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. PDF download blocked.
-                  </AlertDescription>
-                </Alert>
+              {wireFormMode === "none" && auditorWireParties.length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-border/60 p-8 text-center bg-muted/10">
+                  <Landmark className="size-10 text-muted-foreground/30 mb-3" />
+                  <h3 className="text-sm font-semibold text-foreground">No wire instructions added</h3>
+                  <p className="mt-1 mb-4 text-xs text-muted-foreground max-w-[280px]">
+                    Add wire instructions for the brokerage, agents, and external payees to ensure secure and timely payout.
+                  </p>
+                  <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={() => openWireForm("team")}>
+                    <Plus className="size-3.5 mr-1.5" />
+                    Instructions
+                  </Button>
+                </div>
               )}
-              {wireFormMode === "none" && (
+              
+              {wireFormMode === "none" && auditorWireParties.length > 0 && (
                 <div className="flex justify-end">
                   <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={() => openWireForm("team")}>
-                    <Plus className="size-3.5" />
-                    Add wire instruction
+                    <Plus className="size-3.5 mr-1.5" />
+                    Instructions
                   </Button>
                 </div>
               )}
