@@ -794,17 +794,18 @@ export function CommissionBreakdown() {
       setWireFormDraft({ ...(wireStore.agentWireInstructions[firstAgentId] ?? createEmptyWireInstruction()) });
     } else {
       const extName = externalNameOverride ?? "";
-      setWireExternalName(extName);
       if (extName) {
         const existing = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
-          (r) => (r.payableName?.toLowerCase() === extName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === extName.toLowerCase())
+          (r) => r.id === `ext-${extName}` || (r.payableName?.toLowerCase() === extName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === extName.toLowerCase())
         );
         if (existing) {
+          setWireExternalName(existing.payableName || extName);
           setWireFormDraft({ ...existing });
           return;
         }
       }
-      setWireFormDraft({ ...createEmptyWireInstruction(), accountHolderName: extName, payableName: extName });
+      setWireExternalName(extName);
+      setWireFormDraft({ ...createEmptyWireInstruction(extName ? `ext-${extName}` : undefined), accountHolderName: extName, payableName: extName });
     }
   }
   function saveWireForm() {
@@ -832,9 +833,7 @@ export function CommissionBreakdown() {
       currentStore.agentWireInstructions[wireFormAgentId] = updatedRecord;
     } else {
       updatedRecord.payableName = wireExternalName.trim();
-      const existingIdx = currentStore.sharedRecipients.findIndex(
-        (r) => (r.payableName?.toLowerCase() === updatedRecord.payableName?.toLowerCase()) || (r.accountHolderName.toLowerCase() === updatedRecord.accountHolderName.toLowerCase())
-      );
+      const existingIdx = currentStore.sharedRecipients.findIndex((r) => r.id === updatedRecord.id);
       if (existingIdx >= 0) {
         currentStore.sharedRecipients[existingIdx] = updatedRecord;
       } else {
@@ -1094,10 +1093,10 @@ export function CommissionBreakdown() {
 
     wireStore.sharedRecipients.forEach((record) => {
       if (record?.updatedAt) {
-        const dedName = record.payableName || record.accountHolderName;
+        const displayName = record.payableName || record.accountHolderName;
         parties.push({
-          id: `ext-${dedName}`,
-          name: dedName,
+          id: record.id,
+          name: displayName,
           roleLabel: "External",
           detailLabel: "Deduction payee",
           complete: isWireInstructionComplete(record, { requireBankDetails: true }),
@@ -1113,7 +1112,7 @@ export function CommissionBreakdown() {
 
   const checkDeductionWireStatus = (dedName: string) => {
     const matching = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients).flat()].find(
-      (r) => (r.payableName?.toLowerCase() === dedName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === dedName.toLowerCase())
+      (r) => r.id === `ext-${dedName}` || (r.payableName?.toLowerCase() === dedName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === dedName.toLowerCase())
     );
     return matching ? isWireInstructionComplete(matching, { requireBankDetails: true }) : false;
   };
@@ -1131,7 +1130,11 @@ export function CommissionBreakdown() {
               isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-[#5A5FF2]/10 hover:bg-[#5A5FF2]/20 text-[#5A5FF2]"
             )} 
             onClick={() => {
-              setWireFormMode("none");
+              if (!isFilled) {
+                openWireForm("external", undefined, dedName);
+              } else {
+                setWireFormMode("none");
+              }
               onClick();
             }}
           >
@@ -3608,7 +3611,7 @@ export function CommissionBreakdown() {
                                 if (party.id === "team") {
                                   openWireForm("team");
                                 } else if (party.id.startsWith("ext-")) {
-                                  openWireForm("external", undefined, party.name);
+                                  openWireForm("external", undefined, party.id.replace("ext-", ""));
                                 } else {
                                   const agentId = party.id.split("-").slice(1).join("-");
                                   openWireForm("agent", agentId);
