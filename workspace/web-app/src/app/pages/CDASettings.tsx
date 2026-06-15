@@ -1959,18 +1959,11 @@ export function CDASettings() {
     const teamComplete = isWireInstructionComplete(wireStore.teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS);
     const sharedRecipients = wireStore.sharedRecipients || [];
     
-    const rawPrivateRecipients = userRole === "agent" 
-      ? [[CURRENT_AGENT_ID, wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(`agent-wire-${CURRENT_AGENT_ID}`)]] as const
-      : Object.entries(wireStore.agentWireInstructions);
+    const myWire = wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(`agent-wire-${CURRENT_AGENT_ID}`);
+    const myWireComplete = isWireInstructionComplete(myWire, {requireBankDetails: false});
 
-    const privateRecipients = rawPrivateRecipients.map(([agentId, r]) => {
-      const agent = agents.find(a => a.id === agentId);
-      return {
-        ...r,
-        accountHolderName: r.accountHolderName || agent?.name || "Unnamed Agent"
-      };
-    });
-      
+    const otherAgents = agents.filter(a => a.id !== CURRENT_AGENT_ID);
+
     const canManageTeamAndShared = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
     const canManageTeamWire = userRole === "team_lead";
 
@@ -2059,37 +2052,37 @@ export function CDASettings() {
           </TabsContent>
 
           <TabsContent value="private" className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-semibold">Team Wire</h3>
-                {canManageTeamWire && !teamComplete && (
-                  <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
-                    <Plus className="size-4 mr-1" /> Add / Edit Team Wire
-                  </Button>
-                )}
-              </div>
+            {canManageTeamWire && (
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-semibold">Team Wire</h3>
+                  {!teamComplete && (
+                    <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
+                      <Plus className="size-4 mr-1" /> Add / Edit Team Wire
+                    </Button>
+                  )}
+                </div>
 
-              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent border-b">
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                      <TableHead className="w-[50px] pr-6"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                      <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
-                      <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                      <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
-                      <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
-                      <TableCell className="pr-6 text-right">
-                        {canManageTeamWire && (
+                <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b">
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                        <TableHead className="w-[50px] pr-6"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                        <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
+                        <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                        <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
+                        <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
+                        <TableCell className="pr-6 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="size-8">
@@ -2103,25 +2096,23 @@ export function CDASettings() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
-
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-semibold">My Private Recipients</h3>
-              <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("private")}>
-                <Plus className="size-4 mr-1" /> Add Recipient
-              </Button>
-            </div>
-            {privateRecipients.length === 0 ? (
-              <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
-                <p>No private wire instructions added.</p>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Card>
               </div>
-            ) : (
+            )}
+
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-semibold">My Wire</h3>
+                {!myWireComplete && (
+                  <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("private", myWire)}>
+                    <Plus className="size-4 mr-1" /> Add / Edit My Wire
+                  </Button>
+                )}
+              </div>
               <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -2135,39 +2126,89 @@ export function CDASettings() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {privateRecipients.map(r => (
-                      <TableRow key={r.id || CURRENT_AGENT_ID} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                        <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || "Unnamed Agent"}</TableCell>
-                        <TableCell className="text-sm">{r.email || "-"}</TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                        <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
-                        <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
-                        <TableCell className="pr-6 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="size-8">
-                                <MoreVertical className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
-                              <DropdownMenuItem onClick={() => openWireDialog("private", r)}>
-                                <Edit3 className="size-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                      <TableCell className="pl-6 font-medium text-sm text-foreground">{myWire.accountHolderName || agents.find(a => a.id === CURRENT_AGENT_ID)?.name || "Not set"}</TableCell>
+                      <TableCell className="text-sm">{myWire.email || "-"}</TableCell>
+                      <TableCell className="text-sm max-w-[200px] truncate">{[myWire.recipientStreet, myWire.recipientCity, myWire.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                      <TableCell className="text-sm">{myWire.bankName ? `${myWire.bankName} ${maskSensitiveValue(myWire.accountNumber)}` : "-"}</TableCell>
+                      <TableCell><WireStatusBadge complete={myWireComplete} /></TableCell>
+                      <TableCell className="pr-6 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <MoreVertical className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                            <DropdownMenuItem onClick={() => openWireDialog("private", myWire)}>
+                              <Edit3 className="size-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </Card>
+            </div>
+
+            {userRole === "team_lead" && otherAgents.length > 0 && (
+              <div className="flex flex-col gap-3 mt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-semibold">Team Agent Wires</h3>
+                </div>
+                <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b">
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Agent Name</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                        <TableHead className="w-[50px] pr-6"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {otherAgents.map(agent => {
+                        const r = wireStore.agentWireInstructions[agent.id] ?? createEmptyWireInstruction(`agent-wire-${agent.id}`);
+                        return (
+                          <TableRow key={agent.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                            <TableCell className="pl-6 font-medium text-sm text-foreground">{agent.name}</TableCell>
+                            <TableCell className="text-sm">{r.email || "-"}</TableCell>
+                            <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                            <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
+                            <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
+                            <TableCell className="pr-6 text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="size-8">
+                                    <MoreVertical className="size-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                                  <DropdownMenuItem onClick={() => openWireDialog("private", r)}>
+                                    <Edit3 className="size-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </div>
             )}
           </TabsContent>
         </Tabs>
       </section>
     );
   }
+
 
   function closeDialog() {
     setState((current) => ({ ...current, activeDialog: null }));
