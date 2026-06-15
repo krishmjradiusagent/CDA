@@ -1997,7 +1997,7 @@ export function CDASettings() {
               <h3 className="text-sm font-semibold">Shared Recipients</h3>
               {canManageTeamAndShared && (
                 <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("shared")}>
-                  <Plus className="size-4 mr-1" /> Add Recipient
+                  <Plus className="size-4 mr-1" /> Recipient
                 </Button>
               )}
             </div>
@@ -2058,7 +2058,7 @@ export function CDASettings() {
                   <h3 className="text-sm font-semibold">Team Wire</h3>
                   {!teamComplete && (
                     <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
-                      <Plus className="size-4 mr-1" /> Add / Edit Team Wire
+                      <Plus className="size-4 mr-1" /> Team Wire
                     </Button>
                   )}
                 </div>
@@ -2109,7 +2109,7 @@ export function CDASettings() {
                 <h3 className="text-sm font-semibold">My Wire</h3>
                 {!myWireComplete && (
                   <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("private", myWire)}>
-                    <Plus className="size-4 mr-1" /> Add / Edit My Wire
+                    <Plus className="size-4 mr-1" /> My Wire
                   </Button>
                 )}
               </div>
