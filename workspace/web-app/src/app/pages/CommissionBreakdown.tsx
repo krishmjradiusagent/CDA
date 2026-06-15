@@ -208,10 +208,10 @@ const COMMISSION_PLANS: CommissionPlanOption[] = [
 ];
 
 const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
-  { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
-  { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
-  { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
-  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, notLessThan: { enabled: false, amount: "0.00" }, notToExceed: { enabled: false, amount: "0.00" } },
+  { id: "f1", name: "TC Fee", type: "flat", amount: "500", timing: "pre-split", appliesToMode: "team", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
+  { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split" },
+  { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
+  { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
 ];
 
 const AGENT_CAP_PROGRESS: Record<string, number> = {
@@ -779,7 +779,7 @@ export function CommissionBreakdown() {
   const [wireExternalNameError, setWireExternalNameError] = useState("");
   const [wireFormAgentId, setWireFormAgentId] = useState<string>("");
   const [wireStoreVersion, setWireStoreVersion] = useState(0);
-  function openWireForm(mode: "team" | "agent" | "external") {
+  function openWireForm(mode: "team" | "agent" | "external", agentIdOverride?: string) {
     setWireFormMode(mode);
     setWireFormErrors({});
     setWireExternalName("");
@@ -787,7 +787,7 @@ export function CommissionBreakdown() {
     if (mode === "team") {
       setWireFormDraft({ ...wireStore.teamWireInstructions });
     } else if (mode === "agent") {
-      const firstAgentId = sidesData.flatMap((s) => s.agents).find((a) => !a.external)?.id ?? CURRENT_AGENT_ID;
+      const firstAgentId = agentIdOverride ?? (sidesData.flatMap((s) => s.agents).find((a) => !a.external)?.id ?? CURRENT_AGENT_ID);
       setWireFormAgentId(firstAgentId);
       setWireFormDraft({ ...(wireStore.agentWireInstructions[firstAgentId] ?? createEmptyWireInstruction()) });
     } else {
@@ -3282,20 +3282,14 @@ export function CommissionBreakdown() {
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-background px-3 py-2">
-                <Button variant={wireFormMode === "team" ? "default" : "outline"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => openWireForm("team")}>
-                  <Landmark className="size-3.5" />
-                  {wireFormMode === "team" ? "Editing team wire" : "Add team wire"}
-                </Button>
-                <Button variant={wireFormMode === "agent" ? "default" : "outline"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => openWireForm("agent")}>
-                  <User className="size-3.5" />
-                  {wireFormMode === "agent" ? "Editing agent wire" : "Add agent wire"}
-                </Button>
-                <Button variant={wireFormMode === "external" ? "default" : "outline"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => openWireForm("external")}>
-                  <Plus className="size-3.5" />
-                  {wireFormMode === "external" ? "Editing external wire" : "Add external wire"}
-                </Button>
-              </div>
+              {wireFormMode === "none" && (
+                <div className="flex justify-end">
+                  <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={() => openWireForm("team")}>
+                    <Plus className="size-3.5" />
+                    Add wire instruction
+                  </Button>
+                </div>
+              )}
 
               {/* ── Wire Instruction Inline Form ── */}
               {wireFormMode !== "none" && (
@@ -3303,13 +3297,23 @@ export function CommissionBreakdown() {
                   <CardContent className="px-4 py-4">
                     <div className="flex flex-col gap-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          {wireFormMode === "team" ? "Team Wire Instructions" : wireFormMode === "agent" ? "Agent Wire Instructions" : "External Wire Instructions"}
-                        </h3>
+                        <h3 className="text-sm font-semibold text-foreground">Wire Instruction</h3>
                         <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => setWireFormMode("none")}>
                           <X className="size-3" />
                           Cancel
                         </Button>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-sm font-medium">Wire Type</Label>
+                        <Select value={wireFormMode} onValueChange={(v) => openWireForm(v as "team" | "agent" | "external")}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="team">Team</SelectItem>
+                            <SelectItem value="agent">Agent</SelectItem>
+                            <SelectItem value="external">External</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* External name (mandatory) */}
@@ -3456,11 +3460,31 @@ export function CommissionBreakdown() {
                           <h3 className="text-sm font-semibold text-foreground">{party.name}</h3>
                           <p className="mt-1 text-xs text-muted-foreground">{party.roleLabel} · {party.detailLabel}</p>
                         </div>
-                        {party.complete ? (
-                          <Badge variant="secondary" className="border-emerald-200 bg-emerald-50 text-emerald-700">Complete</Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Incomplete - Action needed</Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {party.complete ? (
+                            <Badge variant="secondary" className="border-emerald-200 bg-emerald-50 text-emerald-700">Complete</Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Incomplete - Action needed</Badge>
+                          )}
+                          {party.complete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 text-muted-foreground hover:text-foreground"
+                              aria-label="Edit wire instruction"
+                              onClick={() => {
+                                if (party.id === "team") {
+                                  openWireForm("team");
+                                } else {
+                                  const agentId = party.id.split("-").slice(1).join("-");
+                                  openWireForm("agent", agentId);
+                                }
+                              }}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {party.complete ? (
                         <div className="grid gap-3 md:grid-cols-2">

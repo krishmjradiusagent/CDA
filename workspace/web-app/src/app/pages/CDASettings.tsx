@@ -1173,7 +1173,7 @@ function PlanSetupFields({
 
       <Separator />
 
-      <div className="grid w-full grid-cols-2 gap-4">
+      <div className="w-full">
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="fee-amount" className="text-sm font-medium">
             {(form.feeType ?? "flat") === "flat" ? "Fixed Fee" : "Fee Percentage"}
@@ -1185,16 +1185,6 @@ function PlanSetupFields({
             adornment={(form.feeType ?? "flat") === "flat" ? "$" : "%"}
             adornmentSide={(form.feeType ?? "flat") === "flat" ? "start" : "end"}
             onChange={(value) => onFormChange({ feeAmount: value })}
-          />
-        </div>
-        <div className="flex w-full flex-col gap-2">
-          <Label htmlFor="cap" className="text-sm font-medium">Cap Amount</Label>
-          <AdornedInput
-            id="cap"
-            value={form.capAmount}
-            placeholder="18000"
-            adornment="$"
-            onChange={(value) => onFormChange({ capAmount: value })}
           />
         </div>
       </div>
@@ -1987,6 +1977,7 @@ export function CDASettings() {
     });
       
     const canManageTeamAndShared = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
+    const canManageTeamWire = userRole === "team_lead";
 
     return (
       <section className="flex flex-col gap-4">
@@ -1997,74 +1988,71 @@ export function CDASettings() {
           </div>
         </div>
 
-        <Tabs defaultValue="team" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="team">Team Wire Instructions</TabsTrigger>
-            <TabsTrigger value="shared">Shared Database</TabsTrigger>
-            <TabsTrigger value="private">My Private Recipients</TabsTrigger>
-          </TabsList>
+        {!teamComplete && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <Bell className="text-amber-700" />
+            <AlertTitle className="text-amber-900">Team wire instructions incomplete</AlertTitle>
+            <AlertDescription className="text-amber-800">
+              Complete brokerage wire instructions. CDA generation should block until payout destination exists.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <TabsContent value="team" className="flex flex-col gap-4">
-            {!teamComplete && (
-              <Alert className="border-amber-200 bg-amber-50">
-                <Bell className="text-amber-700" />
-                <AlertTitle className="text-amber-900">Team wire instructions incomplete</AlertTitle>
-                <AlertDescription className="text-amber-800">
-                  Complete brokerage wire instructions. CDA generation should block until payout destination exists.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-semibold">Team Instruction</h3>
-              {canManageTeamAndShared && (
-                <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
-                  <Plus className="size-4 mr-1" /> Add / Edit Team Wire
-                </Button>
-              )}
-            </div>
-            
-            <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-b">
-                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
-                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
-                    <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                    <TableHead className="w-[50px] pr-6"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                    <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
-                    <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
-                    <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                    <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
-                    <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
-                    <TableCell className="pr-6 text-right">
-                      {canManageTeamAndShared && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8">
-                              <MoreVertical className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
-                            <DropdownMenuItem onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
-                              <Edit3 className="size-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-semibold">Team Wire</h3>
+          {canManageTeamWire && (
+            <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
+              <Plus className="size-4 mr-1" /> Add / Edit Team Wire
+            </Button>
+          )}
+        </div>
+
+        <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-b">
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                <TableHead className="w-[50px] pr-6"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
+                <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
+                <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
+                <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
+                <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
+                <TableCell className="pr-6 text-right">
+                  {canManageTeamWire && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8">
+                          <MoreVertical className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                        <DropdownMenuItem onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
+                          <Edit3 className="size-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </Card>
+
+        <Tabs defaultValue="shared" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="shared">Shared</TabsTrigger>
+            <TabsTrigger value="private">Private</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="shared" className="flex flex-col gap-4">
             <div className="flex justify-between items-center mb-2">

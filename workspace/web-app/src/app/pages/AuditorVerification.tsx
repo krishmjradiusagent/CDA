@@ -345,7 +345,9 @@ export function AuditorVerification() {
                         </div>
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="size-4 text-green-600" />
-                          <span className="text-xs text-muted-foreground">Confirmed</span>
+                          <span className="text-xs text-muted-foreground">
+                            {agent.status === "finalized" ? "Finalized" : "Confirmed by TL and Agent / Pending Auditor"}
+                          </span>
                           <Button variant="ghost" size="sm" className="h-7">
                             <Flag className="size-3 mr-1" />
                             Flag
