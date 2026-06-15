@@ -3505,7 +3505,7 @@ export function CommissionBreakdown() {
                           <div className="flex flex-col gap-1.5">
                             <Label className="text-sm font-medium">Wire Type</Label>
                             <Select value={wireFormMode} onValueChange={(v) => openWireForm(v as "team" | "agent" | "external")}>
-                              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-9 text-sm w-full"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="team">Team</SelectItem>
                                 <SelectItem value="agent">Agent</SelectItem>
@@ -3569,7 +3569,7 @@ export function CommissionBreakdown() {
                                 }
                               }
                             }}>
-                              <SelectTrigger className="h-9 text-sm">
+                              <SelectTrigger className="h-9 text-sm w-full">
                                 <SelectValue placeholder="Select existing or manually enter" />
                               </SelectTrigger>
                               <SelectContent>
