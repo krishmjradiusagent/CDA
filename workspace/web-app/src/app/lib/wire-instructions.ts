@@ -11,6 +11,7 @@ export type WireInstructionRecord = {
   email: string;
   phone: string;
   recipientStreet: string;
+  recipientStreet2: string;
   recipientCity: string;
   recipientState: string;
   recipientZip: string;
@@ -73,6 +74,7 @@ export function createEmptyWireInstruction(id?: string): WireInstructionRecord {
     email: "",
     phone: "",
     recipientStreet: "",
+    recipientStreet2: "",
     recipientCity: "",
     recipientState: "",
     recipientZip: "",

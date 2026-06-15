@@ -3356,18 +3356,52 @@ export function CommissionBreakdown() {
 
                       <Separator />
 
-                      {/* Core wire fields */}
+                      {/* Recipient */}
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs font-medium">Recipient / Account Holder Name</Label>
+                        <Input value={wireFormDraft.accountHolderName} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountHolderName: e.target.value }))} className="h-9 text-sm" placeholder="Full legal name" />
+                        {wireFormErrors.accountHolderName && <p className="text-[11px] text-destructive">{wireFormErrors.accountHolderName}</p>}
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Account Holder Name</Label>
-                          <Input value={wireFormDraft.accountHolderName} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountHolderName: e.target.value }))} className="h-9 text-sm" placeholder="Full legal name" />
-                          {wireFormErrors.accountHolderName && <p className="text-[11px] text-destructive">{wireFormErrors.accountHolderName}</p>}
+                          <Label className="text-xs font-medium">Email</Label>
+                          <Input value={wireFormDraft.email} onChange={(e) => setWireFormDraft((d) => ({ ...d, email: e.target.value }))} className="h-9 text-sm" placeholder="name@example.com" type="email" />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Bank Name</Label>
-                          <Input value={wireFormDraft.bankName} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankName: e.target.value }))} className="h-9 text-sm" placeholder="e.g., Chase Bank" />
-                          {wireFormErrors.bankName && <p className="text-[11px] text-destructive">{wireFormErrors.bankName}</p>}
+                          <Label className="text-xs font-medium">Phone</Label>
+                          <Input value={wireFormDraft.phone} onChange={(e) => setWireFormDraft((d) => ({ ...d, phone: e.target.value }))} className="h-9 text-sm" placeholder="(555) 555-5555" type="tel" />
                         </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs font-medium">Street Address</Label>
+                        <Input value={wireFormDraft.recipientStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs font-medium">Address Line 2 (optional)</Label>
+                        <Input value={wireFormDraft.recipientStreet2} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientStreet2: e.target.value }))} className="h-9 text-sm" placeholder="Apt, suite, etc." />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">City</Label>
+                          <Input value={wireFormDraft.recipientCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">State</Label>
+                          <Input value={wireFormDraft.recipientState} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs font-medium">ZIP</Label>
+                          <Input value={wireFormDraft.recipientZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Banking */}
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs font-medium">Bank Name</Label>
+                        <Input value={wireFormDraft.bankName} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankName: e.target.value }))} className="h-9 text-sm" placeholder="e.g., Chase Bank" />
+                        {wireFormErrors.bankName && <p className="text-[11px] text-destructive">{wireFormErrors.bankName}</p>}
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">

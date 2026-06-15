@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Fee Type - Test Modal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+    
+    :root {
+      --font-sans: 'Inter', system_ui, sans-serif;
+    }
+    
+    body {
+      font-family: 'Inter', system_ui, sans-serif;
+    }
+    
+    .modal {
+      animation: modal-pop 0.2s ease-out forwards;
+    }
+    
+    @keyframes modal-pop {
+      from { opacity: 0; transform: scale(0.96) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    
+    .select-trigger {
+      transition: all 0.1s ease;
+    }
+    
+    .select-trigger:hover {
+      border-color: #d1d5db;
+    }
+    
+    .fee-field {
+      transition: all 0.1s ease;
+    }
+    
+    .fee-field:focus-within {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .custom-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 flex items-center justify-center min-h-screen p-8">
+  <!-- Background dim -->
+  <div class="fixed inset-0 bg-black/60 z-40"></div>
+
+  <!-- Modal -->
+  <div class="modal relative z-50 w-full max-w-[520px] bg-white rounded-xl shadow-2xl border border-zinc-200 overflow-hidden">
+    <!-- Header -->
+    <div class="px-6 pt-6 pb-4 border-b">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-2xl font-semibold tracking-tight">Add Fee Type</h2>
+          <p class="text-sm text-zinc-500 mt-1">Configure fee type details.</p>
+        </div>
+        <button onclick="closeModal()" 
+                class="text-zinc-400 hover:text-zinc-600 transition-colors p-1">
+          <i class="fa-solid fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-6">
+      
+      <!-- Fee Name -->
+      <div>
+        <label class="block text-sm font-medium mb-1.5 text-zinc-700">Fee Name</label>
+        <input type="text" 
+               class="fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm placeholder:text-zinc-400 focus:outline-none"
+               placeholder="e.g., Transaction Coordinator Fee"
+               value="Transaction Coordinator Fee">
+      </div>
+
+      <!-- Fee Type + Amount -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">Fee Type</label>
+          <div class="relative">
+            <select class="custom-select fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm bg-white appearance-none cursor-pointer">
+              <option>Flat Fee</option>
+              <option>Percentage</option>
+            </select>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">Flat Fee</label>
+          <div class="relative">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">$</div>
+            <input type="text" value="495" 
+                   class="fee-field w-full pl-8 pr-4 py-2.5 border border-zinc-300 rounded-lg text-sm focus:outline-none">
+          </div>
+        </div>
+      </div>
+
+      <!-- Row: When Applied / Fee Payer / Co-Agent Splits -->
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">When Applied</label>
+          <select class="custom-select fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm bg-white cursor-pointer">
+            <option>Pre-Split</option>
+            <option>Post-Split</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">Fee Payer</label>
+          <select class="custom-select fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm bg-white cursor-pointer">
+            <option>Team</option>
+            <option>Agent</option>
+            <option>Both</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">Co-Agent Splits</label>
+          <select class="custom-select fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm bg-white cursor-pointer">
+            <option>Split equally</option>
+            <option>Each agent pays</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Payable To / Payable Name / CDA Types -->
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">Payable To</label>
+          <select class="custom-select fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm bg-white cursor-pointer">
+            <option>Radius</option>
+            <option>Team</option>
+            <option>External</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">Payable Name</label>
+          <input type="text" value="Radius" 
+                 class="fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm focus:outline-none">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-zinc-700">CDA Types</label>
+          <select class="custom-select fee-field w-full px-4 py-2.5 border border-zinc-300 rounded-lg text-sm bg-white cursor-pointer">
+            <option>Buyer, Seller</option>
+            <option>Buyer</option>
+            <option>Seller</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="space-y-3 pt-2">
+        <!-- Sliding Scale -->
+        <div class="flex items-center justify-between border border-zinc-200 rounded-lg px-4 py-3">
+          <div>
+            <div class="font-medium text-sm">Sliding Scale</div>
+            <div class="text-xs text-zinc-500">Enable tiered fee values.</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" class="sr-only peer" checked>
+            <div class="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+
+        <!-- Contributes to Cap -->
+        <div class="flex items-center justify-between border border-zinc-200 rounded-lg px-4 py-3">
+          <div>
+            <div class="font-medium text-sm">Contributes to Cap</div>
+            <div class="text-xs text-zinc-500">Count toward cap.</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" class="sr-only peer">
+            <div class="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-6 py-4 border-t bg-zinc-50 flex justify-end gap-3">
+      <button onclick="closeModal()" 
+              class="px-5 py-2 text-sm font-medium border border-zinc-300 hover:bg-zinc-100 rounded-lg transition-colors">
+        Cancel
+      </button>
+      <button onclick="saveFeeType()" 
+              class="px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        Save Fee Type
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function closeModal() {
+      document.querySelector('.modal').style.transition = 'all 0.15s ease';
+      document.querySelector('.modal').style.opacity = '0';
+      document.querySelector('.modal').style.transform = 'scale(0.96)';
+      
+      setTimeout(() => {
+        window.location.reload(); // simple reset for testing
+      }, 150);
+    }
+    
+    function saveFeeType() {
+      const btn = event.currentTarget;
+      const originalText = event.target.innerHTML;
+      
+      event.target.innerHTML = 'Saving...';
+      event.target.disabled = true;
+      
+      setTimeout(() => {
+        alert('Fee type saved! (This is a test modal)');
+        window.location.reload();
+      }, 800);
+    }
+    
+    // Make selects more interactive
+    console.log('%c[Modal Test] All fields should now be clickable. Try the dropdowns!', 'color:#64748b');
+  </script>
+</body>
+</html>

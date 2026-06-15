@@ -552,6 +552,10 @@ function CommissionPlanCard({
               <UserCheck className="size-4" />
               Assign
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { /* View commission plans display-only for agent roster */ }}>
+              <Eye className="size-4" />
+              View commission plans
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDuplicate(plan)}>
               <Copy className="size-4" />
               Duplicate
@@ -1173,7 +1177,7 @@ function PlanSetupFields({
 
       <Separator />
 
-      <div className="w-full">
+      <div className="grid w-full grid-cols-2 gap-4">
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="fee-amount" className="text-sm font-medium">
             {(form.feeType ?? "flat") === "flat" ? "Fixed Fee" : "Fee Percentage"}
@@ -1185,6 +1189,16 @@ function PlanSetupFields({
             adornment={(form.feeType ?? "flat") === "flat" ? "$" : "%"}
             adornmentSide={(form.feeType ?? "flat") === "flat" ? "start" : "end"}
             onChange={(value) => onFormChange({ feeAmount: value })}
+          />
+        </div>
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="cap" className="text-sm font-medium">Cap Amount</Label>
+          <AdornedInput
+            id="cap"
+            value={form.capAmount}
+            placeholder="18000"
+            adornment="$"
+            onChange={(value) => onFormChange({ capAmount: value })}
           />
         </div>
       </div>
@@ -1623,7 +1637,7 @@ function WireInstructionDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
@@ -1672,12 +1686,11 @@ function WireInstructionDialog({
                   value={record.recipientStreet || ""}
                   onChange={(e) => onChange({ recipientStreet: e.target.value })}
                 />
-              </div>
-              <div className="sm:col-span-2 space-y-2">
-                <Input
-                  placeholder="Address line 2 (optional)"
-                  value={record.recipientStreet2 || ""}
-                  onChange={(e) => onChange({ recipientStreet2: e.target.value })}
+                <Input 
+                  placeholder="Line 2 (optional)" 
+                  value={record.recipientLine2 || ""} 
+                  onChange={(e) => onChange({ recipientLine2: e.target.value })} 
+                  className="sm:col-span-2" 
                 />
               </div>
               <div className="grid grid-cols-3 gap-4 sm:col-span-2">
@@ -1821,7 +1834,7 @@ export function CDASettings() {
     overwriteAssignDefaults: boolean;
     pendingAssignmentSave: (() => void) | null;
     wireDraft: WireInstructionRecord | null;
-    wireType: "team" | "shared" | "private" | null;
+    wireType: "shared" | "private" | null;
     wireErrors: WireValidationErrors;
   }>({
     plans: seedPlans,
@@ -1950,17 +1963,6 @@ export function CDASettings() {
     toast.success(`${state.wireType === "team" ? "Team" : state.wireType === "shared" ? "Shared" : "Private"} wire instructions saved`);
   }
 
-  function openWireDialog(type: "team" | "shared" | "private", record?: WireInstructionRecord) {
-    let draft = record;
-    if (!draft) {
-      if (type === "team") draft = wireStore.teamWireInstructions;
-      else if (type === "private") draft = wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction();
-      else draft = createEmptyWireInstruction();
-    }
-    
-    setState(current => ({
-      ...current,
-      activeDialog: "wire-instruction",
       wireType: type,
       wireDraft: { ...draft! },
       wireErrors: {}
@@ -1984,7 +1986,6 @@ export function CDASettings() {
     });
       
     const canManageTeamAndShared = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
-    const canManageTeamWire = userRole === "team_lead";
 
     return (
       <section className="flex flex-col gap-4">
@@ -1995,22 +1996,13 @@ export function CDASettings() {
           </div>
         </div>
 
-        {!teamComplete && (
-          <Alert className="border-amber-200 bg-amber-50">
-            <Bell className="text-amber-700" />
-            <AlertTitle className="text-amber-900">Team wire instructions incomplete</AlertTitle>
-            <AlertDescription className="text-amber-800">
-              Complete brokerage wire instructions. CDA generation should block until payout destination exists.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Tabs defaultValue="private" className="w-full">
+        <Tabs defaultValue="shared" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="shared">Shared</TabsTrigger>
-            <TabsTrigger value="private">Private</TabsTrigger>
+            <TabsTrigger value="shared">Shared Database</TabsTrigger>
+            <TabsTrigger value="private">My Private Recipients</TabsTrigger>
           </TabsList>
 
+          
           <TabsContent value="shared" className="flex flex-col gap-4">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-semibold">Shared Recipients</h3>
@@ -2070,59 +2062,7 @@ export function CDASettings() {
             )}
           </TabsContent>
 
-          <TabsContent value="private" className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-semibold">Team Wire</h3>
-                {canManageTeamWire && !teamComplete && (
-                  <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
-                    <Plus className="size-4 mr-1" /> Add / Edit Team Wire
-                  </Button>
-                )}
-              </div>
-
-              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent border-b">
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                      <TableHead className="w-[50px] pr-6"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                      <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
-                      <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                      <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
-                      <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
-                      <TableCell className="pr-6 text-right">
-                        {canManageTeamWire && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="size-8">
-                                <MoreVertical className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
-                              <DropdownMenuItem onClick={() => openWireDialog("team", wireStore.teamWireInstructions)}>
-                                <Edit3 className="size-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
-
+          <TabsContent value="private" className="flex flex-col gap-4">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-semibold">My Private Recipients</h3>
               <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("private")}>
