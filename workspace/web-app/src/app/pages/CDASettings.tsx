@@ -1344,8 +1344,7 @@ function AssignDefaultsDialog({
             </div>
           )}
 
-          {source.from !== "fee" && (
-            <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium">
                 Apply To Commission Breakdown Types <span className="text-destructive">*</span>
               </Label>
@@ -1354,7 +1353,6 @@ function AssignDefaultsDialog({
                 onChange={(dealTypes) => onFormChange({ dealTypes })}
               />
             </div>
-          )}
 
         </div>
 
