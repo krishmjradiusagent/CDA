@@ -64,8 +64,12 @@ export interface FeeBuilderModalProps {
 }
 
 const DEFAULT_TEAM_NAME = "Keystone Team";
+const FEE_MODAL_FIELD =
+  "h-10 min-h-10 max-h-10 w-full px-3 py-2 text-sm leading-none";
+const FEE_MODAL_SELECT_TRIGGER =
+  `${FEE_MODAL_FIELD} data-[size=default]:h-10`;
 const FORM_FIELD_SHELL =
-  "flex h-10 w-full items-center rounded-md border border-input bg-input-background px-3 text-sm";
+  `flex items-center rounded-md border border-input bg-input-background ${FEE_MODAL_FIELD}`;
 
 function resolvePayableToName(
   type: FeeTypeDraft["payableToType"],
@@ -198,7 +202,7 @@ export function FeeBuilderModal({
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -217,7 +221,7 @@ export function FeeBuilderModal({
               <Label htmlFor="fee-name">Fee Name</Label>
               <Input
                 id="fee-name"
-                className="h-10"
+                className={FEE_MODAL_FIELD}
                 placeholder="e.g., Transaction Coordinator Fee"
                 value={draft.name}
                 onChange={(e) => update("name", e.target.value)}
@@ -231,7 +235,7 @@ export function FeeBuilderModal({
                   value={draft.type}
                   onValueChange={(v) => update("type", v as FeeTypeDraft["type"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -250,7 +254,7 @@ export function FeeBuilderModal({
                     </span>
                   )}
                   <Input
-                    className={`h-10 ${draft.type === "flat" ? "pl-7" : "pr-8"}`}
+                    className={`${FEE_MODAL_FIELD} ${draft.type === "flat" ? "pl-7" : "pr-8"}`}
                     inputMode="decimal"
                     placeholder={draft.type === "flat" ? "495" : "2.5"}
                     value={draft.amount}
@@ -272,7 +276,7 @@ export function FeeBuilderModal({
                   value={draft.percentageBase}
                   onValueChange={(v) => update("percentageBase", v as PercentageBase)}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -294,7 +298,7 @@ export function FeeBuilderModal({
                     value={draft.timing}
                     onValueChange={(v) => update("timing", v as FeeTypeDraft["timing"])}
                   >
-                    <SelectTrigger className="h-10">
+                    <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -311,7 +315,7 @@ export function FeeBuilderModal({
                   value={draft.appliesToMode}
                   onValueChange={(v) => update("appliesToMode", v as FeeTypeDraft["appliesToMode"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -328,7 +332,7 @@ export function FeeBuilderModal({
                   value={draft.coAgentSplitMode ?? "split-equally"}
                   onValueChange={(v) => update("coAgentSplitMode", v as FeeTypeDraft["coAgentSplitMode"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -346,7 +350,7 @@ export function FeeBuilderModal({
                   value={draft.payableToType ?? "radius"}
                   onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -362,7 +366,7 @@ export function FeeBuilderModal({
                 {draft.payableToType === "external" ? (
                   <Input
                     id="payable-to-name"
-                    className="h-10"
+                    className={FEE_MODAL_FIELD}
                     value={draft.payableToName ?? ""}
                     placeholder="Enter payable name"
                     onChange={(e) => update("payableToName", e.target.value)}
