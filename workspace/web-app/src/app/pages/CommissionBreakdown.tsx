@@ -141,11 +141,17 @@ function getDeductionBadgeLabel(
   ded: { payableToType?: PayableToType; isRadiusFee?: boolean },
   context: "pre-split" | "post-split" | "gross",
 ) {
-  if (ded.payableToType === "external") return "External";
+  if (ded.payableToType === "external" || ded.payableToType === "agent") {
+    return context === "post-split" ? "Paid by Agent" : "Agent";
+  }
   if (ded.payableToType === "team") return "Team";
-  if (ded.payableToType === "agent") return "Agent";
   if (context === "post-split") return ded.isRadiusFee ? "Paid by Agent" : "Paid by Both";
   return "Deduction";
+}
+
+function getDeductionBadgeClassName(ded: { payableToType?: PayableToType }) {
+  if (ded.payableToType === "team") return "bg-blue-50 text-blue-700";
+  return "bg-muted text-muted-foreground";
 }
 type Side = {
   id: SideId;
@@ -332,7 +338,7 @@ const defaultTiers: TierRow[] = [
 
 const DEAL_SALE_PRICE = 4_950_000;
 const DEAL_TOTAL_COMMISSION_RATE = 0.02;
-const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v3";
+const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v4";
 
 const DEFAULT_POST_SPLIT_DEDUCTIONS: Record<string, AgentDeduction[]> = {
   a1: [
@@ -343,7 +349,7 @@ const DEFAULT_POST_SPLIT_DEDUCTIONS: Record<string, AgentDeduction[]> = {
     { id: "d5", name: "TC Fee", amount: 500, isRadiusFee: true, wireRequired: true },
     { id: "d6", name: "RM Fee", amount: 300 },
     { id: "d7", name: "Team Admin Fee", amount: 250, payableToType: "team", wireRequired: true, wireMode: "team" },
-    { id: "d8", name: "Vendor Referral Fee", amount: 500, payableToType: "external", wireRequired: true },
+    { id: "d8", name: "Vendor Referral Fee", amount: 500, payableToType: "agent", wireRequired: true, wireMode: "external" },
   ],
 };
 
@@ -1212,7 +1218,7 @@ export function CommissionBreakdown() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-amber-600 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-amber-600 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="External payment instructions info"
             onPointerEnter={() => setHovered(true)}
             onPointerLeave={() => setHovered(false)}
@@ -1221,7 +1227,7 @@ export function CommissionBreakdown() {
               setPinned((prev) => !prev);
             }}
           >
-            <Info className="size-3.5" />
+            <Info className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-[220px] text-xs leading-relaxed" side="top">
@@ -1248,7 +1254,7 @@ export function CommissionBreakdown() {
           <button 
             type="button" 
             className={cn(
-              "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
+              "relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer",
               isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-[#5A5FF2]/10 hover:bg-[#5A5FF2]/20 text-[#5A5FF2]"
             )} 
             onClick={() => {
@@ -1256,7 +1262,7 @@ export function CommissionBreakdown() {
               onClick();
             }}
           >
-            {isFilled ? <CheckCircle2 className="size-4" /> : <Landmark className="size-4" />}
+            {isFilled ? <CheckCircle2 className="size-3" /> : <Landmark className="size-3" />}
           </button>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">
@@ -1278,10 +1284,10 @@ export function CommissionBreakdown() {
     onClick: () => void;
   }) => {
     const resolvedWireMode = wireMode ?? (payableToType === "team" ? "team" : "external");
-    const showInfoHelper = payableToType === "external" && !checkFeeWireStatus(dedName, resolvedWireMode);
+    const showInfoHelper = resolvedWireMode === "external" && !checkFeeWireStatus(dedName, resolvedWireMode);
 
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         <DeductionWireIcon dedName={dedName} wireMode={resolvedWireMode} onClick={onClick} />
         {showInfoHelper && <ExternalWireInfoIcon />}
       </div>
@@ -1435,29 +1441,35 @@ export function CommissionBreakdown() {
       ]);
       fee = { ...fee, id: newFeeId };
     }
+    const usesExternalWire = fee.payableToType === "external";
     const payableToType: PayableToType | undefined =
-      fee.payableToType === "external"
-        ? "external"
+      usesExternalWire || fee.appliesToMode === "agent"
+        ? "agent"
         : fee.payableToType === "team" || fee.appliesToMode === "team"
           ? "team"
           : fee.payableToType === "radius"
             ? undefined
-            : fee.appliesToMode === "agent"
-              ? "agent"
-              : undefined;
+            : undefined;
+    const wireMode: WireLinkMode | undefined = usesExternalWire
+      ? "external"
+      : payableToType === "team"
+        ? "team"
+        : undefined;
+    const wireRequired = usesExternalWire ? true : undefined;
+    const deductionExtras = { payableToType, ...(wireMode ? { wireMode } : {}), ...(wireRequired ? { wireRequired } : {}) };
 
     if (fee.timing === "pre-split") {
       if (feeDialogTarget === "agent" && selectedAgentId) {
         setPreSplitDeductions((prev) => ({
           ...prev,
-          [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `pre-${Date.now()}`, name: fee.name, amount, payableToType }],
+          [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `pre-${Date.now()}`, name: fee.name, amount, ...deductionExtras }],
         }));
         logActivity(`Added ${fee.name} pre-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
       } else {
         // Pre-split → side-level gross deductions
         setSideGrossDeductions((prev) => ({
           ...prev,
-          [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount, payableToType }],
+          [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount, ...deductionExtras }],
         }));
         logActivity(`Added ${fee.name} pre-split deduction for ${activeSide.title}.`);
       }
@@ -1465,7 +1477,7 @@ export function CommissionBreakdown() {
       // Post-split → agent-level deductions
       setPostSplitDeductions((prev) => ({
         ...prev,
-        [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount, payableToType }],
+        [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount, ...deductionExtras }],
       }));
       logActivity(`Added ${fee.name} post-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
     }
@@ -2273,6 +2285,7 @@ export function CommissionBreakdown() {
                                   {sideSummary && (
                                     <CalculationBreakdownTooltip
                                       title="Side total"
+                                      tone="payout"
                                       lines={buildSideTotalLines(
                                         sideSummary,
                                         showFullBreakdown,
@@ -2332,6 +2345,7 @@ export function CommissionBreakdown() {
                                       {agentSummary && (
                                         <CalculationBreakdownTooltip
                                           title="Net commission"
+                                          tone="payout"
                                           lines={buildAgentNetLines(
                                             agentSummary,
                                             preSplitDeductions[agent.id] ?? [],
@@ -2535,7 +2549,7 @@ export function CommissionBreakdown() {
                             <DeductionWireStatusIcon dedName={ded.name} payableToType={ded.payableToType} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
                             <span className={cn(
                               "rounded px-1 py-0 text-[10px] font-medium",
-                              ded.payableToType === "external" ? "bg-amber-50 text-amber-700" : "bg-muted text-muted-foreground",
+                              getDeductionBadgeClassName(ded),
                             )}>{getDeductionBadgeLabel(ded, "pre-split")}</span>
                           </div>
                       <div className="flex items-center gap-2">
@@ -2644,7 +2658,7 @@ export function CommissionBreakdown() {
                             )}
                             <span className={cn(
                               "rounded px-1 py-0 text-[10px] font-medium",
-                              ded.payableToType === "external" ? "bg-amber-50 text-amber-700" : ded.payableToType === "team" ? "bg-blue-50 text-blue-700" : "bg-muted text-muted-foreground",
+                              getDeductionBadgeClassName(ded),
                             )}>{getDeductionBadgeLabel(ded, "post-split")}</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -2717,6 +2731,7 @@ export function CommissionBreakdown() {
                       </p>
                       <CalculationBreakdownTooltip
                         title="Net commission"
+                        tone="payout"
                         lines={buildAgentNetLines(
                           selectedAgent,
                           preSplitDeductions[selectedAgent.agent.id] ?? [],
@@ -2831,7 +2846,7 @@ export function CommissionBreakdown() {
                         </div>
                         <div className="mt-0.5 flex items-center gap-1">
                           <p className="text-sm font-bold tracking-tight" style={{ color: strong }}>{value}</p>
-                          <CalculationBreakdownTooltip title={label} lines={lines} className="text-background/70 hover:text-background" />
+                          <CalculationBreakdownTooltip title={label} lines={lines} className="text-white/70 hover:bg-white/15 hover:text-white" />
                         </div>
                       </div>
                     ))}
@@ -2854,7 +2869,7 @@ export function CommissionBreakdown() {
                           <DeductionWireStatusIcon dedName={ded.name} payableToType={ded.payableToType} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
                           <span className={cn(
                             "rounded px-1 py-0 text-[10px] font-medium",
-                            ded.payableToType === "external" ? "bg-amber-50 text-amber-700" : "bg-muted text-muted-foreground",
+                            getDeductionBadgeClassName(ded),
                           )}>{getDeductionBadgeLabel(ded, "gross")}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2972,6 +2987,7 @@ export function CommissionBreakdown() {
                                 <p className="text-base font-bold tabular-nums text-foreground">{currency(netCommission)}</p>
                                 <CalculationBreakdownTooltip
                                   title="Net commission"
+                                  tone="payout"
                                   lines={buildAgentNetLines(
                                     agentSummary,
                                     preSplitDeductions[agent.id] ?? [],
