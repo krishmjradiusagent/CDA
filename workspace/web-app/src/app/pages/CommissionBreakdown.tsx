@@ -790,7 +790,7 @@ export function CommissionBreakdown() {
 
   function openWireForm(mode: "team" | "agent" | "external", agentIdOverride?: string, externalNameOverride?: string) {
     setWireFormMode(mode);
-    setWireSelectionMode(undefined);
+    setWireSelectionMode("manual");
     setWireFormErrors({});
     if (mode === "team") {
       setWireFormDraft({ ...wireStore.teamWireInstructions });
@@ -1732,7 +1732,7 @@ export function CommissionBreakdown() {
           setOpenWireItemId(null);
         }
       }}>
-        <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[85vh] p-0 gap-0">
+        <DialogContent className="sm:max-w-[600px] w-[95vw] overflow-y-auto max-h-[85vh] p-0 gap-0">
           <div className="flex items-center justify-between border-b px-6 py-4">
             <DialogTitle className="text-lg font-semibold text-foreground">
               {wireFormMode === "team" ? "Team Wire Instruction" : wireFormMode === "agent" ? "Agent Wire Instruction" : wireFormMode === "external" ? "External Wire Instruction" : "Wire Instruction"}
@@ -1766,8 +1766,9 @@ export function CommissionBreakdown() {
                       value={wireFormAgentId}
                       onValueChange={(id) => {
                         setWireFormAgentId(id);
-                        setWireSelectionMode(undefined);
+                        setWireSelectionMode("manual");
                         setWireFormErrors({});
+                        setWireFormDraft({ ...(wireStore.agentWireInstructions[id] ?? createEmptyWireInstruction()) });
                       }}
                     >
                       <SelectTrigger className="h-9">
@@ -1816,31 +1817,6 @@ export function CommissionBreakdown() {
                   </div>
                 )}
               </>
-            )}
-
-            {wireSelectionMode === undefined && (
-              <div className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-border/60 p-8 text-center bg-muted/10 mt-2">
-                <Landmark className="size-10 text-muted-foreground/30 mb-3" />
-                <h3 className="text-sm font-semibold text-foreground">No instruction selected</h3>
-                <p className="mt-1 mb-4 text-xs text-muted-foreground max-w-[280px]">
-                  Only one instruction can be added. It can be team, agent, or external.
-                </p>
-                <Button 
-                  size="sm" 
-                  className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" 
-                  onClick={() => {
-                    setWireSelectionMode("manual");
-                    setWireFormErrors({});
-                    const d = createEmptyWireInstruction(wireFormMode === "external" ? `ext-${wireExternalName}` : undefined);
-                    d.payableName = wireExternalName;
-                    d.accountHolderName = wireFormMode === "team" ? "Brokerage" : wireFormMode === "agent" ? (sidesData.flatMap((s) => s.agents).find(a => a.id === wireFormAgentId)?.name || "") : wireExternalName;
-                    setWireFormDraft(d);
-                  }}
-                >
-                  <Plus className="size-3.5 mr-1.5" />
-                  Instruction
-                </Button>
-              </div>
             )}
 
             {wireSelectionMode !== undefined && (
