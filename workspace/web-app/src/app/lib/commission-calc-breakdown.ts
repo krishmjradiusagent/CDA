@@ -36,7 +36,7 @@ export function buildGrossCommissionLines(
     { label: `Transaction gross × ${Math.round(awardPercent)}%`, amount: allocated, kind: "start" },
   ];
   if (awardAmountAdjustment > 0) {
-    lines.push({ label: "Award adjustment", amount: awardAmountAdjustment, kind: "add" });
+    lines.push({ label: "Commission adjustment", amount: awardAmountAdjustment, kind: "add" });
   }
   lines.push({ label: "Gross commission", amount: finalAmount, kind: "final" });
   return lines;

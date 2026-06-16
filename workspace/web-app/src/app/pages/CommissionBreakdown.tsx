@@ -833,7 +833,7 @@ export function CommissionBreakdown() {
   type ActivityView = "comments" | "activity" | "all";
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([
     { id: "ac1", author: "Jessica Hall", role: "radius_auditing", text: `Commission breakdown draft created for ${PROPERTY_ADDRESS}.`, timestamp: "May 12, 2026 · 10:08 AM", kind: "activity" },
-    { id: "ac2", author: "Jessica Hall", role: "radius_auditing", text: "Award allocation updated for Listing Side to 1%.", timestamp: "May 12, 2026 · 10:14 AM", kind: "activity" },
+    { id: "ac2", author: "Jessica Hall", role: "radius_auditing", text: "Commission allocation updated for Listing Side to 1%.", timestamp: "May 12, 2026 · 10:14 AM", kind: "activity" },
     { id: "ac3", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-split deduction Credits on Listing Side at $200.", timestamp: "May 12, 2026 · 10:16 AM", kind: "activity" },
     { id: "ac4", author: "Jessica Hall", role: "radius_auditing", text: "Added pre-split deduction Referrals on Listing Side at $50.", timestamp: "May 12, 2026 · 10:18 AM", kind: "activity" },
     { id: "ac5", author: "Jessica Hall", role: "radius_auditing", text: "Applied commission plan 80/20 Standard to Mark Perez.", timestamp: "May 12, 2026 · 10:24 AM", kind: "activity" },
@@ -2239,12 +2239,13 @@ export function CommissionBreakdown() {
                                 <Badge
                                   variant="outline"
                                   className={cn(
-                                    "rounded-full px-2 py-0 text-[11px] font-medium border-[#5A5FF2] text-[#5A5FF2] bg-transparent",
+                                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0 text-[11px] font-medium border-[#5A5FF2] text-[#5A5FF2] bg-transparent",
                                     !isAgent && !isLocked && "cursor-pointer hover:opacity-80"
                                   )}
                                   onClick={!isAgent && !isLocked ? (e) => { e.stopPropagation(); setShowAwardDialog(true); } : undefined}
                                 >
-                                  Award {roundCurrency(derivedBreakdown.normalizedAwards[side.id] ?? 0)}%
+                                  {roundCurrency(derivedBreakdown.normalizedAwards[side.id] ?? 0)}% commission
+                                  {!isAgent && !isLocked && <ChevronRight className="size-3 shrink-0 opacity-70" />}
                                 </Badge>
 
                                 <Separator
@@ -2751,6 +2752,7 @@ export function CommissionBreakdown() {
                       </p>
                       <CalculationBreakdownTooltip
                         title="Team dollar contribution"
+                        tone="payout"
                         lines={buildTeamDollarLines(selectedAgent)}
                       />
                     </div>
@@ -3455,7 +3457,7 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
-      {/* Award Distribution dialog */}
+      {/* Commission distribution dialog */}
       {/* Edit Plan dialog */}
       <Dialog open={showEditPlanDialog} onOpenChange={setShowEditPlanDialog}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
@@ -3512,8 +3514,8 @@ export function CommissionBreakdown() {
       <Dialog open={showAwardDialog} onOpenChange={setShowAwardDialog}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Award distribution</DialogTitle>
-            <DialogDescription>Set award percentage and flat amount per side of the deal.</DialogDescription>
+            <DialogTitle>Commission distribution</DialogTitle>
+            <DialogDescription>Set commission percentage and flat amount per side of the deal.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 px-6 py-4">
             {sidesData.map((side) => (
@@ -3552,8 +3554,8 @@ export function CommissionBreakdown() {
               const normalizedAwards = normalizeSideAwards(awardValues);
               setAwardValues(normalizedAwards);
               setSidesData((prev) => prev.map((side) => ({ ...side, award: roundCurrency(normalizedAwards[side.id]) })));
-              logActivity("Updated award allocation.");
-              toast.success("Award distribution saved");
+              logActivity("Updated commission allocation.");
+              toast.success("Commission distribution saved");
               setShowAwardDialog(false);
             }}>Save</Button>
           </DialogFooter>
