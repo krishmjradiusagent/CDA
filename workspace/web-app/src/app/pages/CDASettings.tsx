@@ -1389,7 +1389,7 @@ function ViewAssociationsDialogInner({
                   </div>
                   <button
                     onClick={() => handleUnassign(assignment.agentId, agent.name)}
-                    className="flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted p-2 rounded-md transition-colors"
+                    className="flex-shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10 p-2 rounded-md transition-colors"
                     title="Remove entirely"
                   >
                     <Trash2 className="size-4" />
