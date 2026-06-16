@@ -104,43 +104,49 @@ export function CalculationBreakdownTooltip({
             {lines.map((line, index) => {
               const isFinal = line.kind === "final";
               const isStart = line.kind === "start";
+              const isFinalPayout = isFinal && tone === "payout";
+              const isStartPayout = isStart && tone === "payout";
               const isFeesSectionStart = index === firstSubtractIndex && firstSubtractIndex > 0;
               return (
-                <div
-                  key={`${line.label}-${index}`}
-                  className={cn(
-                    "grid grid-cols-[16px_1fr_auto] items-center gap-x-2.5",
-                    isFeesSectionStart && "mt-2 border-t border-white/15 pt-2.5",
-                    isFinal && "mt-2 border-t border-white/15 pt-2.5 font-semibold",
-                    tone === "payout" && isStart && "rounded-md bg-amber-400/10 px-1 py-1 -mx-1",
-                    tone === "payout" && isFinal && "rounded-b-md bg-emerald-500/15 px-1.5 pb-1 -mx-1",
-                  )}
-                >
-                  <OperatorMarker kind={line.kind} tone={tone} />
-                  <span
+                <div key={`${line.label}-${index}`} className={cn(isFinalPayout && "mt-2")}>
+                  {isFinalPayout ? (
+                    <div className="mb-2 border-t border-white/15" aria-hidden />
+                  ) : null}
+                  <div
                     className={cn(
-                      "min-w-0 text-[12px] leading-4",
-                      isStart && tone === "payout" && "font-medium text-amber-200",
-                      isStart && tone !== "payout" && "text-white",
-                      isFinal && tone === "payout" && "font-semibold text-emerald-200",
-                      isFinal && tone !== "payout" && "text-white",
-                      !isStart && !isFinal && "text-white/75",
+                      "grid grid-cols-[16px_1fr_auto] items-center gap-x-2.5",
+                      isFeesSectionStart && "mt-2 border-t border-white/15 pt-2.5",
+                      isFinal && !isFinalPayout && "mt-2 border-t border-white/15 pt-2.5 font-semibold",
+                      isStartPayout && "rounded-md bg-amber-400/10 px-1.5 py-1.5 -mx-1",
+                      isFinalPayout && "rounded-b-md bg-emerald-500/15 px-1.5 py-1.5 -mx-1 font-semibold",
                     )}
                   >
-                    {line.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-right text-[12px] leading-4 tabular-nums",
-                      isStart && tone === "payout" && "font-semibold text-amber-300",
-                      isStart && tone !== "payout" && "text-white",
-                      isFinal && tone === "payout" && "text-[13px] font-bold text-emerald-400",
-                      isFinal && tone !== "payout" && "text-[13px] text-white",
-                      !isStart && !isFinal && "text-white",
-                    )}
-                  >
-                    {formatCurrency(line.amount)}
-                  </span>
+                    <OperatorMarker kind={line.kind} tone={tone} />
+                    <span
+                      className={cn(
+                        "min-w-0 text-[12px] leading-none",
+                        isStart && tone === "payout" && "font-medium text-amber-200",
+                        isStart && tone !== "payout" && "text-white",
+                        isFinal && tone === "payout" && "font-semibold text-emerald-200",
+                        isFinal && tone !== "payout" && "text-white",
+                        !isStart && !isFinal && "text-white/75",
+                      )}
+                    >
+                      {line.label}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-right text-[12px] leading-none tabular-nums",
+                        isStart && tone === "payout" && "font-semibold text-amber-300",
+                        isStart && tone !== "payout" && "text-white",
+                        isFinal && tone === "payout" && "text-[13px] font-bold text-emerald-400",
+                        isFinal && tone !== "payout" && "text-[13px] text-white",
+                        !isStart && !isFinal && "text-white",
+                      )}
+                    >
+                      {formatCurrency(line.amount)}
+                    </span>
+                  </div>
                 </div>
               );
             })}
