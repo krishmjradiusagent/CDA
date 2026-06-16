@@ -1235,14 +1235,7 @@ function ViewAssociationsDialogInner({
   onSave: (assignments: AgentAssignment[]) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [localAssignments, setLocalAssignments] = useState<AgentAssignment[]>(assignments);
-  const [bulkUnassignPreview, setBulkUnassignPreview] = useState<{
-    dealType: string | "all";
-    affected: { id: string; name: string; dealTypes: Record<string, boolean> }[];
-    skipped: { id: string; name: string; reason: string }[];
-  } | null>(null);
 
   const associations = target.type === "plan"
     ? localAssignments.filter(a => a.planId === target.id)
@@ -1258,46 +1251,8 @@ function ViewAssociationsDialogInner({
       if (!agent.name.toLowerCase().includes(q)) return false;
     }
 
-    // Deal type filter
-    if (filterType) {
-      if (!assignment.dealTypes[filterType]) return false;
-    }
-
     return true;
   });
-
-  const selectedAgents = filtered.filter(a => selectedIds.has(a.agentId));
-  const availableDealTypes = new Set<string>();
-  selectedAgents.forEach(a => {
-    Object.entries(a.dealTypes).forEach(([k, v]) => {
-      if (v) availableDealTypes.add(k);
-    });
-  });
-
-  const handlePreview = (dealType: string | "all") => {
-    const affected: { id: string; name: string; dealTypes: Record<string, boolean> }[] = [];
-    const skipped: { id: string; name: string; reason: string }[] = [];
-
-    selectedAgents.forEach(assignment => {
-      const agent = agents.find(a => a.id === assignment.agentId);
-      if (!agent) return;
-
-      if (dealType === "all") {
-        affected.push({ id: agent.id, name: agent.name, dealTypes: assignment.dealTypes });
-      } else {
-        if (assignment.dealTypes[dealType]) {
-          affected.push({ id: agent.id, name: agent.name, dealTypes: assignment.dealTypes });
-        } else {
-          const label = DEAL_TYPE_OPTIONS.find(o => o.key === dealType)?.label ?? dealType;
-          skipped.push({ id: agent.id, name: agent.name, reason: `no ${label} assigned` });
-        }
-      }
-    });
-
-    setTimeout(() => {
-      setBulkUnassignPreview({ dealType, affected, skipped });
-    }, 0);
-  };
 
   const handleUnassign = (agentId: string, agentName: string) => {
     setLocalAssignments(current => {
@@ -1341,135 +1296,16 @@ function ViewAssociationsDialogInner({
     });
   };
 
-  const handleBulkUnassign = (payload: { agentIds: string[], dealTypeToRemove: string | "all", affectedCount: number, skippedCount: number }) => {
-    const { agentIds, dealTypeToRemove } = payload;
-    setLocalAssignments(current => {
-      let next = [...current];
-      if (dealTypeToRemove === "all") {
-        if (target.type === "plan") {
-          next = next.filter(a => !(agentIds.includes(a.agentId) && a.planId === target.id));
-        } else {
-          next = next.map(a => {
-            if (agentIds.includes(a.agentId)) {
-              return { ...a, feeIds: a.feeIds.filter(fid => fid !== target.id) };
-            }
-            return a;
-          }).filter(a => a.feeIds.length > 0 || Object.values(a.dealTypes).some(v => v));
-        }
-      } else {
-        next = next.map(a => {
-          if (agentIds.includes(a.agentId) && ((target.type === "plan" && a.planId === target.id) || (target.type === "fee" && a.feeIds.includes(target.id)))) {
-            const updatedDealTypes = { ...a.dealTypes };
-            delete updatedDealTypes[dealTypeToRemove];
-            return { ...a, dealTypes: updatedDealTypes };
-          }
-          return a;
-        });
-        if (target.type === "plan") {
-          next = next.filter(a => !(agentIds.includes(a.agentId) && a.planId === target.id && !Object.values(a.dealTypes).some(v => v)));
-        } else {
-          next = next.map(a => {
-            if (agentIds.includes(a.agentId) && a.feeIds.includes(target.id) && !Object.values(a.dealTypes).some(v => v)) {
-               return { ...a, feeIds: a.feeIds.filter(fid => fid !== target.id) };
-            }
-            return a;
-          }).filter(a => a.feeIds.length > 0 || Object.values(a.dealTypes).some(v => v));
-        }
-      }
-      return next;
-    });
-  };
-
   return (
     <Dialog open onOpenChange={(open) => {
       if (!open) {
-        if (bulkUnassignPreview) setBulkUnassignPreview(null);
-        else onClose();
+        onClose();
       }
     }}>
       <DialogContent className={cn(
         "!flex !max-h-[85vh] !max-w-[calc(100vw-48px)] !flex-col !gap-0 !overflow-hidden !rounded-[12px] !p-0",
-        bulkUnassignPreview ? "!w-[450px] sm:!max-w-[450px] !h-[auto]" : "!h-[70vh] !w-[560px] sm:!max-w-[560px] [&>button[data-slot=dialog-close]]:hidden"
+        "!h-[70vh] !w-[560px] sm:!max-w-[560px] [&>button[data-slot=dialog-close]]:hidden"
       )}>
-        {bulkUnassignPreview ? (
-          <>
-            <DialogHeader className="border-b px-6 pt-6 pb-4 !text-left shrink-0">
-              <DialogTitle>
-                {bulkUnassignPreview.dealType === "all" 
-                  ? `Remove ${bulkUnassignPreview.affected.length} agents from ${target.name}?`
-                  : `Remove "${DEAL_TYPE_OPTIONS.find(o => o.key === bulkUnassignPreview.dealType)?.label ?? bulkUnassignPreview.dealType}" from ${bulkUnassignPreview.affected.length} agents?`}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto">
-              <div className="px-6 py-4 space-y-6">
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                    Will change ({bulkUnassignPreview.affected.length})
-                  </h4>
-                  {bulkUnassignPreview.affected.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">No agents will be affected.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {bulkUnassignPreview.affected.map(agent => (
-                        <div key={agent.id} className="flex items-center justify-between py-1">
-                          <span className="text-sm font-medium">{agent.name}</span>
-                          <div className="flex gap-1.5">
-                            {bulkUnassignPreview.dealType === "all" ? (
-                              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-medium bg-destructive/10 text-destructive border-transparent">
-                                All types
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-medium bg-destructive/10 text-destructive border-transparent">
-                                {DEAL_TYPE_OPTIONS.find(o => o.key === bulkUnassignPreview.dealType)?.label ?? bulkUnassignPreview.dealType}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {bulkUnassignPreview.skipped.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                      No change ({bulkUnassignPreview.skipped.length})
-                    </h4>
-                    <div className="space-y-2 opacity-60">
-                      {bulkUnassignPreview.skipped.map(agent => (
-                        <div key={agent.id} className="flex items-center justify-between py-1">
-                          <span className="text-sm text-muted-foreground">{agent.name}</span>
-                          <span className="text-xs text-muted-foreground italic">{agent.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <DialogFooter className="px-6 py-4 bg-muted/50 rounded-b-lg flex flex-row justify-end gap-2 shrink-0 border-t">
-              <Button variant="outline" onClick={() => setBulkUnassignPreview(null)}>Cancel</Button>
-              <Button 
-                variant="destructive" 
-                disabled={bulkUnassignPreview.affected.length === 0}
-                aria-label={`Remove from ${bulkUnassignPreview.affected.length} agents`}
-                onClick={() => {
-                  handleBulkUnassign({
-                    agentIds: bulkUnassignPreview.affected.map(a => a.id),
-                    dealTypeToRemove: bulkUnassignPreview.dealType,
-                    affectedCount: bulkUnassignPreview.affected.length,
-                    skippedCount: bulkUnassignPreview.skipped.length
-                  });
-                  setSelectedIds(new Set());
-                  setBulkUnassignPreview(null);
-                }}
-              >
-                Remove
-              </Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <>
 
 
         <DialogHeader className="border-b px-6 pt-6 pb-4 !text-left shrink-0">
@@ -1495,8 +1331,8 @@ function ViewAssociationsDialogInner({
           </div>
         </DialogHeader>
 
-        {/* Search + filter */}
-        <div className="shrink-0 border-b px-6 py-3 space-y-3 sticky top-0 bg-background z-10 shadow-sm">
+        {/* Search */}
+        <div className="shrink-0 border-b px-6 py-3 sticky top-0 bg-background z-10 shadow-sm">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
@@ -1505,54 +1341,6 @@ function ViewAssociationsDialogInner({
               onChange={(e) => setSearch(e.target.value)}
               className="h-9 pl-9 text-sm"
             />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setFilterType(null)}
-                className={cn(
-                  "inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border",
-                  filterType === null
-                    ? "bg-foreground text-background border-foreground"
-                    : "bg-background text-muted-foreground border-border hover:bg-muted"
-                )}
-              >
-                All
-              </button>
-              {DEAL_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setFilterType(filterType === opt.key ? null : opt.key)}
-                  className={cn(
-                    "inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium transition-colors border",
-                    filterType === opt.key
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-background text-muted-foreground border-border hover:bg-muted"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            
-            <div className="flex items-center gap-2 pr-1">
-              <Checkbox 
-                id="select-all"
-                checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                onCheckedChange={(c) => {
-                  if (c) {
-                    setSelectedIds(new Set(filtered.map(a => a.agentId)));
-                  } else {
-                    setSelectedIds(new Set());
-                  }
-                }}
-              />
-              <label htmlFor="select-all" className="text-xs font-medium cursor-pointer text-muted-foreground">
-                Select All
-              </label>
-            </div>
           </div>
         </div>
 
@@ -1574,15 +1362,6 @@ function ViewAssociationsDialogInner({
               if (!agent) return null;
               return (
                 <div key={assignment.id} className="flex items-center gap-3 border-b px-6 py-3 last:border-0 hover:bg-muted/30 transition-colors">
-                  <Checkbox 
-                    checked={selectedIds.has(assignment.agentId)}
-                    onCheckedChange={(c) => {
-                      const next = new Set(selectedIds);
-                      if (c) next.add(assignment.agentId);
-                      else next.delete(assignment.agentId);
-                      setSelectedIds(next);
-                    }}
-                  />
                   <Avatar className="size-8 shrink-0">
                     {agent.avatarUrl && <AvatarImage src={agent.avatarUrl} alt={agent.name} className="object-cover" />}
                     <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
@@ -1622,62 +1401,16 @@ function ViewAssociationsDialogInner({
         </div>
 
         <DialogFooter className="!flex !flex-row !items-center !justify-between !gap-3 shrink-0 border-t bg-background px-6 py-3">
-          {selectedIds.size > 0 ? (
-            <div className="flex items-center gap-3 flex-1">
-              <span className="text-xs font-medium text-foreground">{selectedIds.size} selected</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 text-xs">
-                    Unassign <ChevronDown className="ml-2 size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem 
-                    onClick={() => handlePreview("all")}
-                    className="text-xs cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                  >
-                    {target.type === "plan" ? "Remove from plan" : "Remove completely"}
-                  </DropdownMenuItem>
-                  {availableDealTypes.size > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="text-xs cursor-pointer">
-                          Remove deal type
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent>
-                            {DEAL_TYPE_OPTIONS.filter(opt => availableDealTypes.has(opt.key)).map(opt => (
-                              <DropdownMenuItem 
-                                key={opt.key}
-                                onClick={() => handlePreview(opt.key)}
-                                className="text-xs cursor-pointer"
-                              >
-                                {opt.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {search.trim() || filterType
-                ? `${filtered.length} of ${associations.length} agents`
-                : `${associations.length} agent${associations.length !== 1 ? "s" : ""}`}
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            {search.trim()
+              ? `${filtered.length} of ${associations.length} agents`
+              : `${associations.length} agent${associations.length !== 1 ? "s" : ""}`}
+          </span>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
             <Button size="sm" onClick={() => onSave(localAssignments)}>Save</Button>
           </div>
         </DialogFooter>
-        </>
-      )}
       </DialogContent>
     </Dialog>
   );
