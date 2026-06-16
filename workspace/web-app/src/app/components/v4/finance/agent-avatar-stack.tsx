@@ -1,4 +1,4 @@
-import { Edit3, MoreVertical, UserMinus } from "lucide-react";
+import { Eye, MoreVertical, UserMinus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import {
@@ -22,7 +22,7 @@ export interface AgentAvatarStackProps {
   size?: "sm" | "md" | "lg";
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
-  onEditDefaults?: () => void;
+  onViewAssociations?: () => void;
   onUnassignDefaults?: () => void;
 }
 
@@ -33,12 +33,12 @@ export function AgentAvatarStack({
   size = "sm",
   emptyActionLabel,
   onEmptyAction,
-  onEditDefaults,
+  onViewAssociations,
   onUnassignDefaults,
 }: AgentAvatarStackProps) {
   const displayAgents = agents.slice(0, max);
   const remaining = Math.max(0, agents.length - displayAgents.length);
-  const interactive = Boolean(onEditDefaults || onUnassignDefaults);
+  const interactive = Boolean(onViewAssociations || onUnassignDefaults);
 
   const sizeClasses = {
     sm: "size-7 text-[10px]",
@@ -99,17 +99,17 @@ export function AgentAvatarStack({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={6} className="w-44 p-1">
-            {onEditDefaults && (
+            {onViewAssociations && (
               <DropdownMenuItem
                 className="flex items-center gap-2 rounded-md"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onEditDefaults();
+                  onViewAssociations();
                 }}
-                aria-label="Edit defaults"
+                aria-label="View associations"
               >
-                <Edit3 className="size-4" />
-                <span>Edit defaults</span>
+                <Eye className="size-4" />
+                <span>View associations</span>
               </DropdownMenuItem>
             )}
             {onUnassignDefaults && (
