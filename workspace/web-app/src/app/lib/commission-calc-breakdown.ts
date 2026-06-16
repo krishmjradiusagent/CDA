@@ -189,41 +189,43 @@ export function buildTeamIncomeLines(
   return lines;
 }
 
-export function buildSideTotalLines(
+export function getSideTotalAmount(
   sideSummary: SideSummary,
   showFullBreakdown: boolean,
   scopedAgentId?: string,
-  preSplitDeductions: Record<string, AgentDeduction[]> = {},
-  postSplitDeductions: Record<string, AgentDeduction[]> = {},
+): number {
+  if (!showFullBreakdown && scopedAgentId) {
+    return sideSummary.agents.find((agent) => agent.agent.id === scopedAgentId)?.commissionBasis ?? 0;
+  }
+  return sideSummary.grossCommission;
+}
+
+export function buildSideTotalLines(
+  sideSummary: SideSummary,
+  awardPercent: number,
+  awardAmountAdjustment: number,
+  transactionGross: number,
+  showFullBreakdown: boolean,
+  scopedAgentId?: string,
 ): CalculationLine[] {
-  const visibleAgents = scopedAgentId
-    ? sideSummary.agents.filter((agent) => agent.agent.id === scopedAgentId)
-    : sideSummary.agents;
-
-  if (visibleAgents.length === 0) return [];
-
-  const finalAmount = showFullBreakdown
-    ? sideSummary.toAgents
-    : (sideSummary.agents.find((agent) => agent.agent.id === scopedAgentId)?.netCommission ?? sideSummary.toAgents);
-
-  if (visibleAgents.length === 1) {
-    const agent = visibleAgents[0];
-    const lines = buildAgentNetLines(
-      agent,
-      preSplitDeductions[agent.agent.id] ?? [],
-      postSplitDeductions[agent.agent.id] ?? [],
-    );
+  if (!showFullBreakdown && scopedAgentId) {
+    const agent = sideSummary.agents.find((entry) => entry.agent.id === scopedAgentId);
+    if (!agent) return [];
+    const lines = buildCommissionBasisLines(sideSummary, agent, false);
     const lastIndex = lines.length - 1;
     return lines.map((line, index) =>
-      index === lastIndex ? { ...line, label: "Side total" } : line,
+      index === lastIndex ? { ...line, label: "Side total", amount: agent.commissionBasis } : line,
     );
   }
 
-  return buildToAgentsLines(
-    sideSummary.agents,
-    finalAmount,
-    showFullBreakdown,
-    scopedAgentId,
-    "Side total",
+  const lines = buildGrossCommissionLines(
+    awardPercent,
+    awardAmountAdjustment,
+    transactionGross,
+    sideSummary.grossCommission,
+  );
+  const lastIndex = lines.length - 1;
+  return lines.map((line, index) =>
+    index === lastIndex ? { ...line, label: "Side total" } : line,
   );
 }

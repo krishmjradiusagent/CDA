@@ -106,6 +106,7 @@ import {
   buildCommissionBasisLines,
   buildGrossAfterDeductionsLines,
   buildSideTotalLines,
+  getSideTotalAmount,
   buildTeamDollarLines,
   buildTeamIncomeLines,
   buildTeamSplitLines,
@@ -2259,21 +2260,21 @@ export function CommissionBreakdown() {
                                 <div className="flex items-center justify-end gap-1">
                                   <p className="text-xl font-bold tracking-tight tabular-nums">
                                     {currency(
-                                      showFullBreakdown
-                                        ? (sideSummary?.toAgents ?? 0)
-                                        : (sideSummary?.agents.find((entry) => entry.agent.id === scopedAgentId)?.netCommission ?? 0),
+                                      sideSummary
+                                        ? getSideTotalAmount(sideSummary, showFullBreakdown, scopedAgentId)
+                                        : 0,
                                     )}
                                   </p>
                                   {sideSummary && (
                                     <CalculationBreakdownTooltip
                                       title="Side total"
-                                      tone="payout"
                                       lines={buildSideTotalLines(
                                         sideSummary,
+                                        derivedBreakdown.normalizedAwards[side.id] ?? 0,
+                                        Math.max(awardAmountValues[side.id] ?? 0, 0),
+                                        transactionGross,
                                         showFullBreakdown,
                                         scopedAgentId,
-                                        preSplitDeductions,
-                                        postSplitDeductions,
                                       )}
                                     />
                                   )}
