@@ -118,10 +118,6 @@ export function validateWireInstruction(record: WireInstructionRecord, options: 
     if (!(record.bankName || "").trim()) errors.bankName = "Bank name required";
     if (!/^\d{9}$/.test((record.routingNumber || "").trim())) errors.routingNumber = "Routing number must be 9 digits";
     if (!(record.accountNumber || "").trim()) errors.accountNumber = "Account number required";
-    if (!(record.bankStreet || "").trim()) errors.bankStreet = "Street required";
-    if (!(record.bankCity || "").trim()) errors.bankCity = "City required";
-    if (!(record.bankState || "").trim()) errors.bankState = "State required";
-    if (!(record.bankZip || "").trim()) errors.bankZip = "ZIP required";
   }
 
   if (options.requireCdaType && !record.cdaType) errors.cdaType = "CDA type required";

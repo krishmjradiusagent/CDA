@@ -1726,23 +1726,23 @@ export function CommissionBreakdown() {
 
   function renderWireInstructionForm() {
     return (
-      <Dialog open={true} onOpenChange={(open) => {
+      <Sheet open={true} onOpenChange={(open) => {
         if (!open) {
           setWireFormMode("none");
           setOpenWireItemId(null);
         }
       }}>
-        <DialogContent className="sm:max-w-[600px] w-[95vw] overflow-y-auto max-h-[85vh] p-0 gap-0">
-          <div className="flex items-center justify-between border-b px-6 py-4">
-            <DialogTitle className="text-lg font-semibold text-foreground">
+        <SheetContent side="right" showCloseButton={false} className="w-full gap-0 sm:max-w-xl p-0 flex flex-col">
+          <SheetHeader className="border-b px-6 py-4 flex flex-row items-center justify-between shrink-0">
+            <SheetTitle className="text-lg font-semibold text-foreground">
               {wireFormMode === "team" ? "Team Wire Instruction" : wireFormMode === "agent" ? "Agent Wire Instruction" : wireFormMode === "external" ? "External Wire Instruction" : "Wire Instruction"}
-            </DialogTitle>
-            <DialogClose className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+            </SheetTitle>
+            <SheetClose className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <X className="size-4" />
               <span className="sr-only">Close</span>
-            </DialogClose>
-          </div>
-          <div className="flex flex-col gap-4 px-6 py-4">
+            </SheetClose>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
 
             {wireSelectionMode !== undefined && (
               <>
@@ -1896,48 +1896,22 @@ export function CommissionBreakdown() {
               </div>
             </div>
 
-            <Separator />
-
-            {/* Address */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Bank Street Address <span className="text-destructive">*</span></Label>
-              <Input value={wireFormDraft.bankStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
-              {wireFormErrors.bankStreet && <p className="text-[11px] text-destructive">{wireFormErrors.bankStreet}</p>}
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium">City <span className="text-destructive">*</span></Label>
-                <Input value={wireFormDraft.bankCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
-                {wireFormErrors.bankCity && <p className="text-[11px] text-destructive">{wireFormErrors.bankCity}</p>}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium">State <span className="text-destructive">*</span></Label>
-                <Input value={wireFormDraft.bankState} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
-                {wireFormErrors.bankState && <p className="text-[11px] text-destructive">{wireFormErrors.bankState}</p>}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium">ZIP <span className="text-destructive">*</span></Label>
-                <Input value={wireFormDraft.bankZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
-                {wireFormErrors.bankZip && <p className="text-[11px] text-destructive">{wireFormErrors.bankZip}</p>}
-              </div>
-            </div>
-
             {/* Special instructions */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 pb-4">
               <Label className="text-xs font-medium">Special Instructions / Memo</Label>
               <Textarea value={wireFormDraft.specialInstructions} onChange={(e) => setWireFormDraft((d) => ({ ...d, specialInstructions: e.target.value }))} className="min-h-[60px] text-sm" placeholder="Optional memo or reference" />
             </div>
           </>
         )}
-
-            {/* Save */}
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => { setWireFormMode("none"); setOpenWireItemId(null); }}>Cancel</Button>
-              <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90 text-white" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Instructions</Button>
-            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Save */}
+          <div className="flex items-center justify-end gap-2 p-4 border-t bg-muted/30 shrink-0">
+            <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => { setWireFormMode("none"); setOpenWireItemId(null); }}>Cancel</Button>
+            <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90 text-white" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Instructions</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     );
   }
 
