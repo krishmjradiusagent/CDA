@@ -1450,7 +1450,7 @@ export function ComponentLibrary() {
                         <p className="text-xs font-medium mb-2 text-muted-foreground">Deal Types</p>
                         <div className="border rounded-lg p-2 bg-background">
                           <div className="flex items-center gap-1 flex-wrap mb-2">
-                            <Badge variant="secondary" className="text-xs">Buyer</Badge>
+                            <Badge variant="secondary" className="text-xs">Purchase</Badge>
                             <Badge variant="secondary" className="text-xs">Seller</Badge>
                           </div>
                           <Select>
@@ -1458,7 +1458,7 @@ export function ComponentLibrary() {
                               <SelectValue placeholder="Add deal type..." />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="buyer">Buyer</SelectItem>
+                              <SelectItem value="buyer">Purchase</SelectItem>
                               <SelectItem value="seller">Seller</SelectItem>
                               <SelectItem value="lease">Lease</SelectItem>
                               <SelectItem value="landlord">Landlord</SelectItem>

@@ -5,6 +5,7 @@ import { cn } from "../../../../lib/utils";
 import { FinanceInput } from "./finance-input";
 import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { getCdaTypeLabel } from "../../lib/cda-types";
 
 export interface TierData {
   id: string;
@@ -66,7 +67,7 @@ export function TierBuilderRow({
               </div>
               <div>
                 <div className="text-muted-foreground text-xs mb-0.5">Deal Type</div>
-                <div className="font-medium capitalize">{data.dealType}</div>
+                <div className="font-medium">{data.dealType === "all" ? "All" : getCdaTypeLabel(data.dealType)}</div>
               </div>
             </div>
 
@@ -152,7 +153,7 @@ export function TierBuilderRow({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="buyer">Buyer</SelectItem>
+                    <SelectItem value="buyer">Purchase</SelectItem>
                     <SelectItem value="seller">Seller</SelectItem>
                   </SelectContent>
                 </Select>

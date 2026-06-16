@@ -66,7 +66,7 @@ type WireValidationOptions = {
   requireBankDetails?: boolean;
 };
 
-export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v2";
+export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v3";
 
 export function createEmptyWireInstruction(id?: string): WireInstructionRecord {
   return {

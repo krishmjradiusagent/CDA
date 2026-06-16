@@ -83,9 +83,7 @@ import { Label } from "../components/v4/ui/label";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "../components/v4/ui/select";
@@ -102,6 +100,18 @@ import { cn } from "../../lib/utils";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { FeeBuilderModal } from "../components/finance/fee-builder-modal";
 import type { ExistingFeeOption, FeeTypeDraft } from "../components/finance/fee-builder-modal";
+import { CalculationBreakdownTooltip } from "../components/finance/calculation-breakdown-tooltip";
+import {
+  buildAgentNetLines,
+  buildCommissionBasisLines,
+  buildGrossAfterDeductionsLines,
+  buildGrossCommissionLines,
+  buildSideTotalLines,
+  buildTeamDollarLines,
+  buildTeamIncomeLines,
+  buildTeamSplitLines,
+  buildToAgentsLines,
+} from "../lib/commission-calc-breakdown";
 import {
   createDefaultWireInstructionsStore,
   createEmptyWireInstruction,
@@ -111,6 +121,7 @@ import {
   validateWireInstruction,
   writeWireInstructionsStore,
   type WireInstructionRecord,
+  type WireInstructionsStore,
   type WireValidationErrors,
   type WireAccountType,
   type CDAType,
@@ -119,7 +130,23 @@ import {
 type SideId = "listing" | "buyer";
 type Role = "agent" | "team_lead" | "radius_auditing" | "soul_auditor";
 type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string; external?: boolean; phone?: string; brokerageName?: string; brokerageLicenseNumber?: string; brokerageStreetAddress?: string; brokerageUnit?: string; brokerageCity?: string; brokerageState?: string; brokerageZip?: string; representing?: string };
-type SideDeduction = { id: string; name: string; amount: number };
+type PayableToType = "team" | "agent" | "external";
+type WireLinkMode = "external" | "team";
+type SideDeduction = { id: string; name: string; amount: number; payableToType?: PayableToType; wireRequired?: boolean; wireMode?: WireLinkMode };
+type AgentDeduction = { id: string; name: string; amount: number; payableToType?: PayableToType; isRadiusFee?: boolean; wireRequired?: boolean; wireMode?: WireLinkMode };
+
+const EXTERNAL_WIRE_HELPER_MESSAGE = "Escrow to contact vendor directly for payment instructions.";
+
+function getDeductionBadgeLabel(
+  ded: { payableToType?: PayableToType; isRadiusFee?: boolean },
+  context: "pre-split" | "post-split" | "gross",
+) {
+  if (ded.payableToType === "external") return "External";
+  if (ded.payableToType === "team") return "Team";
+  if (ded.payableToType === "agent") return "Agent";
+  if (context === "post-split") return ded.isRadiusFee ? "Paid by Agent" : "Paid by Both";
+  return "Deduction";
+}
 type Side = {
   id: SideId;
   title: string;
@@ -237,7 +264,7 @@ const initialSides: Side[] = [
     award: 1,
     gross: 49500,
     agents: [
-      
+      { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
     ],
     active: true,
   },
@@ -247,9 +274,7 @@ const initialSides: Side[] = [
     subline: "Jeanne Gould",
     award: 0,
     gross: 49500,
-    agents: [
-      { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
-    ],
+    agents: [],
     active: false,
   },
 ];
@@ -307,7 +332,49 @@ const defaultTiers: TierRow[] = [
 
 const DEAL_SALE_PRICE = 4_950_000;
 const DEAL_TOTAL_COMMISSION_RATE = 0.02;
-const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v1";
+const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v3";
+
+const DEFAULT_POST_SPLIT_DEDUCTIONS: Record<string, AgentDeduction[]> = {
+  a1: [
+    { id: "d1", name: "File Review Fee", amount: 25, isRadiusFee: true },
+    { id: "d2", name: "RERM", amount: 124, isRadiusFee: true },
+    { id: "d3", name: "SBTC", amount: 400, wireRequired: true },
+    { id: "d4", name: "E&O", amount: 250, wireRequired: true },
+    { id: "d5", name: "TC Fee", amount: 500, isRadiusFee: true, wireRequired: true },
+    { id: "d6", name: "RM Fee", amount: 300 },
+    { id: "d7", name: "Team Admin Fee", amount: 250, payableToType: "team", wireRequired: true, wireMode: "team" },
+    { id: "d8", name: "Vendor Referral Fee", amount: 500, payableToType: "external", wireRequired: true },
+  ],
+};
+
+function createSeededWireInstructionsStore(teamLeadAgentId: string, agentIds: string[]): WireInstructionsStore {
+  const base = createDefaultWireInstructionsStore(teamLeadAgentId, agentIds);
+  const now = new Date().toISOString();
+  const makeCompleteWire = (id: string, name: string, bankName: string): WireInstructionRecord => ({
+    ...createEmptyWireInstruction(id),
+    payableName: name,
+    accountHolderName: `${name} Payee`,
+    email: "payments@vendor.com",
+    phone: "(555) 123-4567",
+    recipientStreet: "100 Market St",
+    recipientCity: "San Francisco",
+    recipientState: "CA",
+    recipientZip: "94105",
+    bankName,
+    routingNumber: "121000248",
+    accountNumber: "9876543210",
+    accountType: "checking",
+    updatedAt: now,
+  });
+
+  return {
+    ...base,
+    sharedRecipients: [
+      makeCompleteWire("ext-SBTC", "SBTC", "Wells Fargo"),
+      makeCompleteWire("ext-E&O", "E&O", "Bank of America"),
+    ],
+  };
+}
 const CURRENT_TEAM_LEAD_ID = "a3";
 const CURRENT_AGENT_ID = "a1";
 
@@ -348,8 +415,8 @@ type DerivedSideSummary = {
 type PersistedCommissionBreakdownState = {
   sidesData: Side[];
   sideGrossDeductions: Record<string, SideDeduction[]>;
-  preSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number }>>;
-  postSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>;
+  preSplitDeductions: Record<string, AgentDeduction[]>;
+  postSplitDeductions: Record<string, AgentDeduction[]>;
   awardValues: Record<SideId, number>;
   awardAmountValues: Record<SideId, number>;
   appliedPlans: Record<string, string | null>;
@@ -455,8 +522,8 @@ function deriveCommissionBreakdown(params: {
   awardValues: Record<SideId, number>;
   awardAmountValues: Record<SideId, number>;
   sideGrossDeductions: Record<string, SideDeduction[]>;
-  preSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number }>>;
-  postSplitDeductions: Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>;
+  preSplitDeductions: Record<string, AgentDeduction[]>;
+  postSplitDeductions: Record<string, AgentDeduction[]>;
   appliedPlans: Record<string, string | null>;
   agentRadiusFees: Record<string, number>;
   agentAllocationPercentages: Record<string, number>;
@@ -943,8 +1010,7 @@ export function CommissionBreakdown() {
   const [_inlineAgentPreSplitLabel] = useState("");
   const [_inlineAgentPreSplitAmount] = useState("");
   const feeDialogTitle = "Fee Type";
-  const [showCDCDialog, setShowCDCDialog] = useState(false);
-  const [showNetCommissionDialog, setShowNetCommissionDialog] = useState(false);
+
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [statementNotes, setStatementNotes] = useState("");
   const [includeProgressInfo, setIncludeProgressInfo] = useState(false);
@@ -975,7 +1041,7 @@ export function CommissionBreakdown() {
   const [_agentPreSplitLabel] = useState("");
   const [_agentPreSplitAmount] = useState("");
   const [feeLibrary, setFeeLibrary] = useState<ExistingFeeOption[]>(DEFAULT_FEE_LIBRARY);
-  const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number }>>>(
+  const [preSplitDeductions, setPreSplitDeductions] = useState<Record<string, AgentDeduction[]>>(
     persistedState?.preSplitDeductions ?? {}
   );
 
@@ -990,15 +1056,8 @@ export function CommissionBreakdown() {
   );
 
 
-  const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, Array<{ id: string; name: string; amount: number; isRadiusFee?: boolean }>>>(
-    persistedState?.postSplitDeductions ?? {
-      a1: [
-        { id: "d1", name: "File Review Fee", amount: 25, isRadiusFee: true },
-        { id: "d2", name: "RERM", amount: 124, isRadiusFee: true },
-        { id: "d3", name: "SBTC", amount: 400 },
-        { id: "d4", name: "E&O", amount: 250 },
-      ],
-    }
+  const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, AgentDeduction[]>>(
+    persistedState?.postSplitDeductions ?? DEFAULT_POST_SPLIT_DEDUCTIONS
   );
   const [pendingPlanChange, setPendingPlanChange] = useState<{ agentId: string; plan: CommissionPlanOption } | null>(null);
   const [showAwardDialog, setShowAwardDialog] = useState(false);
@@ -1061,12 +1120,12 @@ export function CommissionBreakdown() {
 
   // mutable sides so delete works
   const [sidesData, setSidesData] = useState<Side[]>(
-    persistedState?.sidesData?.length ? persistedState.sidesData : initialSides
+    persistedState?.sidesData ?? initialSides
   );
   const wireStore = useMemo(
     () =>
       readWireInstructionsStore(
-        createDefaultWireInstructionsStore(
+        createSeededWireInstructionsStore(
           CURRENT_TEAM_LEAD_ID,
           Array.from(new Set(sidesData.flatMap((side) => side.agents.map((agent) => agent.id)).concat([CURRENT_TEAM_LEAD_ID, CURRENT_AGENT_ID]))),
         ),
@@ -1126,15 +1185,62 @@ export function CommissionBreakdown() {
   const incompleteWirePartyNames = auditorWireParties.filter((party) => !party.complete).map((party) => party.name);
   const allAuditorWiresComplete = incompleteWirePartyNames.length === 0;
 
-  const checkDeductionWireStatus = (dedName: string) => {
+  const checkFeeWireStatus = (dedName: string, wireMode: WireLinkMode = "external") => {
+    if (wireMode === "team") {
+      return isWireInstructionComplete(wireStore.teamWireInstructions, { requireCdaType: false });
+    }
     const matching = [...wireStore.sharedRecipients, ...Object.values(wireStore.privateRecipients || {}).flat()].find(
       (r) => r.id === `ext-${dedName}` || (r.payableName?.toLowerCase() === dedName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === dedName.toLowerCase())
     );
     return matching ? isWireInstructionComplete(matching, { requireBankDetails: true }) : false;
   };
 
-  const DeductionWireIcon = ({ dedName, onClick }: { dedName: string; onClick: () => void }) => {
-    const isFilled = checkDeductionWireStatus(dedName);
+  const openFeeWireForm = (dedName: string, wireMode: WireLinkMode = "external") => {
+    if (wireMode === "team") {
+      openWireForm("team");
+      return;
+    }
+    openWireForm("external", undefined, dedName);
+  };
+
+  const ExternalWireInfoIcon = () => {
+    const [hovered, setHovered] = useState(false);
+    const [pinned, setPinned] = useState(false);
+
+    return (
+      <Tooltip open={hovered || pinned} onOpenChange={(next) => { if (!next) setPinned(false); }}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-amber-600 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="External payment instructions info"
+            onPointerEnter={() => setHovered(true)}
+            onPointerLeave={() => setHovered(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPinned((prev) => !prev);
+            }}
+          >
+            <Info className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[220px] text-xs leading-relaxed" side="top">
+          {EXTERNAL_WIRE_HELPER_MESSAGE}
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const DeductionWireIcon = ({
+    dedName,
+    wireMode = "external",
+    onClick,
+  }: {
+    dedName: string;
+    wireMode?: WireLinkMode;
+    onClick: () => void;
+  }) => {
+    const isFilled = checkFeeWireStatus(dedName, wireMode);
 
     return (
       <Tooltip>
@@ -1146,7 +1252,7 @@ export function CommissionBreakdown() {
               isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-[#5A5FF2]/10 hover:bg-[#5A5FF2]/20 text-[#5A5FF2]"
             )} 
             onClick={() => {
-              openWireForm("external", undefined, dedName);
+              openFeeWireForm(dedName, wireMode);
               onClick();
             }}
           >
@@ -1160,67 +1266,34 @@ export function CommissionBreakdown() {
     );
   };
 
+  const DeductionWireStatusIcon = ({
+    dedName,
+    payableToType,
+    wireMode = "external",
+    onClick,
+  }: {
+    dedName: string;
+    payableToType?: PayableToType;
+    wireMode?: WireLinkMode;
+    onClick: () => void;
+  }) => {
+    const resolvedWireMode = wireMode ?? (payableToType === "team" ? "team" : "external");
+    const showInfoHelper = payableToType === "external" && !checkFeeWireStatus(dedName, resolvedWireMode);
+
+    return (
+      <div className="flex items-center gap-1">
+        <DeductionWireIcon dedName={dedName} wireMode={resolvedWireMode} onClick={onClick} />
+        {showInfoHelper && <ExternalWireInfoIcon />}
+      </div>
+    );
+  };
+
+  const resolveDeductionWireMode = (ded: { payableToType?: PayableToType; wireMode?: WireLinkMode }) =>
+    ded.wireMode ?? (ded.payableToType === "team" ? "team" : "external");
 
 
-  const allSavedWires = useMemo(() => {
-    const raw = [
-      ...wireStore.sharedRecipients,
-      ...Object.values(wireStore.privateRecipients || {}).flat(),
-      ...Object.values(wireStore.agentWireInstructions),
-      wireStore.teamWireInstructions
-    ].filter(r => r && r.updatedAt);
-    
-    const unique = new Map();
-    for (const item of raw) {
-      const id = String(item.id || `fallback-id-${Math.random()}`);
-      if (!unique.has(id)) {
-        unique.set(id, { ...item, id });
-      }
-    }
-    const uniqueArray = Array.from(unique.values());
-    if (uniqueArray.length === 0) {
-      uniqueArray.push({
-        id: "dummy-1",
-        accountHolderName: "John Doe",
-        bankName: "Chase Bank",
-        accountNumber: "123456789",
-        routingNumber: "987654321",
-        accountType: "checking",
-        bankStreet: "123 Main St",
-        bankCity: "San Francisco",
-        bankState: "CA",
-        bankZip: "94105",
-        recipientStreet: "456 Oak St",
-        recipientCity: "San Francisco",
-        recipientState: "CA",
-        recipientZip: "94105",
-        email: "john@example.com",
-        phone: "555-1234",
-        updatedAt: new Date().toISOString()
-      });
-      uniqueArray.push({
-        id: "dummy-2",
-        payableName: "Keller Williams",
-        accountHolderName: "Keller Williams Realty",
-        bankName: "Wells Fargo",
-        accountNumber: "987654321",
-        routingNumber: "123456789",
-        accountType: "savings",
-        bankStreet: "789 Market St",
-        bankCity: "New York",
-        bankState: "NY",
-        bankZip: "10001",
-        recipientStreet: "101 Broadway",
-        recipientCity: "New York",
-        recipientState: "NY",
-        recipientZip: "10001",
-        email: "finance@kw.com",
-        phone: "800-555-5555",
-        updatedAt: new Date().toISOString()
-      });
-    }
-    return uniqueArray;
-  }, [wireStore]);
+
+
 
   const sides = useMemo(
     () => sidesData.map((s) => s.id === selectedSide ? { ...s, active: true } : { ...s, active: false }),
@@ -1362,18 +1435,29 @@ export function CommissionBreakdown() {
       ]);
       fee = { ...fee, id: newFeeId };
     }
+    const payableToType: PayableToType | undefined =
+      fee.payableToType === "external"
+        ? "external"
+        : fee.payableToType === "team" || fee.appliesToMode === "team"
+          ? "team"
+          : fee.payableToType === "radius"
+            ? undefined
+            : fee.appliesToMode === "agent"
+              ? "agent"
+              : undefined;
+
     if (fee.timing === "pre-split") {
       if (feeDialogTarget === "agent" && selectedAgentId) {
         setPreSplitDeductions((prev) => ({
           ...prev,
-          [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `pre-${Date.now()}`, name: fee.name, amount }],
+          [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `pre-${Date.now()}`, name: fee.name, amount, payableToType }],
         }));
         logActivity(`Added ${fee.name} pre-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
       } else {
         // Pre-split → side-level gross deductions
         setSideGrossDeductions((prev) => ({
           ...prev,
-          [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount }],
+          [activeSide.id]: [...(prev[activeSide.id] ?? []), { id: `sg-${Date.now()}`, name: fee.name, amount, payableToType }],
         }));
         logActivity(`Added ${fee.name} pre-split deduction for ${activeSide.title}.`);
       }
@@ -1381,7 +1465,7 @@ export function CommissionBreakdown() {
       // Post-split → agent-level deductions
       setPostSplitDeductions((prev) => ({
         ...prev,
-        [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount }],
+        [selectedAgentId]: [...(prev[selectedAgentId] ?? []), { id: `ps-${Date.now()}`, name: fee.name, amount, payableToType }],
       }));
       logActivity(`Added ${fee.name} post-split deduction for ${selectedAgent?.agent.name ?? "agent"}.`);
     }
@@ -1454,6 +1538,12 @@ export function CommissionBreakdown() {
     (role === "team_lead" && txStatus === "agent_confirmed") ||
     (isAuditor && txStatus === "team_lead_confirmed");
   const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
+  const showFullBreakdown = !isAgent;
+  const scopedAgentId = isAgent ? CURRENT_AGENT_ID : undefined;
+  const transactionGross = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
+  const visibleSideAgents = isAgent
+    ? activeSideAgentSummaries.filter((entry) => entry.agent.id === CURRENT_AGENT_ID)
+    : activeSideAgentSummaries;
 
   function getActivityNode(entry: ActivityEntry) {
     const iconClassName = entry.text.toLowerCase().includes("confirmed") || entry.text.toLowerCase().includes("finalized")
@@ -1771,47 +1861,13 @@ export function CommissionBreakdown() {
                         setWireFormDraft({ ...(wireStore.agentWireInstructions[id] ?? createEmptyWireInstruction()) });
                       }}
                     >
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger className="h-9 text-sm w-full">
                         <SelectValue placeholder="Choose agent" />
                       </SelectTrigger>
                       <SelectContent>
                         {Array.from(new Map(sidesData.flatMap((s) => s.agents).filter((a) => !a.external).map(a => [a.id, a])).values()).map((agent) => (
                           <SelectItem key={agent.id} value={agent.id || `agent-${Math.random()}`}>{agent.name}</SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {wireFormMode === "external" && (
-                  <div className="flex flex-col gap-1.5 mb-4">
-                    <Label className="text-sm font-medium">Select or Add Recipient</Label>
-                    <Select value={wireSelectionMode} onValueChange={(v) => {
-                      setWireSelectionMode(v);
-                      setWireFormErrors({});
-                      if (v === "manual") {
-                        const d = createEmptyWireInstruction(`ext-${wireExternalName}`);
-                        d.payableName = wireExternalName;
-                        d.accountHolderName = wireExternalName;
-                        setWireFormDraft(d);
-                      } else if (v) {
-                        const match = allSavedWires.find(r => r.id === v);
-                        if (match) {
-                          setWireFormDraft({ ...createEmptyWireInstruction(wireFormDraft.id), ...match, id: wireFormDraft.id, _oldId: match.id, payableName: wireExternalName } as any);
-                        }
-                      }
-                    }}>
-                      <SelectTrigger className="h-9 text-sm w-full">
-                        <SelectValue placeholder="Select existing or manually enter" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="manual">Manually enter (+)</SelectItem>
-                        {allSavedWires.length > 0 && <SelectGroup>
-                          <SelectLabel>Existing Instructions</SelectLabel>
-                          {allSavedWires.map(r => (
-                            <SelectItem key={r.id} value={r.id}>{r.payableName || r.accountHolderName || r.bankName}</SelectItem>
-                          ))}
-                        </SelectGroup>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2206,7 +2262,27 @@ export function CommissionBreakdown() {
                             <div className="flex items-center gap-4 shrink-0 mr-1">
                               <div className="text-right">
                                 <p className="text-xs font-medium text-muted-foreground">Side total</p>
-                                <p className="text-xl font-bold tracking-tight tabular-nums">{currency(sideSummary?.toAgents ?? 0)}</p>
+                                <div className="flex items-center justify-end gap-1">
+                                  <p className="text-xl font-bold tracking-tight tabular-nums">
+                                    {currency(
+                                      showFullBreakdown
+                                        ? (sideSummary?.toAgents ?? 0)
+                                        : (sideSummary?.agents.find((entry) => entry.agent.id === scopedAgentId)?.netCommission ?? 0),
+                                    )}
+                                  </p>
+                                  {sideSummary && (
+                                    <CalculationBreakdownTooltip
+                                      title="Side total"
+                                      lines={buildSideTotalLines(
+                                        sideSummary,
+                                        showFullBreakdown,
+                                        scopedAgentId,
+                                        preSplitDeductions,
+                                        postSplitDeductions,
+                                      )}
+                                    />
+                                  )}
+                                </div>
                               </div>
                               <Button
                                 variant="ghost"
@@ -2225,7 +2301,7 @@ export function CommissionBreakdown() {
                         </div>
                         <div className="px-5 pb-4">
                           <div className="mt-1 space-y-2">
-                            {side.agents.map((agent) => {
+                            {side.agents.filter((agent) => !isAgent || agent.id === CURRENT_AGENT_ID).map((agent) => {
                               const agentSummary = sideSummary?.agents.find((entry) => entry.agent.id === agent.id);
                               return (
                               <div
@@ -2251,7 +2327,19 @@ export function CommissionBreakdown() {
                                 <div className="flex items-center gap-3 shrink-0">
                                   <div className="text-right">
                                     <p className="text-xs font-medium text-muted-foreground">Payout</p>
-                                    <p className="text-base font-bold tracking-tight tabular-nums">{currency(agentSummary?.netCommission ?? 0)}</p>
+                                    <div className="flex items-center justify-end gap-1">
+                                      <p className="text-base font-bold tracking-tight tabular-nums">{currency(agentSummary?.netCommission ?? 0)}</p>
+                                      {agentSummary && (
+                                        <CalculationBreakdownTooltip
+                                          title="Net commission"
+                                          lines={buildAgentNetLines(
+                                            agentSummary,
+                                            preSplitDeductions[agent.id] ?? [],
+                                            postSplitDeductions[agent.id] ?? [],
+                                          )}
+                                        />
+                                      )}
+                                    </div>
                                   </div>
                                   <ChevronRight className="size-4 text-muted-foreground/50" />
                                 </div>
@@ -2424,8 +2512,17 @@ export function CommissionBreakdown() {
                   )}
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
-                    <div className="min-w-[120px] text-right">
+                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
                       <EditableValue value={selectedAgent.commissionBasis} onChange={() => undefined} readOnly />
+                      {(() => {
+                        const sideSummary = derivedBreakdown.sideSummaries.find((entry) => entry.side.id === selectedAgent.side.id);
+                        return sideSummary ? (
+                          <CalculationBreakdownTooltip
+                            title="Commission basis"
+                            lines={buildCommissionBasisLines(sideSummary, selectedAgent, showFullBreakdown)}
+                          />
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                   {(isTL || canEditAll) && !isLocked && (
@@ -2435,8 +2532,11 @@ export function CommissionBreakdown() {
                         <div className="group flex items-center justify-between py-1.5">
                           <div className="flex items-center gap-1.5">
                             <p className="text-xs text-muted-foreground">{ded.name}</p>
-                            <DeductionWireIcon dedName={ded.name} dedId={ded.id} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
-                            <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                            <DeductionWireStatusIcon dedName={ded.name} payableToType={ded.payableToType} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
+                            <span className={cn(
+                              "rounded px-1 py-0 text-[10px] font-medium",
+                              ded.payableToType === "external" ? "bg-amber-50 text-amber-700" : "bg-muted text-muted-foreground",
+                            )}>{getDeductionBadgeLabel(ded, "pre-split")}</span>
                           </div>
                       <div className="flex items-center gap-2">
                           <DeductionValue
@@ -2489,8 +2589,12 @@ export function CommissionBreakdown() {
                             : `${roundCurrency(selectedAgent.splitRate * 100)}% team split`}
                       </p>
                     </div>
-                    <div className="min-w-[120px] text-right">
+                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
                       <EditableValue value={selectedAgent.split} onChange={() => undefined} readOnly />
+                      <CalculationBreakdownTooltip
+                        title="Team split"
+                        lines={buildTeamSplitLines(selectedAgent)}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center justify-between py-3">
@@ -2530,8 +2634,18 @@ export function CommissionBreakdown() {
                         <div className="group flex items-center justify-between py-1.5">
                           <div className="flex items-center gap-1.5">
                             <p className="text-xs text-muted-foreground">{ded.name}</p>
-                            <DeductionWireIcon dedName={ded.name} dedId={ded.id} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
-                            <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{ded.isRadiusFee ? "Paid by Agent" : "Paid by Both"}</span>
+                            {ded.wireRequired && (
+                              <DeductionWireStatusIcon
+                                dedName={ded.name}
+                                payableToType={ded.payableToType}
+                                wireMode={resolveDeductionWireMode(ded)}
+                                onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)}
+                              />
+                            )}
+                            <span className={cn(
+                              "rounded px-1 py-0 text-[10px] font-medium",
+                              ded.payableToType === "external" ? "bg-amber-50 text-amber-700" : ded.payableToType === "team" ? "bg-blue-50 text-blue-700" : "bg-muted text-muted-foreground",
+                            )}>{getDeductionBadgeLabel(ded, "post-split")}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <DeductionValue
@@ -2597,10 +2711,18 @@ export function CommissionBreakdown() {
 
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Net Commission</p>
-                    <div className="min-w-[120px] text-right">
-                      <button onClick={() => setShowNetCommissionDialog(true)} className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]">
+                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                      <p className="text-sm font-semibold tabular-nums text-foreground">
                         {currency(selectedAgent.netCommission)}
-                      </button>
+                      </p>
+                      <CalculationBreakdownTooltip
+                        title="Net commission"
+                        lines={buildAgentNetLines(
+                          selectedAgent,
+                          preSplitDeductions[selectedAgent.agent.id] ?? [],
+                          postSplitDeductions[selectedAgent.agent.id] ?? [],
+                        )}
+                      />
                     </div>
                   </div>
 
@@ -2608,10 +2730,14 @@ export function CommissionBreakdown() {
 
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team Dollar Contribution</p>
-                    <div className="min-w-[120px] text-right">
-                      <button onClick={() => setShowCDCDialog(true)} className="text-sm font-semibold tabular-nums underline underline-offset-2 cursor-pointer text-[#5A5FF2]">
+                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                      <p className="text-sm font-semibold tabular-nums text-foreground">
                         {currency(selectedAgent.companyDollarContribution)}
-                      </button>
+                      </p>
+                      <CalculationBreakdownTooltip
+                        title="Team dollar contribution"
+                        lines={buildTeamDollarLines(selectedAgent)}
+                      />
                     </div>
                   </div>
                   <Separator className="my-3" />
@@ -2639,17 +2765,74 @@ export function CommissionBreakdown() {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
                     {[
-                      { label: "Gross", value: currency(grossIncome), icon: TrendingUp, gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)", muted: "#6366f1", strong: "#1e1b4b" },
-                      { label: "After Deductions", value: currency(grossCommissionAfterDeductions), icon: CircleDollarSign, gradient: "linear-gradient(135deg, #ddd6fe, #c4b5fd)", muted: "#7c3aed", strong: "#2e1065" },
-                      { label: "To Agents", value: currency(totalAgentPayout), icon: User, gradient: "linear-gradient(135deg, #bbf7d0, #86efac)", muted: "#16a34a", strong: "#14532d" },
-                      { label: "To Team", value: currency(activeSideOfficeShare), icon: Building2, gradient: "linear-gradient(135deg, #fef3c7, #fde68a)", muted: "#d97706", strong: "#451a03" },
-                    ].map(({ label, value, icon: Icon, gradient, muted, strong }) => (
+                      {
+                        label: "Gross",
+                        value: currency(grossIncome),
+                        icon: TrendingUp,
+                        gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)",
+                        muted: "#6366f1",
+                        strong: "#1e1b4b",
+                        lines: buildGrossCommissionLines(
+                          derivedBreakdown.normalizedAwards[activeSide.id] ?? 0,
+                          Math.max(awardAmountValues[activeSide.id] ?? 0, 0),
+                          transactionGross,
+                          grossIncome,
+                        ),
+                      },
+                      {
+                        label: "After Deductions",
+                        value: currency(grossCommissionAfterDeductions),
+                        icon: CircleDollarSign,
+                        gradient: "linear-gradient(135deg, #ddd6fe, #c4b5fd)",
+                        muted: "#7c3aed",
+                        strong: "#2e1065",
+                        lines: buildGrossAfterDeductionsLines(
+                          grossIncome,
+                          sideGrossDeductions[activeSide.id] ?? [],
+                          grossCommissionAfterDeductions,
+                        ),
+                      },
+                      {
+                        label: "To Agents",
+                        value: currency(
+                          showFullBreakdown
+                            ? totalAgentPayout
+                            : (activeSideSummary?.agents.find((entry) => entry.agent.id === scopedAgentId)?.netCommission ?? 0),
+                        ),
+                        icon: User,
+                        gradient: "linear-gradient(135deg, #bbf7d0, #86efac)",
+                        muted: "#16a34a",
+                        strong: "#14532d",
+                        lines: activeSideSummary
+                          ? buildToAgentsLines(
+                              activeSideSummary.agents,
+                              totalAgentPayout,
+                              showFullBreakdown,
+                              scopedAgentId,
+                            )
+                          : [],
+                      },
+                      {
+                        label: "To Team",
+                        value: currency(activeSideOfficeShare),
+                        icon: Building2,
+                        gradient: "linear-gradient(135deg, #fef3c7, #fde68a)",
+                        muted: "#d97706",
+                        strong: "#451a03",
+                        lines: activeSideSummary && showFullBreakdown
+                          ? buildTeamIncomeLines(activeSideSummary, showFullBreakdown, scopedAgentId)
+                          : [],
+                      },
+                    ].map(({ label, value, icon: Icon, gradient, muted, strong, lines }) => (
                       <div key={label} className="rounded-lg px-3 py-2.5" style={{ background: gradient }}>
                         <div className="flex items-center gap-1.5">
                           <Icon className="size-3" style={{ color: muted }} />
                           <p className="text-xs font-medium" style={{ color: muted }}>{label}</p>
                         </div>
-                        <p className="mt-0.5 text-sm font-bold tracking-tight" style={{ color: strong }}>{value}</p>
+                        <div className="mt-0.5 flex items-center gap-1">
+                          <p className="text-sm font-bold tracking-tight" style={{ color: strong }}>{value}</p>
+                          <CalculationBreakdownTooltip title={label} lines={lines} className="text-background/70 hover:text-background" />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2668,8 +2851,11 @@ export function CommissionBreakdown() {
                       <div className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs text-muted-foreground">{ded.name}</p>
-                          <DeductionWireIcon dedName={ded.name} dedId={ded.id} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
-                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                          <DeductionWireStatusIcon dedName={ded.name} payableToType={ded.payableToType} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
+                          <span className={cn(
+                            "rounded px-1 py-0 text-[10px] font-medium",
+                            ded.payableToType === "external" ? "bg-amber-50 text-amber-700" : "bg-muted text-muted-foreground",
+                          )}>{getDeductionBadgeLabel(ded, "gross")}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {(!isLocked && (isAgent || isTL || canEditAll)) ? (
@@ -2745,15 +2931,24 @@ export function CommissionBreakdown() {
 
                   <div className="flex items-center justify-between border-t pt-3 mt-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Commission After Deductions</p>
-                    <div className="min-w-[120px] text-right">
+                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
                       <p className="text-base font-bold text-foreground tabular-nums">{currency(grossCommissionAfterDeductions)}</p>
+                      <CalculationBreakdownTooltip
+                        title="Gross after deductions"
+                        lines={buildGrossAfterDeductionsLines(
+                          grossIncome,
+                          sideGrossDeductions[activeSide.id] ?? [],
+                          grossCommissionAfterDeductions,
+                        )}
+                      />
                     </div>
                   </div>
 
                   <Separator className="my-4" />
 
                   <div className="space-y-2 pt-1">
-                    {activeSideAgentSummaries.map(({ agent, netCommission, preSplitDeductionsTotal, postSplitDeductionsTotal }) => {
+                    {visibleSideAgents.map((agentSummary) => {
+                      const { agent, netCommission, preSplitDeductionsTotal, postSplitDeductionsTotal } = agentSummary;
                       const isExpanded = expandedSideAgentId === agent.id;
                       return (
                         <div
@@ -2773,7 +2968,17 @@ export function CommissionBreakdown() {
                               <p className="mt-0.5 text-xs text-muted-foreground">Net amount only</p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <p className="text-base font-bold tabular-nums text-foreground">{currency(netCommission)}</p>
+                              <div className="flex items-center gap-1">
+                                <p className="text-base font-bold tabular-nums text-foreground">{currency(netCommission)}</p>
+                                <CalculationBreakdownTooltip
+                                  title="Net commission"
+                                  lines={buildAgentNetLines(
+                                    agentSummary,
+                                    preSplitDeductions[agent.id] ?? [],
+                                    postSplitDeductions[agent.id] ?? [],
+                                  )}
+                                />
+                              </div>
                               <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
                             </div>
                           </button>
@@ -2797,8 +3002,14 @@ export function CommissionBreakdown() {
                         <p className="text-sm font-semibold text-foreground">Team income</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">After pre-split deductions and agent payouts</p>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center justify-end gap-1 text-right">
                         <p className="text-base font-bold tabular-nums text-foreground">{currency(officeNet)}</p>
+                        {activeSideSummary && showFullBreakdown && (
+                          <CalculationBreakdownTooltip
+                            title="Team income"
+                            lines={buildTeamIncomeLines(activeSideSummary, showFullBreakdown, scopedAgentId)}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3189,44 +3400,6 @@ export function CommissionBreakdown() {
             }}>
               Add Credit
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Team Dollar Contribution dialog */}
-      <Dialog open={showCDCDialog} onOpenChange={setShowCDCDialog}>
-        <DialogContent className="gap-0 p-0 sm:max-w-md">
-          <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Team dollar contribution</DialogTitle>
-            <DialogDescription>Learn more about how this value is calculated.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 px-6 py-4">
-            <p className="text-sm text-muted-foreground">Team dollar contribution consists of the following things:</p>
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>— Team portion of the split</li>
-              <li>— Total amount of all pre and post-split deductions paid back to the team</li>
-            </ul>
-          </div>
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowCDCDialog(false)}>Cancel</Button>
-            <Button onClick={() => setShowCDCDialog(false)}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Net Commission dialog */}
-      <Dialog open={showNetCommissionDialog} onOpenChange={setShowNetCommissionDialog}>
-        <DialogContent className="gap-0 p-0 sm:max-w-md">
-          <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Net commission</DialogTitle>
-            <DialogDescription>Learn more about how this value is calculated.</DialogDescription>
-          </DialogHeader>
-          <div className="px-6 py-4">
-            <p className="text-sm text-muted-foreground">Net commission is the net amount earned by an agent after split and all deductions.</p>
-          </div>
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowNetCommissionDialog(false)}>Cancel</Button>
-            <Button onClick={() => setShowNetCommissionDialog(false)}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

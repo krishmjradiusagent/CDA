@@ -45,7 +45,9 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 
-const dealTypeOptions = ["Buyer", "Seller", "Lease", "Landlord"];
+import { PLAN_DEAL_TYPE_OPTIONS, getCdaTypeLabel } from "../lib/cda-types";
+
+const dealTypeOptions = PLAN_DEAL_TYPE_OPTIONS;
 
 function DealTypeMultiSelect({
   selectedTypes,
@@ -62,13 +64,12 @@ function DealTypeMultiSelect({
   if (allSelected) {
     triggerLabel = "Selected all deal types";
   } else if (selectedKeys.length === 1) {
-    triggerLabel = selectedKeys[0].charAt(0).toUpperCase() + selectedKeys[0].slice(1);
+    triggerLabel = getCdaTypeLabel(selectedKeys[0]);
   } else if (selectedKeys.length > 1) {
-    triggerLabel = `${selectedKeys[0].charAt(0).toUpperCase() + selectedKeys[0].slice(1)} +${selectedKeys.length - 1} others`;
+    triggerLabel = `${getCdaTypeLabel(selectedKeys[0])} +${selectedKeys.length - 1} others`;
   }
 
-  function toggle(type: string) {
-    const key = type.toLowerCase();
+  function toggle(key: string) {
     onChange({
       ...selectedTypes,
       [key]: !selectedTypes[key as keyof typeof selectedTypes],
@@ -92,7 +93,7 @@ function DealTypeMultiSelect({
             const nextAllSelected = !allSelected;
             const next: any = {};
             dealTypeOptions.forEach((opt) => {
-              next[opt.toLowerCase()] = nextAllSelected;
+              next[opt.key] = nextAllSelected;
             });
             onChange(next);
           }}
@@ -103,13 +104,13 @@ function DealTypeMultiSelect({
         </DropdownMenuItem>
         {dealTypeOptions.map((type) => (
           <DropdownMenuItem
-            key={type}
+            key={type.key}
             onSelect={(e) => e.preventDefault()}
-            onClick={() => toggle(type)}
+            onClick={() => toggle(type.key)}
             className="gap-3 cursor-pointer"
           >
-            <Checkbox checked={Boolean(selectedTypes[type.toLowerCase() as keyof typeof selectedTypes])} className="pointer-events-none" />
-            <span className="flex-1 text-sm font-medium">{type}</span>
+            <Checkbox checked={Boolean(selectedTypes[type.key as keyof typeof selectedTypes])} className="pointer-events-none" />
+            <span className="flex-1 text-sm font-medium">{type.label}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -605,7 +606,7 @@ export function CommissionPlanBuilder() {
                               key={key}
                               className="text-xs px-2 py-0.5 bg-background rounded"
                             >
-                              {key.charAt(0).toUpperCase() + key.slice(1)}
+                              {getCdaTypeLabel(key)}
                             </span>
                           ))}
                       </div>

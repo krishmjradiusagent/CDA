@@ -122,6 +122,7 @@ import {
   type WireValidationErrors,
   writeWireInstructionsStore,
 } from "../lib/wire-instructions";
+import { COMMISSION_BREAKDOWN_TYPE_OPTIONS, getCdaTypeLabel } from "../lib/cda-types";
 
 type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
@@ -310,15 +311,7 @@ function getFreshAssignDefaultsForm(): AssignDefaultsForm {
 const ASSIGNABLE_CDA_TYPES = ["buyer", "listing", "referral", "lease", "lease-listing"] as const;
 
 function formatDealTypes(types: Record<string, boolean>) {
-  const labels: Record<string, string> = {
-    buyer: "Buyer",
-    listing: "Listing",
-    seller: "Seller",
-    referral: "Referral",
-    lease: "Lease",
-    "lease-listing": "Lease listing",
-  };
-  const selected = Object.keys(types).filter((key) => types[key]).map((key) => labels[key] ?? key);
+  const selected = Object.keys(types).filter((key) => types[key]).map((key) => getCdaTypeLabel(key));
   return selected.length ? selected.join(", ") : "No CDA types";
 }
 
@@ -814,13 +807,7 @@ function DealTypeMultiSelect({
   onChange: (types: Record<string, boolean>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const dealTypeOptions = [
-    { key: "buyer", label: "Buyer" },
-    { key: "listing", label: "Listing" },
-    { key: "referral", label: "Referral" },
-    { key: "lease", label: "Lease" },
-    { key: "lease-listing", label: "Lease listing" },
-  ];
+  const dealTypeOptions = COMMISSION_BREAKDOWN_TYPE_OPTIONS;
   const selectedKeys = Object.keys(selectedTypes).filter(k => selectedTypes[k]);
 
   const allSelected = selectedKeys.length === dealTypeOptions.length;
@@ -1215,13 +1202,7 @@ function PlanSetupFields({
   );
 }
 
-const DEAL_TYPE_OPTIONS = [
-  { key: "buyer", label: "Buyer" },
-  { key: "listing", label: "Listing" },
-  { key: "referral", label: "Referral" },
-  { key: "lease", label: "Lease" },
-  { key: "lease-listing", label: "Lease listing" },
-] as const;
+const DEAL_TYPE_OPTIONS = COMMISSION_BREAKDOWN_TYPE_OPTIONS;
 
 function ViewAssociationsDialogInner({
   target,
