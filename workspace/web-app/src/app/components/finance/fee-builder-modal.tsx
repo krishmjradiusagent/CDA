@@ -60,15 +60,23 @@ export interface FeeBuilderModalProps {
   hidePostSplitBase?: boolean;
   hideSlidingScale?: boolean;
   existingFeeOptions?: ExistingFeeOption[];
+  teamName?: string;
 }
 
-const EXTERNAL_PAYEES = [
-  { id: "escrow-1", name: "Escrow Partners LLC" },
-  { id: "title-1", name: "Title First Inc." },
-  { id: "attorney-1", name: "Smith & Associates Law" },
-];
+const DEFAULT_TEAM_NAME = "Keystone Team";
 
-function makeDraft(initial?: Partial<FeeTypeDraft>): FeeTypeDraft {
+function resolvePayableToName(
+  type: FeeTypeDraft["payableToType"],
+  teamName: string,
+  existing?: string,
+): string {
+  if (type === "radius") return "Radius";
+  if (type === "team") return teamName;
+  return existing ?? "";
+}
+
+function makeDraft(initial: Partial<FeeTypeDraft> | undefined, teamName: string): FeeTypeDraft {
+  const payableToType = initial?.payableToType ?? "radius";
   return {
     id: initial?.id ?? null,
     name: initial?.name ?? "",
@@ -77,8 +85,8 @@ function makeDraft(initial?: Partial<FeeTypeDraft>): FeeTypeDraft {
     percentageBase: initial?.percentageBase ?? "pre-split",
     appliesToMode: initial?.appliesToMode ?? "team",
     coAgentSplitMode: initial?.coAgentSplitMode ?? "split-equally",
-    payableToType: initial?.payableToType ?? "radius",
-    payableToName: initial?.payableToName ?? "Radius",
+    payableToType,
+    payableToName: resolvePayableToName(payableToType, teamName, initial?.payableToName),
     payableToExternalId: initial?.payableToExternalId,
     dealTypes: initial?.dealTypes ?? ["buyer", "seller"],
     agentIds: initial?.agentIds ?? [],
@@ -139,12 +147,13 @@ export function FeeBuilderModal({
   hideTimingField,
   hidePostSplitBase,
   existingFeeOptions = [],
+  teamName = DEFAULT_TEAM_NAME,
 }: FeeBuilderModalProps) {
-  const [draft, setDraft] = useState<FeeTypeDraft>(() => makeDraft(initialData));
+  const [draft, setDraft] = useState<FeeTypeDraft>(() => makeDraft(initialData, teamName));
 
   useEffect(() => {
-    if (open) setDraft(makeDraft(initialData));
-  }, [open, initialData]);
+    if (open) setDraft(makeDraft(initialData, teamName));
+  }, [open, initialData, teamName]);
 
   function update<K extends keyof FeeTypeDraft>(key: K, value: FeeTypeDraft[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -154,18 +163,12 @@ export function FeeBuilderModal({
     setDraft((prev) => ({
       ...prev,
       payableToType: value,
-      payableToName:
-        value === "radius" ? "Radius" : value === "team" ? "Keystone Team" : "",
+      payableToName: resolvePayableToName(
+        value,
+        teamName,
+        value === "external" ? prev.payableToName : undefined,
+      ),
       payableToExternalId: value === "external" ? prev.payableToExternalId : undefined,
-    }));
-  }
-
-  function handleExternalPayee(id: string) {
-    const payee = EXTERNAL_PAYEES.find((p) => p.id === id);
-    setDraft((prev) => ({
-      ...prev,
-      payableToExternalId: id,
-      payableToName: payee?.name ?? "",
     }));
   }
 
@@ -186,10 +189,10 @@ export function FeeBuilderModal({
                   value={draft.id ?? "__new__"}
                   onValueChange={(value) => {
                     if (value === "__new__") {
-                      setDraft(makeDraft(initialData));
+                      setDraft(makeDraft(initialData, teamName));
                     } else {
                       const fee = existingFeeOptions.find((f) => f.id === value);
-                      if (fee) setDraft(makeDraft(fee));
+                      if (fee) setDraft(makeDraft(fee, teamName));
                     }
                   }}
                 >
@@ -334,23 +337,32 @@ export function FeeBuilderModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Payable To</Label>
-                <Select
-                  value={draft.payableToType ?? "radius"}
-                  onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="radius">Radius</SelectItem>
-                    <SelectItem value="team">Team</SelectItem>
-                    <SelectItem value="external">External</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              <Label className="min-h-5">Payable To</Label>
+              <Label htmlFor="payable-to-name" className="min-h-5">
+                Payable Name
+              </Label>
+              <Select
+                value={draft.payableToType ?? "radius"}
+                onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
+              >
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="radius">Radius</SelectItem>
+                  <SelectItem value="team">Team</SelectItem>
+                  <SelectItem value="external">External</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                id="payable-to-name"
+                className="h-10 w-full py-2 text-sm leading-none"
+                value={draft.payableToName ?? ""}
+                disabled={draft.payableToType !== "external"}
+                placeholder={draft.payableToType === "external" ? "Enter payable name" : undefined}
+                onChange={(e) => update("payableToName", e.target.value)}
+              />
             </div>
 
             {/* Sliding Scale — full row */}

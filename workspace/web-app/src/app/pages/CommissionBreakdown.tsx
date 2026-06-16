@@ -2847,11 +2847,9 @@ export function CommissionBreakdown() {
                   </div>
                   {/* Side-level gross deductions: Credits, Referrals */}
                   {(sideGrossDeductions[activeSide.id] ?? []).map((ded) => (
-                    <React.Fragment key={ded.id}>
-                      <div className="group flex items-center justify-between py-1.5">
+                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs text-muted-foreground">{ded.name}</p>
-                          <DeductionWireStatusIcon dedName={ded.name} payableToType={ded.payableToType} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
                           <span className={cn(
                             "rounded px-1 py-0 text-[10px] font-medium",
                             getDeductionBadgeClassName(ded),
@@ -2889,9 +2887,7 @@ export function CommissionBreakdown() {
                             </button>
                           )}
                         </div>
-                      </div>
-                      {openWireItemId === ded.id && renderWireInstructionForm()}
-                    </React.Fragment>
+                    </div>
                   ))}
                   {showInlineSidePreSplitDraft && (
                     <div className="pt-1">

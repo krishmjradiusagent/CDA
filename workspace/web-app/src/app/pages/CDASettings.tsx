@@ -3642,6 +3642,7 @@ export function CDASettings() {
         open={state.activeDialog === "add-fee"}
         title={state.feeDialogMode === "edit" ? "Edit Fee Type" : "Add Fee Type"}
         initialData={state.feeDraft}
+        teamName="Keystone Team"
         onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "add-fee" : null }))}
         onSave={saveFeeType}
       />
