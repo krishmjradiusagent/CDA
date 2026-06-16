@@ -2045,23 +2045,6 @@ export function CommissionBreakdown() {
                 {STATUS_LABELS[txStatus]}
               </Badge>
             )}
-            {isAuditor && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="relative flex size-8 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                onClick={() => setShowWireSheet(true)}
-                aria-label="Open wire instructions status"
-              >
-                <Landmark className="size-4" />
-                {!allAuditorWiresComplete && (
-                  <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
-                    {incompleteWirePartyNames.length}
-                  </span>
-                )}
-              </Button>
-            )}
             <Button
               type="button"
               variant="outline"
