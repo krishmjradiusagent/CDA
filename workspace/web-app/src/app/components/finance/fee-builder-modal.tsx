@@ -351,33 +351,6 @@ export function FeeBuilderModal({
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-1.5">
-                <Label>
-                  {draft.payableToType === "external" ? "External Payee" : "Payable Name"}
-                </Label>
-                {draft.payableToType === "external" ? (
-                  <Select
-                    value={draft.payableToExternalId ?? ""}
-                    onValueChange={handleExternalPayee}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="Select external payee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EXTERNAL_PAYEES.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
-                    {draft.payableToName ?? ""}
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Sliding Scale — full row */}

@@ -778,6 +778,7 @@ export function CommissionBreakdown() {
   ]);
   const [showActivitySheet, setShowActivitySheet] = useState(false);
   const [showWireSheet, setShowWireSheet] = useState(false);
+  const [openWireItemId, setOpenWireItemId] = useState<string | null>(null);
   const [wireFormMode, setWireFormMode] = useState<"none" | "team" | "agent" | "external">("none");
   const [wireFormDraft, setWireFormDraft] = useState<WireInstructionRecord>(createEmptyWireInstruction());
   const [wireFormErrors, setWireFormErrors] = useState<WireValidationErrors>({});
@@ -818,8 +819,7 @@ export function CommissionBreakdown() {
       setWireExternalNameError("Name is mandatory for external wire");
       return;
     }
-    const requireCda = wireFormMode === "team";
-    const errors = validateWireInstruction(wireFormDraft, { requireBankDetails: true, requireCdaType: requireCda });
+    const errors = validateWireInstruction(wireFormDraft, { requireBankDetails: true, requireCdaType: false });
     if (Object.keys(errors).length > 0) {
       setWireFormErrors(errors);
       return;
@@ -1073,7 +1073,7 @@ export function CommissionBreakdown() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sidesData, wireStoreVersion],
   );
-  const teamWireComplete = isWireInstructionComplete(wireStore.teamWireInstructions, { requireCdaType: true });
+  const teamWireComplete = isWireInstructionComplete(wireStore.teamWireInstructions, { requireCdaType: false });
   const agentWireComplete = isWireInstructionComplete(
     wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(),
   );
@@ -1425,12 +1425,12 @@ export function CommissionBreakdown() {
     processed: "Commission breakdown finalized",
     rejected: "Returned for confirmation",
   };
-  const STATUS_COLORS: Record<TxStatus, React.ComponentProps<typeof Badge>["variant"]> = {
-    draft: "outline",
-    agent_confirmed: "secondary",
-    team_lead_confirmed: "secondary",
-    processed: "secondary",
-    rejected: "destructive",
+  const STATUS_COLORS: Record<TxStatus, string> = {
+    draft: "bg-slate-100 text-slate-700 border-slate-200",
+    agent_confirmed: "bg-blue-50 text-blue-700 border-blue-200",
+    team_lead_confirmed: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    processed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    rejected: "bg-red-50 text-red-700 border-red-200",
   };
   const flowNote =
     role === "agent"
@@ -1523,7 +1523,7 @@ export function CommissionBreakdown() {
                           const person = commentTagPeople.find((item) => item.id === taggedUserId);
                           if (!person) return null;
                           return (
-                            <Badge key={taggedUserId} variant="outline" className="h-5 rounded-full px-2 text-[10px]">
+                            <Badge key={taggedUserId} variant="outline" className="h-5 rounded-full px-2 text-[10px] bg-primary/10 text-primary border-primary/20">
                               <AtSign className="size-3" />
                               {person.name} notified
                             </Badge>
@@ -1606,7 +1606,7 @@ export function CommissionBreakdown() {
               <button
                 key={person.id}
                 type="button"
-                className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] text-primary bg-primary/5 border-primary/10 transition-colors hover:bg-primary/10 hover:text-primary"
                 onClick={() => setAgentComment((current) => `${current}${current.trim() ? " " : ""}@${person.name} `)}
               >
                 <AtSign className="size-3" />
@@ -1724,10 +1724,242 @@ export function CommissionBreakdown() {
         setTxStatus(txStatus === "team_lead_confirmed" || txStatus === "processed" ? "agent_confirmed" : txStatus === "rejected" ? "draft" : txStatus);
       } else {
         setTxStatus("draft");
-      }
-      setRejectionNote("");
-    }
+      }    };
   }, [editableSnapshot, txStatus, role, sidesData, sideGrossDeductions, preSplitDeductions, postSplitDeductions, awardValues, awardAmountValues, appliedPlans, agentRadiusFees, agentAllocationPercentages, commissionPlans]);
+
+  function renderWireInstructionForm() {
+    return (
+      <Card className="rounded-[14px] border-primary/30 bg-primary/[0.02] py-0 gap-0 shadow-none overflow-hidden mt-2">
+        <CardContent className="px-4 py-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">Wire Instruction</h3>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => { setWireFormMode("none"); setOpenWireItemId(null); }}>
+                <X className="size-3" />
+                Cancel
+              </Button>
+            </div>
+
+            {wireSelectionMode !== undefined && (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-sm font-medium">Wire Type</Label>
+                  <Select value={wireFormMode} onValueChange={(v) => openWireForm(v as "team" | "agent" | "external")}>
+                    <SelectTrigger className="h-9 text-sm w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="agent">Agent</SelectItem>
+                      <SelectItem value="external">External</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Agent selector */}
+                {wireFormMode === "agent" && (
+                  <div className="flex flex-col gap-1.5 mb-4">
+                    <Label className="text-sm font-medium">Select Agent</Label>
+                    <Select
+                      value={wireFormAgentId}
+                      onValueChange={(id) => {
+                        setWireFormAgentId(id);
+                        setWireSelectionMode(undefined);
+                        setWireFormErrors({});
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Choose agent" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from(new Map(sidesData.flatMap((s) => s.agents).filter((a) => !a.external).map(a => [a.id, a])).values()).map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id || `agent-${Math.random()}`}>{agent.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {wireFormMode === "external" && (
+                  <div className="flex flex-col gap-1.5 mb-4">
+                    <Label className="text-sm font-medium">Select or Add Recipient</Label>
+                    <Select value={wireSelectionMode} onValueChange={(v) => {
+                      setWireSelectionMode(v);
+                      setWireFormErrors({});
+                      if (v === "manual") {
+                        const d = createEmptyWireInstruction(`ext-${wireExternalName}`);
+                        d.payableName = wireExternalName;
+                        d.accountHolderName = wireExternalName;
+                        setWireFormDraft(d);
+                      } else if (v) {
+                        const match = allSavedWires.find(r => r.id === v);
+                        if (match) {
+                          setWireFormDraft({ ...createEmptyWireInstruction(wireFormDraft.id), ...match, id: wireFormDraft.id, _oldId: match.id, payableName: wireExternalName } as any);
+                        }
+                      }
+                    }}>
+                      <SelectTrigger className="h-9 text-sm w-full">
+                        <SelectValue placeholder="Select existing or manually enter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Manually enter (+)</SelectItem>
+                        {allSavedWires.length > 0 && <SelectGroup>
+                          <SelectLabel>Existing Instructions</SelectLabel>
+                          {allSavedWires.map(r => (
+                            <SelectItem key={r.id} value={r.id}>{r.payableName || r.accountHolderName || r.bankName}</SelectItem>
+                          ))}
+                        </SelectGroup>}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
+
+            {wireSelectionMode === undefined && (
+              <div className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-border/60 p-8 text-center bg-muted/10 mt-2">
+                <Landmark className="size-10 text-muted-foreground/30 mb-3" />
+                <h3 className="text-sm font-semibold text-foreground">No instruction selected</h3>
+                <p className="mt-1 mb-4 text-xs text-muted-foreground max-w-[280px]">
+                  Only one instruction can be added. It can be team, agent, or external.
+                </p>
+                <Button 
+                  size="sm" 
+                  className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" 
+                  onClick={() => {
+                    setWireSelectionMode("manual");
+                    setWireFormErrors({});
+                    const d = createEmptyWireInstruction(wireFormMode === "external" ? `ext-${wireExternalName}` : undefined);
+                    d.payableName = wireExternalName;
+                    d.accountHolderName = wireFormMode === "team" ? "Brokerage" : wireFormMode === "agent" ? (sidesData.flatMap((s) => s.agents).find(a => a.id === wireFormAgentId)?.name || "") : wireExternalName;
+                    setWireFormDraft(d);
+                  }}
+                >
+                  <Plus className="size-3.5 mr-1.5" />
+                  Instruction
+                </Button>
+              </div>
+            )}
+
+            {wireSelectionMode !== undefined && (
+              <>
+                <Separator />
+
+            {/* Recipient */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Recipient / Account Holder Name <span className="text-destructive">*</span></Label>
+              <Input value={wireFormDraft.accountHolderName} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountHolderName: e.target.value }))} className="h-9 text-sm" placeholder="Full legal name" />
+              {wireFormErrors.accountHolderName && <p className="text-[11px] text-destructive">{wireFormErrors.accountHolderName}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Email</Label>
+                <Input value={wireFormDraft.recipientEmail} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientEmail: e.target.value }))} className="h-9 text-sm" placeholder="contact@example.com" />
+                {wireFormErrors.recipientEmail && <p className="text-[11px] text-destructive">{wireFormErrors.recipientEmail}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Phone</Label>
+                <Input value={wireFormDraft.recipientPhone} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientPhone: e.target.value }))} className="h-9 text-sm" placeholder="(555) 123-4567" />
+                {wireFormErrors.recipientPhone && <p className="text-[11px] text-destructive">{wireFormErrors.recipientPhone}</p>}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Street Address</Label>
+              <Input value={wireFormDraft.recipientStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
+              {wireFormErrors.recipientStreet && <p className="text-[11px] text-destructive">{wireFormErrors.recipientStreet}</p>}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">City</Label>
+                <Input value={wireFormDraft.recipientCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
+                {wireFormErrors.recipientCity && <p className="text-[11px] text-destructive">{wireFormErrors.recipientCity}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">State</Label>
+                <Input value={wireFormDraft.recipientState} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
+                {wireFormErrors.recipientState && <p className="text-[11px] text-destructive">{wireFormErrors.recipientState}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">ZIP</Label>
+                <Input value={wireFormDraft.recipientZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Banking */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Bank Name <span className="text-destructive">*</span></Label>
+              <Input value={wireFormDraft.bankName} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankName: e.target.value }))} className="h-9 text-sm" placeholder="e.g., Chase Bank" />
+              {wireFormErrors.bankName && <p className="text-[11px] text-destructive">{wireFormErrors.bankName}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Routing Number (ABA) <span className="text-destructive">*</span></Label>
+                <Input value={wireFormDraft.routingNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, routingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) }))} className="h-9 text-sm font-mono" placeholder="9 digits" inputMode="numeric" maxLength={9} />
+                {wireFormErrors.routingNumber && <p className="text-[11px] text-destructive">{wireFormErrors.routingNumber}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Account Number <span className="text-destructive">*</span></Label>
+                <Input value={wireFormDraft.accountNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountNumber: e.target.value }))} className="h-9 text-sm font-mono" placeholder="Account number" />
+                {wireFormErrors.accountNumber && <p className="text-[11px] text-destructive">{wireFormErrors.accountNumber}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Account Type</Label>
+                <Select value={wireFormDraft.accountType || "checking"} onValueChange={(v) => setWireFormDraft((d) => ({ ...d, accountType: v as WireAccountType }))}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="checking">Checking</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Address */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Bank Street Address <span className="text-destructive">*</span></Label>
+              <Input value={wireFormDraft.bankStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
+              {wireFormErrors.bankStreet && <p className="text-[11px] text-destructive">{wireFormErrors.bankStreet}</p>}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">City <span className="text-destructive">*</span></Label>
+                <Input value={wireFormDraft.bankCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
+                {wireFormErrors.bankCity && <p className="text-[11px] text-destructive">{wireFormErrors.bankCity}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">State <span className="text-destructive">*</span></Label>
+                <Input value={wireFormDraft.bankState} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
+                {wireFormErrors.bankState && <p className="text-[11px] text-destructive">{wireFormErrors.bankState}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">ZIP <span className="text-destructive">*</span></Label>
+                <Input value={wireFormDraft.bankZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
+                {wireFormErrors.bankZip && <p className="text-[11px] text-destructive">{wireFormErrors.bankZip}</p>}
+              </div>
+            </div>
+
+            {/* Special instructions */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Special Instructions / Memo</Label>
+              <Textarea value={wireFormDraft.specialInstructions} onChange={(e) => setWireFormDraft((d) => ({ ...d, specialInstructions: e.target.value }))} className="min-h-[60px] text-sm" placeholder="Optional memo or reference" />
+            </div>
+          </>
+        )}
+
+            {/* Save */}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => { setWireFormMode("none"); setOpenWireItemId(null); }}>Cancel</Button>
+              <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Wire Instructions</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -1787,7 +2019,7 @@ export function CommissionBreakdown() {
           </div>
           <div className="flex items-center gap-2">
             {role !== "agent" && (
-              <Badge variant={STATUS_COLORS[txStatus]} className="rounded-full px-3">
+              <Badge variant="outline" className={cn("rounded-full px-3", STATUS_COLORS[txStatus])}>
                 {STATUS_LABELS[txStatus]}
               </Badge>
             )}
@@ -2245,12 +2477,13 @@ export function CommissionBreakdown() {
                   {(isTL || canEditAll) && !isLocked && (
                   <>
                   {(preSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => (
-                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>
-                        <DeductionWireIcon dedName={ded.name} onClick={() => setShowWireSheet(true)} />
-                        <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
-                      </div>
+                      <React.Fragment key={ded.id}>
+                        <div className="group flex items-center justify-between py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs text-muted-foreground">{ded.name}</p>
+                            <DeductionWireIcon dedName={ded.name} dedId={ded.id} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
+                            <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                          </div>
                       <div className="flex items-center gap-2">
                           <DeductionValue
                             value={ded.amount}
@@ -2271,6 +2504,8 @@ export function CommissionBreakdown() {
                         </button>
                       </div>
                     </div>
+                    {openWireItemId === ded.id && renderWireInstructionForm()}
+                  </React.Fragment>
                   ))}
                   <div className="pt-1">
                     <Button
@@ -2337,41 +2572,44 @@ export function CommissionBreakdown() {
                     const dedReadOnly = isLocked;
                     const canDelete = !isLocked;
                     return (
-                      <div key={ded.id} className="group flex items-center justify-between py-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs text-muted-foreground">{ded.name}</p>
-                        <DeductionWireIcon dedName={ded.name} onClick={() => setShowWireSheet(true)} />
-                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{ded.isRadiusFee ? "Paid by Agent" : "Paid by Both"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <DeductionValue
-                            value={ded.amount}
-                            readOnly={dedReadOnly}
-                            onChange={(v) => {
-                              setPostSplitDeductions((prev) => ({
-                                ...prev,
-                                [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
-                              }));
-                              logActivity(`Updated ${ded.name} for ${selectedAgent.agent.name} to ${currency(v)}.`);
-                            }}
-                          />
-                          {canDelete && (
-                            <button
-                              onClick={() => {
+                      <React.Fragment key={ded.id}>
+                        <div className="group flex items-center justify-between py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs text-muted-foreground">{ded.name}</p>
+                            <DeductionWireIcon dedName={ded.name} dedId={ded.id} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
+                            <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{ded.isRadiusFee ? "Paid by Agent" : "Paid by Both"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <DeductionValue
+                              value={ded.amount}
+                              readOnly={dedReadOnly}
+                              onChange={(v) => {
                                 setPostSplitDeductions((prev) => ({
                                   ...prev,
-                                  [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
+                                  [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
                                 }));
-                                logActivity(`Removed ${ded.name} from ${selectedAgent.agent.name}.`);
+                                logActivity(`Updated ${ded.name} for ${selectedAgent.agent.name} to ${currency(v)}.`);
                               }}
-                              className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
-                              tabIndex={-1}
-                            >
-                              <X className="size-3" />
-                            </button>
-                          )}
+                            />
+                            {canDelete && (
+                              <button
+                                onClick={() => {
+                                  setPostSplitDeductions((prev) => ({
+                                    ...prev,
+                                    [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
+                                  }));
+                                  logActivity(`Removed ${ded.name} from ${selectedAgent.agent.name}.`);
+                                }}
+                                className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                                tabIndex={-1}
+                              >
+                                <X className="size-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                        {openWireItemId === ded.id && renderWireInstructionForm()}
+                      </React.Fragment>
                     );
                   })}
 
@@ -2472,45 +2710,48 @@ export function CommissionBreakdown() {
                   </div>
                   {/* Side-level gross deductions: Credits, Referrals */}
                   {(sideGrossDeductions[activeSide.id] ?? []).map((ded) => (
-                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{ded.name}</p>
-                        <DeductionWireIcon dedName={ded.name} onClick={() => setShowWireSheet(true)} />
-                        <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                    <React.Fragment key={ded.id}>
+                      <div className="group flex items-center justify-between py-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs text-muted-foreground">{ded.name}</p>
+                          <DeductionWireIcon dedName={ded.name} dedId={ded.id} onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)} />
+                          <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">Deduction</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {(!isLocked && (isAgent || isTL || canEditAll)) ? (
+                            <DeductionValue
+                              value={ded.amount}
+                              readOnly={false}
+                              onChange={(v) => {
+                                setSideGrossDeductions((prev) => ({
+                                  ...prev,
+                                  [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
+                                }));
+                                logActivity(`Updated ${ded.name} on ${activeSide.title} to ${currency(v)}.`);
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground tabular-nums min-w-[80px] text-right">{currency(ded.amount)}</span>
+                          )}
+                          {(!isLocked && (isAgent || isTL || canEditAll)) && (
+                            <button
+                              onClick={() => {
+                                setSideGrossDeductions((prev) => ({
+                                  ...prev,
+                                  [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
+                                }));
+                                logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
+                              }}
+                              className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                              tabIndex={-1}
+                            >
+                              <X className="size-3" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {(!isLocked && (isAgent || isTL || canEditAll)) ? (
-                          <DeductionValue
-                            value={ded.amount}
-                            readOnly={false}
-                            onChange={(v) => {
-                              setSideGrossDeductions((prev) => ({
-                                ...prev,
-                                [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
-                              }));
-                              logActivity(`Updated ${ded.name} on ${activeSide.title} to ${currency(v)}.`);
-                            }}
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground tabular-nums min-w-[80px] text-right">{currency(ded.amount)}</span>
-                        )}
-                        {(!isLocked && (isAgent || isTL || canEditAll)) && (
-                          <button
-                            onClick={() => {
-                              setSideGrossDeductions((prev) => ({
-                                ...prev,
-                                [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
-                              }));
-                              logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
-                            }}
-                            className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
-                            tabIndex={-1}
-                          >
-                            <X className="size-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      {openWireItemId === ded.id && renderWireInstructionForm()}
+                    </React.Fragment>
                   ))}
                   {showInlineSidePreSplitDraft && (
                     <div className="pt-1">
@@ -3488,249 +3729,7 @@ export function CommissionBreakdown() {
               )}
 
               {/* ── Wire Instruction Inline Form ── */}
-              {wireFormMode !== "none" && (
-                <Card className="rounded-[14px] border-primary/30 bg-primary/[0.02] py-0 gap-0 shadow-none overflow-hidden">
-                  <CardContent className="px-4 py-4">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-foreground">Wire Instruction</h3>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => setWireFormMode("none")}>
-                          <X className="size-3" />
-                          Cancel
-                        </Button>
-                      </div>
-
-                      {wireSelectionMode !== undefined && (
-                        <>
-                          <div className="flex flex-col gap-1.5">
-                            <Label className="text-sm font-medium">Wire Type</Label>
-                            <Select value={wireFormMode} onValueChange={(v) => openWireForm(v as "team" | "agent" | "external")}>
-                              <SelectTrigger className="h-9 text-sm w-full"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="team">Team</SelectItem>
-                                <SelectItem value="agent">Agent</SelectItem>
-                                <SelectItem value="external">External</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Agent selector */}
-                          {wireFormMode === "agent" && (
-                            <div className="flex flex-col gap-1.5 mb-4">
-                              <Label className="text-sm font-medium">Select Agent</Label>
-                              <Select
-                                value={wireFormAgentId}
-                                onValueChange={(id) => {
-                                  setWireFormAgentId(id);
-                                  setWireSelectionMode(undefined);
-                                  setWireFormErrors({});
-                                }}
-                              >
-                                <SelectTrigger className="h-9">
-                                  <SelectValue placeholder="Choose agent" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from(new Map(sidesData.flatMap((s) => s.agents).filter((a) => !a.external).map(a => [a.id, a])).values()).map((agent) => (
-                                    <SelectItem key={agent.id} value={agent.id || `agent-${Math.random()}`}>{agent.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-
-                          <div className="flex flex-col gap-1.5 mb-4">
-                            <Label className="text-sm font-medium">Instruction Source</Label>
-                            <Select value={wireSelectionMode} onValueChange={(v) => {
-                              setWireSelectionMode(v);
-                              setWireFormErrors({});
-                              if (v === "manual") {
-                                const d = createEmptyWireInstruction(wireFormMode === "external" ? `ext-${wireExternalName}` : undefined);
-                                d.payableName = wireExternalName;
-                                d.accountHolderName = wireFormMode === "team" ? "Brokerage" : wireFormMode === "agent" ? (sidesData.flatMap((s) => s.agents).find(a => a.id === wireFormAgentId)?.name || "") : wireExternalName;
-                                setWireFormDraft(d);
-                              } else if (v) {
-                                const match = allSavedWires.find(r => r.id === v);
-                                if (match) {
-                                  setWireFormDraft({ ...createEmptyWireInstruction(wireFormDraft.id), ...match, id: wireFormDraft.id, _oldId: match.id, payableName: wireExternalName } as any);
-                                }
-                              }
-                            }}>
-                              <SelectTrigger className="h-9 text-sm w-full">
-                                <SelectValue placeholder="Select existing or manually enter" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="manual">Manually enter (+)</SelectItem>
-                                {allSavedWires.length > 0 && <SelectGroup>
-                                  <SelectLabel>Existing Instructions</SelectLabel>
-                                  {allSavedWires.map(r => (
-                                    <SelectItem key={r.id} value={r.id}>{r.payableName || r.accountHolderName || r.bankName}</SelectItem>
-                                  ))}
-                                </SelectGroup>}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </>
-                      )}
-
-                      {wireSelectionMode === undefined && (
-                        <div className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-border/60 p-8 text-center bg-muted/10 mt-2">
-                          <Landmark className="size-10 text-muted-foreground/30 mb-3" />
-                          <h3 className="text-sm font-semibold text-foreground">No instruction selected</h3>
-                          <p className="mt-1 mb-4 text-xs text-muted-foreground max-w-[280px]">
-                            Only one instruction can be added. It can be team, agent, or external.
-                          </p>
-                          <Button 
-                            size="sm" 
-                            className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" 
-                            onClick={() => {
-                              setWireSelectionMode("manual");
-                              setWireFormErrors({});
-                              const d = createEmptyWireInstruction(wireFormMode === "external" ? `ext-${wireExternalName}` : undefined);
-                              d.payableName = wireExternalName;
-                              d.accountHolderName = wireFormMode === "team" ? "Brokerage" : wireFormMode === "agent" ? (sidesData.flatMap((s) => s.agents).find(a => a.id === wireFormAgentId)?.name || "") : wireExternalName;
-                              setWireFormDraft(d);
-                            }}
-                          >
-                            <Plus className="size-3.5 mr-1.5" />
-                            Instruction
-                          </Button>
-                        </div>
-                      )}
-
-                      {wireSelectionMode !== undefined && (
-                        <>
-                          <Separator />
-
-                      {/* Recipient */}
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Recipient / Account Holder Name <span className="text-destructive">*</span></Label>
-                        <Input value={wireFormDraft.accountHolderName} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountHolderName: e.target.value }))} className="h-9 text-sm" placeholder="Full legal name" />
-                        {wireFormErrors.accountHolderName && <p className="text-[11px] text-destructive">{wireFormErrors.accountHolderName}</p>}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Email</Label>
-                          <Input value={wireFormDraft.email} onChange={(e) => setWireFormDraft((d) => ({ ...d, email: e.target.value }))} className="h-9 text-sm" placeholder="name@example.com" type="email" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Phone</Label>
-                          <Input value={wireFormDraft.phone} onChange={(e) => setWireFormDraft((d) => ({ ...d, phone: e.target.value }))} className="h-9 text-sm" placeholder="(555) 555-5555" type="tel" />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Street Address</Label>
-                        <Input value={wireFormDraft.recipientStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Address Line 2 (optional)</Label>
-                        <Input value={wireFormDraft.recipientStreet2} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientStreet2: e.target.value }))} className="h-9 text-sm" placeholder="Apt, suite, etc." />
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">City</Label>
-                          <Input value={wireFormDraft.recipientCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">State</Label>
-                          <Input value={wireFormDraft.recipientState} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">ZIP</Label>
-                          <Input value={wireFormDraft.recipientZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, recipientZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      {/* Banking */}
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Bank Name <span className="text-destructive">*</span></Label>
-                        <Input value={wireFormDraft.bankName} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankName: e.target.value }))} className="h-9 text-sm" placeholder="e.g., Chase Bank" />
-                        {wireFormErrors.bankName && <p className="text-[11px] text-destructive">{wireFormErrors.bankName}</p>}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Routing Number (ABA) <span className="text-destructive">*</span></Label>
-                          <Input value={wireFormDraft.routingNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, routingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) }))} className="h-9 text-sm font-mono" placeholder="9 digits" inputMode="numeric" maxLength={9} />
-                          {wireFormErrors.routingNumber && <p className="text-[11px] text-destructive">{wireFormErrors.routingNumber}</p>}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Account Number <span className="text-destructive">*</span></Label>
-                          <Input value={wireFormDraft.accountNumber} onChange={(e) => setWireFormDraft((d) => ({ ...d, accountNumber: e.target.value }))} className="h-9 text-sm font-mono" placeholder="Account number" />
-                          {wireFormErrors.accountNumber && <p className="text-[11px] text-destructive">{wireFormErrors.accountNumber}</p>}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">Account Type</Label>
-                          <Select value={wireFormDraft.accountType || "checking"} onValueChange={(v) => setWireFormDraft((d) => ({ ...d, accountType: v as WireAccountType }))}>
-                            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="checking">Checking</SelectItem>
-                              <SelectItem value="savings">Savings</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {wireFormMode === "team" && (
-                          <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs font-medium">CDA Type <span className="text-destructive">*</span></Label>
-                            <Select value={wireFormDraft.cdaType || "full-transparency"} onValueChange={(v) => setWireFormDraft((d) => ({ ...d, cdaType: v as CDAType }))}>
-                              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select CDA type" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="full-transparency">Full Transparency</SelectItem>
-                                <SelectItem value="team-hidden">Team Hidden</SelectItem>
-                                <SelectItem value="radius-hidden">Radius Hidden</SelectItem>
-                                <SelectItem value="full-gross">Full Gross</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {wireFormErrors.cdaType && <p className="text-[11px] text-destructive">{wireFormErrors.cdaType}</p>}
-                          </div>
-                        )}
-                      </div>
-
-                      <Separator />
-
-                      {/* Address */}
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Bank Street Address <span className="text-destructive">*</span></Label>
-                        <Input value={wireFormDraft.bankStreet} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankStreet: e.target.value }))} className="h-9 text-sm" placeholder="123 Main St" />
-                        {wireFormErrors.bankStreet && <p className="text-[11px] text-destructive">{wireFormErrors.bankStreet}</p>}
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">City <span className="text-destructive">*</span></Label>
-                          <Input value={wireFormDraft.bankCity} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankCity: e.target.value }))} className="h-9 text-sm" placeholder="City" />
-                          {wireFormErrors.bankCity && <p className="text-[11px] text-destructive">{wireFormErrors.bankCity}</p>}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">State <span className="text-destructive">*</span></Label>
-                          <Input value={wireFormDraft.bankState} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankState: e.target.value }))} className="h-9 text-sm" placeholder="CA" />
-                          {wireFormErrors.bankState && <p className="text-[11px] text-destructive">{wireFormErrors.bankState}</p>}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <Label className="text-xs font-medium">ZIP <span className="text-destructive">*</span></Label>
-                          <Input value={wireFormDraft.bankZip} onChange={(e) => setWireFormDraft((d) => ({ ...d, bankZip: e.target.value }))} className="h-9 text-sm" placeholder="94105" />
-                          {wireFormErrors.bankZip && <p className="text-[11px] text-destructive">{wireFormErrors.bankZip}</p>}
-                        </div>
-                      </div>
-
-                      {/* Special instructions */}
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Special Instructions / Memo</Label>
-                        <Textarea value={wireFormDraft.specialInstructions} onChange={(e) => setWireFormDraft((d) => ({ ...d, specialInstructions: e.target.value }))} className="min-h-[60px] text-sm" placeholder="Optional memo or reference" />
-                      </div>
-                    </>
-                  )}
-
-                      {/* Save */}
-                      <div className="flex items-center justify-end gap-2 pt-1">
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => setWireFormMode("none")}>Cancel</Button>
-                        <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Wire Instructions</Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {wireFormMode !== "none" && renderWireInstructionForm()}
 
               {auditorWireParties.map((party) => (
                 <Card key={party.id} className="rounded-[14px] border-border py-0 gap-0 shadow-none overflow-hidden">

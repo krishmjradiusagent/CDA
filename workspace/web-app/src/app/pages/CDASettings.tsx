@@ -141,7 +141,7 @@ type AssignDefaultsForm = {
   actionType: "assign" | "unassign";
 };
 
-const TEAM_WIRE_COMPLETION_OPTIONS = { requireCdaType: true } as const;
+const TEAM_WIRE_COMPLETION_OPTIONS = { requireCdaType: false } as const;
 
 const TEAM_CDA_TYPE_OPTIONS: Array<{ value: CDAType; label: string }> = [
   { value: "full-transparency", label: "Full Transparency" },
@@ -2087,7 +2087,6 @@ function WireInstructionDialog({
   description,
   record,
   errors,
-  showCdaType,
   onChange,
   onSave,
 }: {
@@ -2097,7 +2096,6 @@ function WireInstructionDialog({
   description?: string;
   record: WireInstructionRecord;
   errors: WireValidationErrors;
-  showCdaType?: boolean;
   onChange: (patch: Partial<WireInstructionRecord>) => void;
   onSave: () => void;
 }) {
@@ -2233,23 +2231,6 @@ function WireInstructionDialog({
                   </SelectContent>
                 </Select>
               </div>
-              {showCdaType && (
-                <div className="space-y-2">
-                  <Label htmlFor="wire-cda-type">CDA Type</Label>
-                  <Select value={record.cdaType || "full-transparency"} onValueChange={(v) => onChange({ cdaType: v })}>
-                    <SelectTrigger id="wire-cda-type" className={cn(errors.cdaType && "border-destructive")}>
-                      <SelectValue placeholder="Select CDA type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="full-transparency">Full Transparency</SelectItem>
-                      <SelectItem value="team-hidden">Team Hidden</SelectItem>
-                      <SelectItem value="radius-hidden">Radius Hidden</SelectItem>
-                      <SelectItem value="full-gross">Full Gross</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.cdaType && <p className="text-[11px] text-destructive">{errors.cdaType}</p>}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -3923,7 +3904,6 @@ export function CDASettings() {
           title={`${state.wireType === "team" ? "Team" : state.wireType === "shared" ? "Shared" : "Private"} Wire Instruction`}
           record={state.wireDraft}
           errors={state.wireErrors}
-          showCdaType={state.wireType === "team"}
           onChange={(patch) => setState((current) => ({ ...current, wireDraft: { ...current.wireDraft!, ...patch } }))}
           onSave={saveWireDialog}
         />
