@@ -805,6 +805,7 @@ export function CommissionBreakdown() {
           (r) => r.id === `ext-${extName}` || (r.payableName?.toLowerCase() === extName.toLowerCase()) || (r.accountHolderName?.toLowerCase() === extName.toLowerCase())
         );
         if (existing) {
+          setWireSelectionMode(existing.id);
           setWireExternalName(existing.payableName || extName);
           setWireFormDraft({ ...existing, id: `ext-${extName}`, _oldId: existing.id !== `ext-${extName}` ? existing.id : undefined } as any);
           return;
@@ -1145,11 +1146,7 @@ export function CommissionBreakdown() {
               isFilled ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-600" : "bg-[#5A5FF2]/10 hover:bg-[#5A5FF2]/20 text-[#5A5FF2]"
             )} 
             onClick={() => {
-              if (!isFilled) {
-                openWireForm("external", undefined, dedName);
-              } else {
-                setWireFormMode("none");
-              }
+              openWireForm("external", undefined, dedName);
               onClick();
             }}
           >
@@ -1729,16 +1726,23 @@ export function CommissionBreakdown() {
 
   function renderWireInstructionForm() {
     return (
-      <Card className="rounded-[14px] border-primary/30 bg-primary/[0.02] py-0 gap-0 shadow-none overflow-hidden mt-2">
-        <CardContent className="px-4 py-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Wire Instruction</h3>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => { setWireFormMode("none"); setOpenWireItemId(null); }}>
-                <X className="size-3" />
-                Cancel
-              </Button>
-            </div>
+      <Dialog open={true} onOpenChange={(open) => {
+        if (!open) {
+          setWireFormMode("none");
+          setOpenWireItemId(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px] overflow-y-auto max-h-[85vh] p-0 gap-0">
+          <div className="flex items-center justify-between border-b px-6 py-4">
+            <DialogTitle className="text-lg font-semibold text-foreground">
+              {wireFormMode === "team" ? "Team Wire Instruction" : wireFormMode === "agent" ? "Agent Wire Instruction" : wireFormMode === "external" ? "External Wire Instruction" : "Wire Instruction"}
+            </DialogTitle>
+            <DialogClose className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
+          </div>
+          <div className="flex flex-col gap-4 px-6 py-4">
 
             {wireSelectionMode !== undefined && (
               <>
@@ -1953,11 +1957,11 @@ export function CommissionBreakdown() {
             {/* Save */}
             <div className="flex items-center justify-end gap-2 pt-1">
               <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" onClick={() => { setWireFormMode("none"); setOpenWireItemId(null); }}>Cancel</Button>
-              <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Wire Instructions</Button>
+              <Button size="sm" className="h-8 rounded-lg text-xs bg-[#5A5FF2] hover:bg-[#5A5FF2]/90 text-white" onClick={saveWireForm} disabled={wireSelectionMode === undefined}>Save Instructions</Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
     );
   }
 
