@@ -118,7 +118,7 @@ export function CalculationBreakdownTooltip({
                       isFeesSectionStart && "mt-2 border-t border-white/15 pt-2.5",
                       isFinal && !isFinalPayout && "mt-2 border-t border-white/15 pt-2.5 font-semibold",
                       isStartPayout && "rounded-md bg-amber-400/10 px-1.5 py-1.5 -mx-1",
-                      isFinalPayout && "rounded-b-md bg-emerald-500/15 px-1.5 py-1.5 -mx-1 font-semibold",
+                      isFinalPayout && "rounded-md bg-emerald-500/15 px-1.5 py-1.5 -mx-1 font-semibold",
                     )}
                   >
                     <OperatorMarker kind={line.kind} tone={tone} />
