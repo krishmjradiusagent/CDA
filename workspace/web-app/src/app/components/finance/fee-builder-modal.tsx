@@ -64,6 +64,8 @@ export interface FeeBuilderModalProps {
 }
 
 const DEFAULT_TEAM_NAME = "Keystone Team";
+const FORM_FIELD_SHELL =
+  "flex h-10 w-full items-center rounded-md border border-input bg-input-background px-3 text-sm";
 
 function resolvePayableToName(
   type: FeeTypeDraft["payableToType"],
@@ -337,32 +339,44 @@ export function FeeBuilderModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-              <Label className="min-h-5">Payable To</Label>
-              <Label htmlFor="payable-to-name" className="min-h-5">
-                Payable Name
-              </Label>
-              <Select
-                value={draft.payableToType ?? "radius"}
-                onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
-              >
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="radius">Radius</SelectItem>
-                  <SelectItem value="team">Team</SelectItem>
-                  <SelectItem value="external">External</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                id="payable-to-name"
-                className="h-10 w-full py-2 text-sm leading-none"
-                value={draft.payableToName ?? ""}
-                disabled={draft.payableToType !== "external"}
-                placeholder={draft.payableToType === "external" ? "Enter payable name" : undefined}
-                onChange={(e) => update("payableToName", e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Payable To</Label>
+                <Select
+                  value={draft.payableToType ?? "radius"}
+                  onValueChange={(v) => handlePayableToType(v as FeeTypeDraft["payableToType"])}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="radius">Radius</SelectItem>
+                    <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="external">External</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="payable-to-name">Payable Name</Label>
+                {draft.payableToType === "external" ? (
+                  <Input
+                    id="payable-to-name"
+                    className="h-10"
+                    value={draft.payableToName ?? ""}
+                    placeholder="Enter payable name"
+                    onChange={(e) => update("payableToName", e.target.value)}
+                  />
+                ) : (
+                  <div
+                    id="payable-to-name"
+                    aria-readonly="true"
+                    className={`${FORM_FIELD_SHELL} text-foreground opacity-50`}
+                  >
+                    {draft.payableToName}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Sliding Scale — full row */}
