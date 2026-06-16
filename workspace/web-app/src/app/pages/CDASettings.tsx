@@ -3454,12 +3454,6 @@ export function CDASettings() {
                                 Assign
                               </DropdownMenuItem>
                             )}
-                            {fee.appliesToMode === "agent" && hasAssignedAgents && (
-                              <DropdownMenuItem onClick={() => setState((c) => ({ ...c, viewAssociationsTarget: { type: "fee", id: fee.id, name: fee.name } }))}>
-                                <Eye className="size-4" />
-                                View Associations
-                              </DropdownMenuItem>
-                            )}
                             <DropdownMenuItem onClick={() => duplicateFee(fee)}>
                               <Copy className="size-4" />
                               Duplicate
