@@ -105,12 +105,10 @@ import {
   buildAgentNetLines,
   buildCommissionBasisLines,
   buildGrossAfterDeductionsLines,
-  buildGrossCommissionLines,
   buildSideTotalLines,
   buildTeamDollarLines,
   buildTeamIncomeLines,
   buildTeamSplitLines,
-  buildToAgentsLines,
 } from "../lib/commission-calc-breakdown";
 import {
   createDefaultWireInstructionsStore,
@@ -2772,12 +2770,6 @@ export function CommissionBreakdown() {
                         gradient: "linear-gradient(135deg, #c7d2fe, #a5b4fc)",
                         muted: "#6366f1",
                         strong: "#1e1b4b",
-                        lines: buildGrossCommissionLines(
-                          derivedBreakdown.normalizedAwards[activeSide.id] ?? 0,
-                          Math.max(awardAmountValues[activeSide.id] ?? 0, 0),
-                          transactionGross,
-                          grossIncome,
-                        ),
                       },
                       {
                         label: "After Deductions",
@@ -2786,11 +2778,6 @@ export function CommissionBreakdown() {
                         gradient: "linear-gradient(135deg, #ddd6fe, #c4b5fd)",
                         muted: "#7c3aed",
                         strong: "#2e1065",
-                        lines: buildGrossAfterDeductionsLines(
-                          grossIncome,
-                          sideGrossDeductions[activeSide.id] ?? [],
-                          grossCommissionAfterDeductions,
-                        ),
                       },
                       {
                         label: "To Agents",
@@ -2803,14 +2790,6 @@ export function CommissionBreakdown() {
                         gradient: "linear-gradient(135deg, #bbf7d0, #86efac)",
                         muted: "#16a34a",
                         strong: "#14532d",
-                        lines: activeSideSummary
-                          ? buildToAgentsLines(
-                              activeSideSummary.agents,
-                              totalAgentPayout,
-                              showFullBreakdown,
-                              scopedAgentId,
-                            )
-                          : [],
                       },
                       {
                         label: "To Team",
@@ -2819,20 +2798,14 @@ export function CommissionBreakdown() {
                         gradient: "linear-gradient(135deg, #fef3c7, #fde68a)",
                         muted: "#d97706",
                         strong: "#451a03",
-                        lines: activeSideSummary && showFullBreakdown
-                          ? buildTeamIncomeLines(activeSideSummary, showFullBreakdown, scopedAgentId)
-                          : [],
                       },
-                    ].map(({ label, value, icon: Icon, gradient, muted, strong, lines }) => (
+                    ].map(({ label, value, icon: Icon, gradient, muted, strong }) => (
                       <div key={label} className="rounded-lg px-3 py-2.5" style={{ background: gradient }}>
                         <div className="flex items-center gap-1.5">
                           <Icon className="size-3" style={{ color: muted }} />
                           <p className="text-xs font-medium" style={{ color: muted }}>{label}</p>
                         </div>
-                        <div className="mt-0.5 flex items-center gap-1">
-                          <p className="text-sm font-bold tracking-tight" style={{ color: strong }}>{value}</p>
-                          <CalculationBreakdownTooltip title={label} lines={lines} className="text-white/70 hover:bg-white/15 hover:text-white" />
-                        </div>
+                        <p className="mt-0.5 text-sm font-bold tracking-tight" style={{ color: strong }}>{value}</p>
                       </div>
                     ))}
                   </div>
