@@ -162,6 +162,8 @@ type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
 type ResetPeriod = "yearly" | "quarterly" | "monthly";
 type BasedOn = "units" | "gci" | "sales-volume";
+type RadiusFeePaidBy = "agent" | "team";
+
 type CommissionPlanOption = {
   id: string;
   name: string;
@@ -171,6 +173,7 @@ type CommissionPlanOption = {
   capAmount: number;
   agentSplit: number;
   teamSplit: number;
+  radiusFeePaidBy?: RadiusFeePaidBy;
 };
 
 type TierRow = {
@@ -233,10 +236,10 @@ const CONTACTS = [
 ];
 
 const COMMISSION_PLANS: CommissionPlanOption[] = [
-  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% team", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20 },
-  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% team", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30 },
-  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0 },
-  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% team", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40 },
+  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% team", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20, radiusFeePaidBy: "agent" },
+  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% team", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30, radiusFeePaidBy: "team" },
+  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0, radiusFeePaidBy: "agent" },
+  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% team", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40, radiusFeePaidBy: "agent" },
 ];
 
 const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
@@ -245,6 +248,8 @@ const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
   { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
   { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
 ];
+
+const RADIUS_CAP_AMOUNT = 12000;
 
 const AGENT_CAP_PROGRESS: Record<string, number> = {
   a1: 17420,
@@ -255,6 +260,17 @@ const AGENT_CAP_PROGRESS: Record<string, number> = {
   a6: 8400,
   a7: 3200,
   a8: 1100,
+};
+
+const AGENT_RADIUS_CAP_PROGRESS: Record<string, number> = {
+  a1: 11205,
+  a2: 9400,
+  a3: 12000,
+  a4: 4950,
+  a5: 2475,
+  a6: 6435,
+  a7: 1980,
+  a8: 990,
 };
 
 const initialSides: Side[] = [
@@ -400,6 +416,13 @@ type DerivedAgentSummary = {
   capApplied: number;
   capWarning: boolean;
   capReached: boolean;
+  radiusCapAmount: number;
+  radiusCapUsed: number;
+  radiusCapRemaining: number;
+  radiusCapApplied: number;
+  radiusCapWarning: boolean;
+  radiusCapReached: boolean;
+  radiusFeePaidBy: RadiusFeePaidBy;
 };
 
 type DerivedSideSummary = {
@@ -567,6 +590,10 @@ function deriveCommissionBreakdown(params: {
         : plan?.feeType === "percentage"
           ? grossCommissionAfterDeductions * ((plan.feeAmount ?? 0) / 100)
           : (plan?.feeAmount ?? 0);
+      const radiusCapAmount = RADIUS_CAP_AMOUNT;
+      const radiusCapUsed = AGENT_RADIUS_CAP_PROGRESS[agent.id] ?? 0;
+      const radiusCapRemaining = Math.max(radiusCapAmount - radiusCapUsed, 0);
+      const radiusCapApplied = radiusCapAmount > 0 ? Math.min(radiusFee, radiusCapRemaining) : radiusFee;
       const postSplitAgentCommission = clampCurrency(afterPreSplit - split);
       const postSplitDeductionsTotal = (params.postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
       const netCommission = clampCurrency(postSplitAgentCommission - postSplitDeductionsTotal);
@@ -593,6 +620,13 @@ function deriveCommissionBreakdown(params: {
         capApplied: split,
         capWarning: capAmount > 0 && capRemaining > 0 && capRemaining < rawSplit,
         capReached: capAmount > 0 && capRemaining <= 0,
+        radiusCapAmount,
+        radiusCapUsed,
+        radiusCapRemaining,
+        radiusCapApplied,
+        radiusCapWarning: radiusCapAmount > 0 && radiusCapRemaining > 0 && radiusCapRemaining < radiusFee,
+        radiusCapReached: radiusCapAmount > 0 && radiusCapRemaining <= 0,
+        radiusFeePaidBy: plan?.radiusFeePaidBy ?? "agent",
       };
     });
 
@@ -817,6 +851,108 @@ function getCursorXY(input: HTMLTextAreaElement, selectionPoint: number) {
   const y = span.offsetTop;
   document.body.removeChild(div);
   return { x, y };
+}
+
+type CapDisplayStatus = "none" | "normal" | "near" | "reached";
+
+function getCapDisplayStatus(capAmount: number, capUsed: number, capRemaining: number, dealContribution: number): CapDisplayStatus {
+  if (capAmount <= 0) return "none";
+  if (capRemaining <= 0) return "reached";
+  if (capRemaining < dealContribution || capUsed / capAmount >= 0.9) return "near";
+  return "normal";
+}
+
+function AgentCapCard({
+  variant,
+  label,
+  capAmount,
+  capUsed,
+  capRemaining,
+  dealContribution,
+  status,
+  note,
+}: {
+  variant: "radius" | "team";
+  label: string;
+  capAmount: number;
+  capUsed: number;
+  capRemaining: number;
+  dealContribution: number;
+  status: CapDisplayStatus;
+  note?: string;
+}) {
+  const progressValue = capAmount > 0 ? Math.min(100, (capUsed / capAmount) * 100) : 0;
+  const projectedValue = capAmount > 0 ? Math.min(100, ((capUsed + dealContribution) / capAmount) * 100) : 0;
+  const projectedWidth = Math.max(projectedValue - progressValue, 0);
+  const CapIcon = variant === "radius" ? Radar : Building2;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-3.5 py-3 shadow-sm",
+        status === "reached"
+          ? "border-amber-200/70 bg-gradient-to-br from-amber-50/70 via-white to-[#5A5FF2]/[0.04]"
+          : status === "near"
+            ? "border-[#5A5FF2]/20 bg-gradient-to-br from-[#5A5FF2]/[0.06] via-white to-amber-50/50"
+            : "border-[#5A5FF2]/15 bg-gradient-to-br from-[#5A5FF2]/[0.04] to-white",
+      )}
+    >
+      <div className="mb-2.5 flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-lg border",
+              variant === "radius"
+                ? "border-[#5A5FF2]/20 bg-[#5A5FF2]/10 text-[#5A5FF2]"
+                : "border-amber-200/70 bg-amber-50 text-amber-600",
+            )}
+          >
+            <CapIcon className="size-3.5" strokeWidth={2.25} />
+          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">{label}</p>
+        </div>
+        {status === "reached" ? (
+          <Badge variant="outline" className="h-5 shrink-0 rounded-md border-amber-300/80 bg-amber-50 px-1.5 text-[10px] text-amber-700">
+            Capped
+          </Badge>
+        ) : status === "near" ? (
+          <Badge variant="outline" className="h-5 shrink-0 rounded-md border-[#E8A838]/40 bg-amber-50 px-1.5 text-[10px] text-amber-700">
+            Near cap
+          </Badge>
+        ) : null}
+      </div>
+      {capAmount > 0 ? (
+        <>
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <span className="text-sm font-semibold tabular-nums text-foreground">{currency(capUsed)}</span>
+            <span className="text-[11px] text-muted-foreground">of {currency(capAmount)}</span>
+          </div>
+          <div className="relative h-2 overflow-hidden rounded-full bg-[#5A5FF2]/10">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-[#5A5FF2] transition-all"
+              style={{ width: `${progressValue}%` }}
+            />
+            {dealContribution > 0 && status !== "reached" && projectedWidth > 0 && (
+              <div
+                className="absolute inset-y-0 rounded-full bg-[#E8A838]/75"
+                style={{ left: `${progressValue}%`, width: `${projectedWidth}%` }}
+              />
+            )}
+          </div>
+          <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+            {status === "reached"
+              ? `${currency(capUsed)} used. ${currency(capRemaining)} remaining.`
+              : status === "near"
+                ? `This deal adds ${currency(dealContribution)}. ${currency(capRemaining)} left.`
+                : `${currency(capRemaining)} remaining · +${currency(dealContribution)} this deal`}
+          </p>
+        </>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">No cap configured</p>
+      )}
+      {note ? <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground/80">{note}</p> : null}
+    </div>
+  );
 }
 
 export function CommissionBreakdown() {
@@ -1352,6 +1488,24 @@ export function CommissionBreakdown() {
       : selectedAgent?.capWarning || selectedCapRatio >= 0.9
         ? "near"
         : "normal";
+  const selectedRadiusCapAmount = selectedAgent?.radiusCapAmount ?? 0;
+  const selectedRadiusCapUsed = selectedAgent?.radiusCapUsed ?? 0;
+  const selectedRadiusCapRemaining = selectedAgent?.radiusCapRemaining ?? 0;
+  const selectedRadiusCapApplied = selectedAgent?.radiusCapApplied ?? 0;
+  const selectedRadiusCapStatus = getCapDisplayStatus(
+    selectedRadiusCapAmount,
+    selectedRadiusCapUsed,
+    selectedRadiusCapRemaining,
+    selectedRadiusCapApplied,
+  );
+  const selectedTeamCapStatus = getCapDisplayStatus(
+    selectedCapAmount,
+    selectedCapUsed,
+    selectedCapRemaining,
+    selectedAgent?.capApplied ?? 0,
+  );
+  const radiusFeePaidByTeam = selectedAgent?.radiusFeePaidBy === "team";
+  const showRadiusFeeToViewer = role !== "agent" || !radiusFeePaidByTeam;
 
   function handleDeleteAgent() {
     if (!selectedAgentId || !selectedAgent) return;
@@ -2458,22 +2612,28 @@ export function CommissionBreakdown() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  {selectedCapStatus !== "none" && (
-                    <Alert className={cn(
-                      "mb-4 border px-3 py-2",
-                      selectedCapStatus === "reached"
-                        ? "border-amber-200 bg-amber-50 text-amber-900"
-                        : "border-orange-200 bg-orange-50 text-orange-900"
-                    )}>
-                      <AlertDescription className="text-[11px] leading-5">
-                        <span className="font-semibold">
-                          {selectedCapStatus === "reached" ? "Capped already." : "You will cap with this deal."}
-                        </span>{" "}
-                        {selectedCapStatus === "reached"
-                          ? `${currency(selectedCapUsed)} used of ${currency(selectedCapAmount)} cap.`
-                          : `Estimated progress to cap: ${currency(selectedCapUsed + selectedAgent.capApplied)} of ${currency(selectedCapAmount)}.`}
-                      </AlertDescription>
-                    </Alert>
+                  {!selectedAgentIsExternal && appliedPlans[selectedAgent.agent.id] && (
+                    <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                      <AgentCapCard
+                        variant="radius"
+                        label="Radius Cap"
+                        capAmount={selectedRadiusCapAmount}
+                        capUsed={selectedRadiusCapUsed}
+                        capRemaining={selectedRadiusCapRemaining}
+                        dealContribution={selectedRadiusCapApplied}
+                        status={selectedRadiusCapStatus}
+                        note={radiusFeePaidByTeam && role === "agent" ? "Radius fee paid by team — folded into team commission." : undefined}
+                      />
+                      <AgentCapCard
+                        variant="team"
+                        label="Team Cap"
+                        capAmount={selectedCapAmount}
+                        capUsed={selectedCapUsed}
+                        capRemaining={selectedCapRemaining}
+                        dealContribution={selectedAgent.capApplied}
+                        status={selectedTeamCapStatus}
+                      />
+                    </div>
                   )}
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
@@ -2549,36 +2709,42 @@ export function CommissionBreakdown() {
                       <EditableValue value={selectedAgent.split} onChange={() => undefined} readOnly />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Radius Fee</p>
-                      {selectedPlan && (
-                        <p className="text-xs text-muted-foreground">
-                          {selectedPlan.name}
-                        </p>
-                      )}
-                    </div>
-                    <div className="min-w-[120px] text-right">
-                      <EditableValue
-                        value={selectedAgent.radiusFee}
-                        readOnly={!canEditAll || isLocked}
-                        onChange={(value) => {
-                          setAgentRadiusFees((prev) => ({
-                            ...prev,
-                            [selectedAgent.agent.id]: value,
-                          }));
-                          logActivity(`Updated Radius Fee for ${selectedAgent.agent.name} to ${currency(value)}.`);
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <Separator className="my-3" />
+                  {showRadiusFeeToViewer && (
+                    <>
+                      <div className="flex items-center justify-between py-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Radius Fee</p>
+                          {selectedPlan && (
+                            <p className="text-xs text-muted-foreground">
+                              {selectedPlan.name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="min-w-[120px] text-right">
+                          <EditableValue
+                            value={selectedAgent.radiusFee}
+                            readOnly={!canEditAll || isLocked}
+                            onChange={(value) => {
+                              setAgentRadiusFees((prev) => ({
+                                ...prev,
+                                [selectedAgent.agent.id]: value,
+                              }));
+                              logActivity(`Updated Radius Fee for ${selectedAgent.agent.name} to ${currency(value)}.`);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <Separator className="my-3" />
+                    </>
+                  )}
 
                   {/* Post-split deductions */}
                   <div className="py-2">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Post-split deductions</p>
                   </div>
-                  {(postSplitDeductions[selectedAgent.agent.id] ?? []).map((ded) => {
+                  {(postSplitDeductions[selectedAgent.agent.id] ?? [])
+                    .filter((ded) => showRadiusFeeToViewer || !ded.isRadiusFee)
+                    .map((ded) => {
                     const dedReadOnly = isLocked;
                     const canDelete = !isLocked;
                     return (
@@ -2643,7 +2809,7 @@ export function CommissionBreakdown() {
                   </div>
 
                   {/* Radius fee nudge strip */}
-                  {canEditAll && !isLocked && !(postSplitDeductions[selectedAgent.agent.id] ?? []).some((d) => d.isRadiusFee) && (
+                  {showRadiusFeeToViewer && canEditAll && !isLocked && !(postSplitDeductions[selectedAgent.agent.id] ?? []).some((d) => d.isRadiusFee) && (
                     <button
                       onClick={() => setFeeDialogTiming("post-split")}
                       className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[#5A5FF2]/15 bg-[#5A5FF2]/[0.04] px-3.5 py-2.5 text-left transition-all hover:border-[#5A5FF2]/30 hover:bg-[#5A5FF2]/[0.08]"
