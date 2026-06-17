@@ -103,13 +103,7 @@ import type { ExistingFeeOption, FeeTypeDraft } from "../components/finance/fee-
 import { CalculationBreakdownTooltip } from "../components/finance/calculation-breakdown-tooltip";
 import {
   buildAgentNetLines,
-  buildCommissionBasisLines,
-  buildGrossAfterDeductionsLines,
-  buildSideTotalLines,
   getSideTotalAmount,
-  buildTeamDollarLines,
-  buildTeamIncomeLines,
-  buildTeamSplitLines,
 } from "../lib/commission-calc-breakdown";
 import {
   createDefaultWireInstructionsStore,
@@ -2257,28 +2251,13 @@ export function CommissionBreakdown() {
                             <div className="flex items-center gap-4 shrink-0 mr-1">
                               <div className="text-right">
                                 <p className="text-xs font-medium text-muted-foreground">Side total</p>
-                                <div className="flex items-center justify-end gap-1">
-                                  <p className="text-xl font-bold tracking-tight tabular-nums">
-                                    {currency(
-                                      sideSummary
-                                        ? getSideTotalAmount(sideSummary, showFullBreakdown, scopedAgentId)
-                                        : 0,
-                                    )}
-                                  </p>
-                                  {sideSummary && (
-                                    <CalculationBreakdownTooltip
-                                      title="Side total"
-                                      lines={buildSideTotalLines(
-                                        sideSummary,
-                                        derivedBreakdown.normalizedAwards[side.id] ?? 0,
-                                        Math.max(awardAmountValues[side.id] ?? 0, 0),
-                                        transactionGross,
-                                        showFullBreakdown,
-                                        scopedAgentId,
-                                      )}
-                                    />
+                                <p className="text-xl font-bold tracking-tight tabular-nums">
+                                  {currency(
+                                    sideSummary
+                                      ? getSideTotalAmount(sideSummary, showFullBreakdown, scopedAgentId)
+                                      : 0,
                                   )}
-                                </div>
+                                </p>
                               </div>
                               <Button
                                 variant="ghost"
@@ -2323,20 +2302,7 @@ export function CommissionBreakdown() {
                                 <div className="flex items-center gap-3 shrink-0">
                                   <div className="text-right">
                                     <p className="text-xs font-medium text-muted-foreground">Payout</p>
-                                    <div className="flex items-center justify-end gap-1">
-                                      <p className="text-base font-bold tracking-tight tabular-nums">{currency(agentSummary?.netCommission ?? 0)}</p>
-                                      {agentSummary && (
-                                        <CalculationBreakdownTooltip
-                                          title="Net commission"
-                                          tone="payout"
-                                          lines={buildAgentNetLines(
-                                            agentSummary,
-                                            preSplitDeductions[agent.id] ?? [],
-                                            postSplitDeductions[agent.id] ?? [],
-                                          )}
-                                        />
-                                      )}
-                                    </div>
+                                    <p className="text-base font-bold tracking-tight tabular-nums">{currency(agentSummary?.netCommission ?? 0)}</p>
                                   </div>
                                   <ChevronRight className="size-4 text-muted-foreground/50" />
                                 </div>
@@ -2509,17 +2475,8 @@ export function CommissionBreakdown() {
                   )}
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
-                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                    <div className="min-w-[120px] text-right">
                       <EditableValue value={selectedAgent.commissionBasis} onChange={() => undefined} readOnly />
-                      {(() => {
-                        const sideSummary = derivedBreakdown.sideSummaries.find((entry) => entry.side.id === selectedAgent.side.id);
-                        return sideSummary ? (
-                          <CalculationBreakdownTooltip
-                            title="Commission basis"
-                            lines={buildCommissionBasisLines(sideSummary, selectedAgent, showFullBreakdown)}
-                          />
-                        ) : null;
-                      })()}
                     </div>
                   </div>
                   {(isTL || canEditAll) && !isLocked && (
@@ -2586,12 +2543,8 @@ export function CommissionBreakdown() {
                             : `${roundCurrency(selectedAgent.splitRate * 100)}% team split`}
                       </p>
                     </div>
-                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                    <div className="min-w-[120px] text-right">
                       <EditableValue value={selectedAgent.split} onChange={() => undefined} readOnly />
-                      <CalculationBreakdownTooltip
-                        title="Team split"
-                        lines={buildTeamSplitLines(selectedAgent)}
-                      />
                     </div>
                   </div>
                   <div className="flex items-center justify-between py-3">
@@ -2728,15 +2681,10 @@ export function CommissionBreakdown() {
 
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team Dollar Contribution</p>
-                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                    <div className="min-w-[120px] text-right">
                       <p className="text-sm font-semibold tabular-nums text-foreground">
                         {currency(selectedAgent.companyDollarContribution)}
                       </p>
-                      <CalculationBreakdownTooltip
-                        title="Team dollar contribution"
-                        tone="payout"
-                        lines={buildTeamDollarLines(selectedAgent)}
-                      />
                     </div>
                   </div>
                   <Separator className="my-3" />
@@ -2901,16 +2849,8 @@ export function CommissionBreakdown() {
 
                   <div className="flex items-center justify-between border-t pt-3 mt-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gross Commission After Deductions</p>
-                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                    <div className="min-w-[120px] text-right">
                       <p className="text-base font-bold text-foreground tabular-nums">{currency(grossCommissionAfterDeductions)}</p>
-                      <CalculationBreakdownTooltip
-                        title="Gross after deductions"
-                        lines={buildGrossAfterDeductionsLines(
-                          grossIncome,
-                          sideGrossDeductions[activeSide.id] ?? [],
-                          grossCommissionAfterDeductions,
-                        )}
-                      />
                     </div>
                   </div>
 
@@ -2973,14 +2913,8 @@ export function CommissionBreakdown() {
                         <p className="text-sm font-semibold text-foreground">Team income</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">After pre-split deductions and agent payouts</p>
                       </div>
-                      <div className="flex items-center justify-end gap-1 text-right">
+                      <div className="text-right">
                         <p className="text-base font-bold tabular-nums text-foreground">{currency(officeNet)}</p>
-                        {activeSideSummary && showFullBreakdown && (
-                          <CalculationBreakdownTooltip
-                            title="Team income"
-                            lines={buildTeamIncomeLines(activeSideSummary, showFullBreakdown, scopedAgentId)}
-                          />
-                        )}
                       </div>
                     </div>
                   </div>
