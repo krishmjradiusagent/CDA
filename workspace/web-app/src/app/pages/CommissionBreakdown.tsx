@@ -104,6 +104,7 @@ import { CalculationBreakdownTooltip } from "../components/finance/calculation-b
 import {
   buildAgentNetLines,
   buildTeamCommissionLines,
+  buildTeamDollarLines,
   getSideTotalAmount,
 } from "../lib/commission-calc-breakdown";
 import {
@@ -2681,11 +2682,16 @@ export function CommissionBreakdown() {
                   <Separator className="my-3" />
 
                   <div className="flex items-center justify-between py-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team Dollar Contribution</p>
-                    <div className="min-w-[120px] text-right">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team Commission</p>
+                    <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
                       <p className="text-sm font-semibold tabular-nums text-foreground">
                         {currency(selectedAgent.companyDollarContribution)}
                       </p>
+                      <CalculationBreakdownTooltip
+                        title="Team commission"
+                        tone="payout"
+                        lines={buildTeamDollarLines(selectedAgent)}
+                      />
                     </div>
                   </div>
                   <Separator className="my-3" />
@@ -2879,18 +2885,7 @@ export function CommissionBreakdown() {
                               <p className="mt-0.5 text-xs text-muted-foreground">Net amount only</p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <p className="text-base font-bold tabular-nums text-foreground">{currency(netCommission)}</p>
-                                <CalculationBreakdownTooltip
-                                  title="Net commission"
-                                  tone="payout"
-                                  lines={buildAgentNetLines(
-                                    agentSummary,
-                                    preSplitDeductions[agent.id] ?? [],
-                                    postSplitDeductions[agent.id] ?? [],
-                                  )}
-                                />
-                              </div>
+                              <p className="text-base font-bold tabular-nums text-foreground">{currency(netCommission)}</p>
                               <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
                             </div>
                           </button>

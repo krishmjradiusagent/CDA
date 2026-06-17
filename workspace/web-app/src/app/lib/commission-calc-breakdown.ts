@@ -134,7 +134,7 @@ export function buildTeamDollarLines(agentSummary: AgentSummary): CalculationLin
   return [
     { label: "Team split", amount: agentSummary.split, kind: "start" },
     { label: "Radius fee", amount: agentSummary.radiusFee, kind: "subtract" },
-    { label: "Team dollar contribution", amount: agentSummary.companyDollarContribution, kind: "final" },
+    { label: "Team commission", amount: agentSummary.companyDollarContribution, kind: "final" },
   ];
 }
 
