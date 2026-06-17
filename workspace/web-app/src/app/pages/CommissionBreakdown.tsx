@@ -882,8 +882,6 @@ function AgentCapCard({
   note?: string;
 }) {
   const progressValue = capAmount > 0 ? Math.min(100, (capUsed / capAmount) * 100) : 0;
-  const projectedValue = capAmount > 0 ? Math.min(100, ((capUsed + dealContribution) / capAmount) * 100) : 0;
-  const projectedWidth = Math.max(projectedValue - progressValue, 0);
   const CapIcon = variant === "radius" ? Radar : Building2;
 
   return (
@@ -927,17 +925,18 @@ function AgentCapCard({
             <span className="text-sm font-semibold tabular-nums text-foreground">{currency(capUsed)}</span>
             <span className="text-[11px] text-muted-foreground">of {currency(capAmount)}</span>
           </div>
-          <div className="relative h-2 overflow-hidden rounded-full bg-[#5A5FF2]/10">
+          <div
+            className="relative h-2 overflow-hidden rounded-full bg-[#5A5FF2]/10"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={capAmount}
+            aria-valuenow={capUsed}
+            aria-label={`${label}: ${currency(capUsed)} of ${currency(capAmount)}`}
+          >
             <div
               className="absolute inset-y-0 left-0 rounded-full bg-[#5A5FF2] transition-all"
               style={{ width: `${progressValue}%` }}
             />
-            {dealContribution > 0 && status !== "reached" && projectedWidth > 0 && (
-              <div
-                className="absolute inset-y-0 rounded-full bg-[#E8A838]/75"
-                style={{ left: `${progressValue}%`, width: `${projectedWidth}%` }}
-              />
-            )}
           </div>
           <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
             {status === "reached"
