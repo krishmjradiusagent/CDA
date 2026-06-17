@@ -103,6 +103,7 @@ import type { ExistingFeeOption, FeeTypeDraft } from "../components/finance/fee-
 import { CalculationBreakdownTooltip } from "../components/finance/calculation-breakdown-tooltip";
 import {
   buildAgentNetLines,
+  buildTeamCommissionLines,
   getSideTotalAmount,
 } from "../lib/commission-calc-breakdown";
 import {
@@ -2910,11 +2911,21 @@ export function CommissionBreakdown() {
                     })}
                     <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Team income</p>
+                        <p className="text-sm font-semibold text-foreground">Team commission</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">After pre-split deductions and agent payouts</p>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center justify-end gap-1 text-right">
                         <p className="text-base font-bold tabular-nums text-foreground">{currency(officeNet)}</p>
+                        {activeSideSummary && (
+                          <CalculationBreakdownTooltip
+                            title="Team commission"
+                            tone="payout"
+                            lines={buildTeamCommissionLines(
+                              activeSideSummary,
+                              sideGrossDeductions[activeSide.id] ?? [],
+                            )}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>

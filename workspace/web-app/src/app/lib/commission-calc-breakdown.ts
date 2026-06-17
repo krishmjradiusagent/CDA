@@ -189,6 +189,29 @@ export function buildTeamIncomeLines(
   return lines;
 }
 
+export function buildTeamCommissionLines(
+  sideSummary: SideSummary,
+  grossDeductions: SideDeduction[],
+): CalculationLine[] {
+  const lines: CalculationLine[] = [
+    { label: "Gross commission", amount: sideSummary.grossCommission, kind: "start" },
+  ];
+
+  grossDeductions.forEach((ded) => {
+    lines.push({ label: ded.name, amount: ded.amount, kind: "subtract" });
+  });
+
+  sideSummary.agents.forEach((agent) => {
+    const label = sideSummary.agents.length > 1
+      ? `${agent.agent.name} post-split`
+      : "Agent post-split commission";
+    lines.push({ label, amount: agent.postSplitAgentCommission, kind: "subtract" });
+  });
+
+  lines.push({ label: "Team commission", amount: sideSummary.officeIncome, kind: "final" });
+  return lines;
+}
+
 export function getSideTotalAmount(
   sideSummary: SideSummary,
   showFullBreakdown: boolean,
