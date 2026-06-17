@@ -2169,6 +2169,8 @@ export function CDASettings() {
     
     const myWire = wireStore.agentWireInstructions[CURRENT_AGENT_ID] ?? createEmptyWireInstruction(`agent-wire-${CURRENT_AGENT_ID}`);
     const myWireComplete = isWireInstructionComplete(myWire, {requireBankDetails: false});
+    const privateRecipients = wireStore.privateRecipients[CURRENT_AGENT_ID] || [];
+    const hasPrivateRecipients = privateRecipients.length > 0;
 
     const otherAgents = agents.filter(a => a.id !== CURRENT_AGENT_ID);
 
@@ -2365,21 +2367,23 @@ export function CDASettings() {
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-semibold">Private Recipients</h3>
                 <div className="flex items-center gap-3">
-                  <div className="relative w-[280px]">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Search recipients..." 
-                      className="pl-9 h-9"
-                      value={privateRecipientSearch}
-                      onChange={(e) => setPrivateRecipientSearch(e.target.value)}
-                    />
-                  </div>
+                  {hasPrivateRecipients && (
+                    <div className="relative w-[280px]">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Search recipients..." 
+                        className="pl-9 h-9"
+                        value={privateRecipientSearch}
+                        onChange={(e) => setPrivateRecipientSearch(e.target.value)}
+                      />
+                    </div>
+                  )}
                   <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary h-9" onClick={() => openWireDialog("private_recipient")}>
                     <Plus className="size-4 mr-1" /> Instructions
                   </Button>
                 </div>
               </div>
-              {(wireStore.privateRecipients[CURRENT_AGENT_ID] || []).length === 0 ? (
+              {!hasPrivateRecipients ? (
                 <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
                   <p>No private recipients yet. Add vendors or escrow companies here.</p>
                 </div>
@@ -2397,7 +2401,7 @@ export function CDASettings() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(wireStore.privateRecipients[CURRENT_AGENT_ID] || [])
+                      {privateRecipients
                         .filter(r => (r.accountHolderName || r.payableName || "").toLowerCase().includes(privateRecipientSearch.toLowerCase()))
                         .map((r) => (
                         <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
@@ -2423,7 +2427,7 @@ export function CDASettings() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {(wireStore.privateRecipients[CURRENT_AGENT_ID] || []).filter(r => (r.accountHolderName || r.payableName || "").toLowerCase().includes(privateRecipientSearch.toLowerCase())).length === 0 && (
+                      {privateRecipients.filter(r => (r.accountHolderName || r.payableName || "").toLowerCase().includes(privateRecipientSearch.toLowerCase())).length === 0 && (
                         <TableRow>
                           <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                             No private recipients found matching "{privateRecipientSearch}"
