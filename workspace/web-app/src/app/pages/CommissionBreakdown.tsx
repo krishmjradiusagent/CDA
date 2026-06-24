@@ -3241,22 +3241,6 @@ export function CommissionBreakdown() {
                 : "Any edits you make will require re-approval from Agent, Team Lead, and the Auditor before it's finalized again."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {!skipApprovalRestart && (
-            <ul className="ml-2 flex flex-col gap-2 text-[13px] text-foreground/90">
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span>Move the breakdown back to <span className="font-medium">Draft</span> status</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span>Require new confirmations from <span className="font-medium">Agent</span>, <span className="font-medium">Team Lead</span>, and the <span className="font-medium">Auditor</span></span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span>Log this reopen in the activity timeline</span>
-              </li>
-            </ul>
-          )}
           {isAuditor && (
             <div className="mt-3 rounded-md border border-amber-200 bg-amber-50/60 p-3">
               <label className="flex items-start gap-2.5 cursor-pointer">
@@ -3291,7 +3275,7 @@ export function CommissionBreakdown() {
                 setShowReopenDialog(false);
               }}
             >
-              {isAuditor && skipApprovalRestart ? "Edit without restart" : "Reopen for edits"}
+              {isAuditor && skipApprovalRestart ? "Edit without restart" : "Restart approval"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
