@@ -1661,7 +1661,7 @@ export function CommissionBreakdown() {
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [hasReopened, setHasReopened] = useState(false);
   const [skipApprovalRestart, setSkipApprovalRestart] = useState(false);
-  const isLocked = txStatus === "processed" && !hasReopened;
+  const isLocked = txStatus === "processed" && isAuditor && !hasReopened;
   const STATUS_LABELS: Record<TxStatus, string> = {
     draft: "Awaiting Agent confirmation",
     agent_confirmed: "Awaiting Team Lead confirmation",
@@ -2301,9 +2301,9 @@ export function CommissionBreakdown() {
             </Alert>
           </div>
         )}
-        {txStatus === "processed" && !hasReopened && (
+        {txStatus === "processed" && isAuditor && !hasReopened && (
           <div className="border-b bg-background px-6 py-3">
-            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+            <Alert className="items-center border-emerald-200 bg-emerald-50 text-emerald-900 [&>svg]:translate-y-0">
               <Shield className="text-emerald-700" />
               <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-emerald-900">
                 <span>

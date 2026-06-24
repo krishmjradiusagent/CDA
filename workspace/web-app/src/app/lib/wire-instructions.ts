@@ -208,10 +208,9 @@ export function isWireInstructionComplete(record: WireInstructionRecord, options
   return Object.keys(validateWireInstruction(record, { requireBankDetails: true, ...options })).length === 0;
 }
 
-export function maskSensitiveValue(value: string, visibleDigits = 4) {
+export function maskSensitiveValue(value: string, _visibleDigits = 4) {
   if (!value) return "Not provided";
-  if (value.length <= visibleDigits) return value;
-  return `${"•".repeat(Math.max(value.length - visibleDigits, 0))}${value.slice(-visibleDigits)}`;
+  return value;
 }
 
 export function readWireInstructionsStore(fallback: WireInstructionsStore): WireInstructionsStore {
