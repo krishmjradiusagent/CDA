@@ -274,6 +274,8 @@ const seedFees: FeeRecord[] = [
   { id: "f2", name: "RM Fee", type: "flat", amount: "300", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a3", "a5"], slidingScale: false, contributesToCap: true, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
   { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a2", "a3"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
   { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
+  { id: "f5", name: "Marketing Fee", type: "percentage", amount: "1.5", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a2"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
+  { id: "f6", name: "Tiered Brokerage Fee", type: "percentage", amount: "0", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: true, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true },
 ];
 
 export const seedAssignments: AgentAssignment[] = [
@@ -351,6 +353,31 @@ function formatBasedOn(value: BasedOn) {
 
 function numericValue(value: string) {
   return Number(value.replace(/[^0-9.]/g, "")) || 0;
+}
+
+function renderWireDetails(r: {
+  bankName?: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  recipientStreet?: string;
+  recipientCity?: string;
+  recipientState?: string;
+}) {
+  const hasWire = !!(r.bankName || r.accountNumber || r.routingNumber);
+  if (hasWire) {
+    return (
+      <div className="flex flex-col leading-tight">
+        {r.bankName && <span className="font-medium">{r.bankName}</span>}
+        <span className="text-muted-foreground text-xs">
+          {r.accountNumber && <>Acct {maskSensitiveValue(r.accountNumber)}</>}
+          {r.accountNumber && r.routingNumber && " · "}
+          {r.routingNumber && <>Routing {maskSensitiveValue(r.routingNumber)}</>}
+        </span>
+      </div>
+    );
+  }
+  const addr = [r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ");
+  return addr || "-";
 }
 
 function RadiusLogo() {
@@ -1821,6 +1848,12 @@ function WireInstructionDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <div className="flex flex-col gap-6 py-4">
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2.5 text-[12px] leading-snug text-blue-900">
+            <p className="font-medium">How this affects the CDA</p>
+            <p className="mt-0.5 text-blue-800">
+              Enter <span className="font-semibold">wire instructions</span> to have the CDA direct your commission via <span className="font-semibold">wire transfer</span>, or enter a <span className="font-semibold">mailing address</span> to have it sent by <span className="font-semibold">check</span>. You only need to provide one — both are not required.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="wire-name">Account Holder / Recipient Name *</Label>
@@ -1856,7 +1889,10 @@ function WireInstructionDialog({
           </div>
           
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-foreground">Recipient Address</h4>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Mailing Address (for Check Delivery)</h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Provide this if commission should be sent by check.</p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2 space-y-2">
                 <Input
@@ -1898,7 +1934,10 @@ function WireInstructionDialog({
           <Separator />
           
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-foreground">Banking Details (Optional)</h4>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Wire Instructions (for Wire Transfer)</h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Provide this if commission should be sent by wire.</p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="wire-bank-name">Bank Name</Label>
@@ -2221,9 +2260,7 @@ export function CDASettings() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-b">
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Details</TableHead>
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
                       <TableHead className="w-[50px] pr-6"></TableHead>
                     </TableRow>
@@ -2232,9 +2269,7 @@ export function CDASettings() {
                     {sharedRecipients.map(r => (
                       <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
                         <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || "Unnamed Agent"}</TableCell>
-                        <TableCell className="text-sm">{r.email || "-"}</TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                        <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
+                        <TableCell className="text-sm max-w-[280px] truncate">{renderWireDetails(r)}</TableCell>
                         <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
                         <TableCell className="pr-6 text-right">
                           {canManageTeamAndShared && (
@@ -2278,9 +2313,7 @@ export function CDASettings() {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent border-b">
                         <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Account Name</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Details</TableHead>
                         <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
                         <TableHead className="w-[50px] pr-6"></TableHead>
                       </TableRow>
@@ -2288,9 +2321,7 @@ export function CDASettings() {
                     <TableBody>
                       <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
                         <TableCell className="pl-6 font-medium text-sm text-foreground">{wireStore.teamWireInstructions.accountHolderName || "Not set"}</TableCell>
-                        <TableCell className="text-sm">{wireStore.teamWireInstructions.email || "-"}</TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">{[wireStore.teamWireInstructions.recipientStreet, wireStore.teamWireInstructions.recipientCity, wireStore.teamWireInstructions.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                        <TableCell className="text-sm">{wireStore.teamWireInstructions.bankName ? `${wireStore.teamWireInstructions.bankName} ${maskSensitiveValue(wireStore.teamWireInstructions.accountNumber)}` : "-"}</TableCell>
+                        <TableCell className="text-sm max-w-[280px] truncate">{renderWireDetails(wireStore.teamWireInstructions)}</TableCell>
                         <TableCell><WireStatusBadge complete={teamComplete} /></TableCell>
                         <TableCell className="pr-6 text-right">
                           <DropdownMenu>
@@ -2328,9 +2359,7 @@ export function CDASettings() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-b">
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Details</TableHead>
                       <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
                       <TableHead className="w-[50px] pr-6"></TableHead>
                     </TableRow>
@@ -2338,9 +2367,7 @@ export function CDASettings() {
                   <TableBody>
                     <TableRow className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
                       <TableCell className="pl-6 font-medium text-sm text-foreground">{myWire.accountHolderName || agents.find(a => a.id === CURRENT_AGENT_ID)?.name || "Not set"}</TableCell>
-                      <TableCell className="text-sm">{myWire.email || "-"}</TableCell>
-                      <TableCell className="text-sm max-w-[200px] truncate">{[myWire.recipientStreet, myWire.recipientCity, myWire.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                      <TableCell className="text-sm">{myWire.bankName ? `${myWire.bankName} ${maskSensitiveValue(myWire.accountNumber)}` : "-"}</TableCell>
+                      <TableCell className="text-sm max-w-[280px] truncate">{renderWireDetails(myWire)}</TableCell>
                       <TableCell><WireStatusBadge complete={myWireComplete} /></TableCell>
                       <TableCell className="pr-6 text-right">
                         <DropdownMenu>
@@ -2393,9 +2420,7 @@ export function CDASettings() {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent border-b">
                         <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Email</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Address</TableHead>
-                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Bank</TableHead>
+                        <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Details</TableHead>
                         <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
                         <TableHead className="w-[50px] pr-6"></TableHead>
                       </TableRow>
@@ -2406,9 +2431,7 @@ export function CDASettings() {
                         .map((r) => (
                         <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
                           <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || r.payableName || "Unnamed Recipient"}</TableCell>
-                          <TableCell className="text-sm">{r.email || "-"}</TableCell>
-                          <TableCell className="text-sm max-w-[200px] truncate">{[r.recipientStreet, r.recipientCity, r.recipientState].filter(Boolean).join(", ") || "-"}</TableCell>
-                          <TableCell className="text-sm">{r.bankName ? `${r.bankName} ${maskSensitiveValue(r.accountNumber)}` : "-"}</TableCell>
+                          <TableCell className="text-sm max-w-[280px] truncate">{renderWireDetails(r)}</TableCell>
                           <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
                           <TableCell className="pr-6 text-right">
                             <DropdownMenu>
@@ -3350,6 +3373,7 @@ export function CDASettings() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Fee Name</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Type</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Amount</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Timing</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Fee Payer</TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Breakdown Visibility</TableHead>
@@ -3377,6 +3401,15 @@ export function CDASettings() {
                       >
                         {fee.type === "flat" ? "Flat" : "Percentage"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {fee.slidingScale ? (
+                        <span className="text-xs italic text-muted-foreground">Sliding scale</span>
+                      ) : fee.type === "percentage" ? (
+                        <span className="font-medium text-foreground">{fee.amount || "0"}%</span>
+                      ) : (
+                        <span className="font-medium text-foreground">${fee.amount || "0"}</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span

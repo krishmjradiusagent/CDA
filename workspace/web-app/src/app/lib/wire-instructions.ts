@@ -66,7 +66,7 @@ type WireValidationOptions = {
   requireBankDetails?: boolean;
 };
 
-export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v3";
+export const WIRE_INSTRUCTIONS_STORAGE_KEY = "radius-cda-wire-instructions-v4";
 
 export function createEmptyWireInstruction(id?: string): WireInstructionRecord {
   return {
@@ -95,15 +95,94 @@ export function createEmptyWireInstruction(id?: string): WireInstructionRecord {
 }
 
 export function createDefaultWireInstructionsStore(teamLeadAgentId: string, agentIds: string[]): WireInstructionsStore {
+  const now = new Date().toISOString();
+  const teamWire: WireInstructionRecord = {
+    ...createEmptyWireInstruction("team-wire"),
+    payableName: "Radius Brokerage LLC",
+    accountHolderName: "Radius Brokerage LLC",
+    email: "ops@radiusagent.com",
+    phone: "+1 415-555-0100",
+    bankName: "JPMorgan Chase",
+    routingNumber: "021000021",
+    accountNumber: "874512309",
+    accountType: "checking",
+    bankStreet: "270 Park Avenue",
+    bankCity: "New York",
+    bankState: "NY",
+    bankZip: "10017",
+    updatedAt: now,
+  };
+  const firstAgentId = agentIds[0];
+  const myAgentWire: WireInstructionRecord = {
+    ...createEmptyWireInstruction(`agent-wire-${firstAgentId ?? teamLeadAgentId}`),
+    accountHolderName: "Ila Corcoran",
+    email: "ila@radiusagent.com",
+    bankName: "Bank of America",
+    routingNumber: "121000358",
+    accountNumber: "552093481",
+    accountType: "checking",
+    updatedAt: now,
+  };
+  const sharedRecipients: WireInstructionRecord[] = [
+    {
+      ...createEmptyWireInstruction("shared-escrow-1"),
+      payableName: "First American Title Co.",
+      accountHolderName: "First American Title Co.",
+      email: "escrow@firstam.com",
+      bankName: "Wells Fargo",
+      routingNumber: "121000248",
+      accountNumber: "411902876",
+      accountType: "checking",
+      updatedAt: now,
+    },
+    {
+      ...createEmptyWireInstruction("shared-vendor-1"),
+      payableName: "Bay Area Home Inspections",
+      accountHolderName: "Bay Area Home Inspections",
+      email: "billing@bayareahi.com",
+      recipientStreet: "1 Market Street",
+      recipientStreet2: "Suite 200",
+      recipientCity: "San Francisco",
+      recipientState: "CA",
+      recipientZip: "94105",
+      updatedAt: now,
+    },
+  ];
+  const privateRecipients: Record<string, WireInstructionRecord[]> = {
+    [firstAgentId ?? teamLeadAgentId]: [
+      {
+        ...createEmptyWireInstruction("private-tc-1"),
+        payableName: "Sandra's TC Services",
+        accountHolderName: "Sandra Martinez",
+        email: "sandra@tcservices.com",
+        bankName: "Chase",
+        routingNumber: "322271627",
+        accountNumber: "199384720",
+        accountType: "checking",
+        updatedAt: now,
+      },
+      {
+        ...createEmptyWireInstruction("private-photog-1"),
+        payableName: "Lens & Light Photography",
+        accountHolderName: "Marcus Lee",
+        email: "marcus@lensandlight.com",
+        recipientStreet: "455 Valencia St",
+        recipientCity: "San Francisco",
+        recipientState: "CA",
+        recipientZip: "94103",
+        updatedAt: now,
+      },
+    ],
+  };
   return {
     teamLeadAgentId,
-    teamWireInstructions: createEmptyWireInstruction("team-wire"),
+    teamWireInstructions: teamWire,
     agentWireInstructions: agentIds.reduce<Record<string, WireInstructionRecord>>((acc, agentId) => {
-      acc[agentId] = createEmptyWireInstruction(`agent-wire-${agentId}`);
+      acc[agentId] = agentId === firstAgentId ? myAgentWire : createEmptyWireInstruction(`agent-wire-${agentId}`);
       return acc;
     }, {}),
-    sharedRecipients: [],
-    privateRecipients: {},
+    sharedRecipients,
+    privateRecipients,
     notifications: [],
   };
 }

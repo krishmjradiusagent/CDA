@@ -1658,7 +1658,9 @@ export function CommissionBreakdown() {
   const isTL = role === "team_lead";
   const isAuditor = role === "radius_auditing" || role === "soul_auditor";
   const canEditAll = isAuditor;
-  const isLocked = txStatus === "processed" && !isAuditor;
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
+  const [hasReopened, setHasReopened] = useState(false);
+  const isLocked = txStatus === "processed" && !isAuditor && !hasReopened;
   const STATUS_LABELS: Record<TxStatus, string> = {
     draft: "Awaiting Agent confirmation",
     agent_confirmed: "Awaiting Team Lead confirmation",
@@ -2292,6 +2294,38 @@ export function CommissionBreakdown() {
               <Info className="text-amber-700" />
               <AlertDescription className="text-amber-800">
                 Wire instructions incomplete for {incompleteWirePartyNames.join(", ")}. PDF download blocked.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+        {txStatus === "processed" && !isAuditor && !hasReopened && (
+          <div className="border-b bg-background px-6 py-3">
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+              <Shield className="text-emerald-700" />
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-emerald-900">
+                <span>
+                  <span className="font-semibold">Commission breakdown finalized.</span>{" "}
+                  Need to change something? Reopening will restart the approval flow.
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-lg border-emerald-300 bg-white px-3 text-xs text-emerald-800 hover:bg-emerald-50"
+                  onClick={() => setShowReopenDialog(true)}
+                >
+                  Reopen for edits
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+        {hasReopened && txStatus !== "processed" && (
+          <div className="border-b bg-background px-6 py-3">
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+              <RefreshCw className="text-amber-700" />
+              <AlertDescription className="text-amber-800">
+                <span className="font-semibold">Reopened for edits.</span>{" "}
+                Make your changes — the breakdown will need to be re-approved by Agent, Team Lead, and Auditor before it's finalized again.
               </AlertDescription>
             </Alert>
           </div>
@@ -3183,6 +3217,52 @@ export function CommissionBreakdown() {
               }}
             >
               {confirmActionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showReopenDialog} onOpenChange={setShowReopenDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-amber-50 border border-amber-200">
+                <RefreshCw className="size-5 text-amber-700" />
+              </div>
+              <AlertDialogTitle className="text-base">Reopen finalized breakdown?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="pt-2 text-sm leading-relaxed">
+              This commission breakdown has already been finalized. Reopening will:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="ml-2 flex flex-col gap-2 text-[13px] text-foreground/90">
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>Move the breakdown back to <span className="font-medium">Draft</span> status</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>Require new confirmations from <span className="font-medium">Agent</span>, <span className="font-medium">Team Lead</span>, and the <span className="font-medium">Auditor</span></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>Log this reopen in the activity timeline</span>
+            </li>
+          </ul>
+          <AlertDialogFooter className="pt-4">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={() => {
+                setHasReopened(true);
+                setTxStatus("draft");
+                const message = `Commission breakdown for ${PROPERTY_ADDRESS} reopened for edits — approval restarted`;
+                logActivity(message);
+                toast.success("Breakdown reopened — make your changes");
+                setShowReopenDialog(false);
+              }}
+            >
+              Reopen for edits
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
