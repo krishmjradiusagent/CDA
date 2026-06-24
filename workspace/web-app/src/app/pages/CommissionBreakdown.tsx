@@ -1660,7 +1660,8 @@ export function CommissionBreakdown() {
   const canEditAll = isAuditor;
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   const [hasReopened, setHasReopened] = useState(false);
-  const isLocked = txStatus === "processed" && !isAuditor && !hasReopened;
+  const [skipApprovalRestart, setSkipApprovalRestart] = useState(false);
+  const isLocked = txStatus === "processed" && !hasReopened;
   const STATUS_LABELS: Record<TxStatus, string> = {
     draft: "Awaiting Agent confirmation",
     agent_confirmed: "Awaiting Team Lead confirmation",
@@ -1969,7 +1970,9 @@ export function CommissionBreakdown() {
       window.localStorage.setItem(COMMISSION_BREAKDOWN_STORAGE_KEY, JSON.stringify(persistedPayload));
     }
     if (txStatus !== "draft") {
-      if (role === "team_lead") {
+      if (isAuditor && skipApprovalRestart) {
+        // Auditor opted to bypass — keep current status, edits apply silently
+      } else if (role === "team_lead") {
         setTxStatus(txStatus === "team_lead_confirmed" || txStatus === "processed" ? "agent_confirmed" : txStatus === "rejected" ? "draft" : txStatus);
       } else {
         setTxStatus("draft");
@@ -2298,7 +2301,7 @@ export function CommissionBreakdown() {
             </Alert>
           </div>
         )}
-        {txStatus === "processed" && !isAuditor && !hasReopened && (
+        {txStatus === "processed" && !hasReopened && (
           <div className="border-b bg-background px-6 py-3">
             <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
               <Shield className="text-emerald-700" />
@@ -3222,7 +3225,7 @@ export function CommissionBreakdown() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showReopenDialog} onOpenChange={setShowReopenDialog}>
+      <AlertDialog open={showReopenDialog} onOpenChange={(open) => { setShowReopenDialog(open); if (!open) setSkipApprovalRestart(false); }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <div className="flex items-center gap-3">
@@ -3232,37 +3235,63 @@ export function CommissionBreakdown() {
               <AlertDialogTitle className="text-base">Reopen finalized breakdown?</AlertDialogTitle>
             </div>
             <AlertDialogDescription className="pt-2 text-sm leading-relaxed">
-              This commission breakdown has already been finalized. Reopening will:
+              This commission breakdown has already been finalized.{" "}
+              {isAuditor
+                ? "By default, reopening restarts the approval workflow. As an Auditor, you can choose to bypass it."
+                : "Any edits you make will require re-approval from Agent, Team Lead, and the Auditor before it's finalized again."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <ul className="ml-2 flex flex-col gap-2 text-[13px] text-foreground/90">
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-              <span>Move the breakdown back to <span className="font-medium">Draft</span> status</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-              <span>Require new confirmations from <span className="font-medium">Agent</span>, <span className="font-medium">Team Lead</span>, and the <span className="font-medium">Auditor</span></span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-              <span>Log this reopen in the activity timeline</span>
-            </li>
-          </ul>
+          {!skipApprovalRestart && (
+            <ul className="ml-2 flex flex-col gap-2 text-[13px] text-foreground/90">
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span>Move the breakdown back to <span className="font-medium">Draft</span> status</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span>Require new confirmations from <span className="font-medium">Agent</span>, <span className="font-medium">Team Lead</span>, and the <span className="font-medium">Auditor</span></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span>Log this reopen in the activity timeline</span>
+              </li>
+            </ul>
+          )}
+          {isAuditor && (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50/60 p-3">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <Checkbox
+                  checked={skipApprovalRestart}
+                  onCheckedChange={(v) => setSkipApprovalRestart(v === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[13px] font-medium text-amber-900">Bypass approval restart</span>
+                  <span className="text-[11px] text-amber-800/80 leading-snug">
+                    Apply changes directly without restarting Agent/Team Lead/Auditor confirmations. Use for minor auditor-led corrections.
+                  </span>
+                </div>
+              </label>
+            </div>
+          )}
           <AlertDialogFooter className="pt-4">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-amber-600 hover:bg-amber-700"
               onClick={() => {
                 setHasReopened(true);
-                setTxStatus("draft");
-                const message = `Commission breakdown for ${PROPERTY_ADDRESS} reopened for edits — approval restarted`;
+                if (!(isAuditor && skipApprovalRestart)) {
+                  setTxStatus("draft");
+                }
+                const message = isAuditor && skipApprovalRestart
+                  ? `Auditor reopened commission breakdown for ${PROPERTY_ADDRESS} — approval workflow bypassed`
+                  : `Commission breakdown for ${PROPERTY_ADDRESS} reopened for edits — approval restarted`;
                 logActivity(message);
-                toast.success("Breakdown reopened — make your changes");
+                toast.success(isAuditor && skipApprovalRestart ? "Auditor edit mode — changes apply directly" : "Breakdown reopened — make your changes");
                 setShowReopenDialog(false);
               }}
             >
-              Reopen for edits
+              {isAuditor && skipApprovalRestart ? "Edit without restart" : "Reopen for edits"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
