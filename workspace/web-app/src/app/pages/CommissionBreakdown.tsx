@@ -1172,7 +1172,7 @@ export function CommissionBreakdown() {
     feeType: "Flat Fee",
     flatAmount: "",
     percentAmount: "",
-    whenApplied: "Pre-Split",
+    whenApplied: "Post-Split",
     feePayer: "Team",
     coAgentSplits: "Split equally",
     slidingScale: false,
@@ -3173,6 +3173,45 @@ export function CommissionBreakdown() {
                                 <p className="text-xs font-medium text-muted-foreground">Post-split amount</p>
                                 <p className="text-sm font-semibold tabular-nums text-foreground">{currency(postSplitDeductionsTotal)}</p>
                               </div>
+                              {activeSideRadiusFee > 0 && activeSideFeeBreakdown.length > 0 && agent.id === activeSide.agents[0]?.id && (
+                                <div className="mt-2 border-t pt-2">
+                                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Payable to Radius</p>
+                                  <ul className="space-y-1">
+                                    {activeSideFeeBreakdown.map((f, i) => (
+                                      <li key={i} className="group flex items-center justify-between gap-3 text-xs py-0.5">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                          <span className="font-medium text-foreground">{f.name}</span>
+                                          <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">{f.payer}</Badge>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="tabular-nums font-semibold underline underline-offset-2 text-[#5A5FF2]">{currency(f.amount)}</span>
+                                          {isAuditor && !isLocked && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingFeeIndex(i);
+                                                setPayableFeeForm({
+                                                  ...blankPayableFee(),
+                                                  feeName: f.name,
+                                                  feeType: "Flat Fee",
+                                                  flatAmount: String(f.amount),
+                                                  feePayer: f.payer === "Team" ? "Team" : "Agent",
+                                                });
+                                                setShowPayableFeeDialog(true);
+                                              }}
+                                              className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
+                                              tabIndex={-1}
+                                              aria-label={`Edit ${f.name}`}
+                                            >
+                                              <Pencil className="size-3" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -3219,44 +3258,6 @@ export function CommissionBreakdown() {
                         </div>
                       </div>
 
-                      {activeSideRadiusFee > 0 && (
-                        <div className="mt-3 border-t pt-3">
-                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fees included</p>
-                          <ul className="space-y-1.5">
-                            {(activeSideFeeBreakdown.length > 0 ? activeSideFeeBreakdown : [{ name: "Radius Fee", payer: "Agent", amount: activeSideRadiusFee }]).map((f, i) => (
-                              <li key={i} className="group flex items-center justify-between gap-3 text-xs">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="font-medium text-foreground">{f.name}</span>
-                                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">{f.payer}</Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="tabular-nums font-semibold underline underline-offset-2 text-[#5A5FF2]">{currency(f.amount)}</span>
-                                  {isAuditor && !isLocked && activeSideFeeBreakdown.length > 0 && (
-                                    <button
-                                      onClick={() => {
-                                        setEditingFeeIndex(i);
-                                        setPayableFeeForm({
-                                          ...blankPayableFee(),
-                                          feeName: f.name,
-                                          feeType: "Flat Fee",
-                                          flatAmount: String(f.amount),
-                                          feePayer: f.payer === "Team" ? "Team" : "Agent",
-                                        });
-                                        setShowPayableFeeDialog(true);
-                                      }}
-                                      className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
-                                      tabIndex={-1}
-                                      aria-label={`Edit ${f.name}`}
-                                    >
-                                      <Pencil className="size-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -3718,13 +3719,7 @@ export function CommissionBreakdown() {
             <div className="grid grid-cols-3 gap-4">
               <div className="flex flex-col gap-2">
                 <Label className="text-sm font-semibold">When Applied</Label>
-                <Select value={payableFeeForm.whenApplied} onValueChange={(v) => updatePayableFee("whenApplied", v as PayableFeeForm["whenApplied"])}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Pre-Split">Pre-Split</SelectItem>
-                    <SelectItem value="Post-Split">Post-Split</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="w-full border rounded-md px-3 py-2 text-sm text-muted-foreground bg-muted/40 cursor-not-allowed select-none">Post-Split</div>
               </div>
               <div className="flex flex-col gap-2">
                 <Label className="text-sm font-semibold">Fee Payer</Label>
