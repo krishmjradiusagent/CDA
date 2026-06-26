@@ -1139,6 +1139,20 @@ export function CommissionBreakdown() {
   const [showCreditReferralDialog, setShowCreditReferralDialog] = useState(false);
   const [creditPayableTo, setCreditPayableTo] = useState("external");
   const [creditPayableName, setCreditPayableName] = useState("");
+  const [creditDescription, setCreditDescription] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [editingDeductionId, setEditingDeductionId] = useState<string | null>(null);
+  const [editingFeeIndex, setEditingFeeIndex] = useState<number | null>(null);
+  const isEditingDeduction = editingDeductionId !== null;
+  const isEditingPayableFee = editingFeeIndex !== null;
+  const resetCreditDialog = () => {
+    setCreditDescription("");
+    setCreditAmount("");
+    setCreditPayableTo("external");
+    setCreditPayableName("");
+    setEditingDeductionId(null);
+    setEditingFeeIndex(null);
+  };
   const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
   const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
   // Keep retired hooks stable for dev fast-refresh on this page.
@@ -1647,6 +1661,17 @@ export function CommissionBreakdown() {
   const officeNet = activeSideSummary?.officeIncome ?? 0;
   const activeSideOfficeShare = officeNet;
   const activeSideRadiusFee = activeSideSummary?.radiusFee ?? 0;
+  const [feeBreakdownOverride, setFeeBreakdownOverride] = useState<Array<{ name: string; payer: string; amount: number }> | null>(null);
+  const defaultFeeBreakdown = useMemo<Array<{ name: string; payer: string; amount: number }>>(() => {
+    if (activeSideRadiusFee <= 0) return [];
+    const tc = Math.round(activeSideRadiusFee * 0.6);
+    const compliance = activeSideRadiusFee - tc;
+    return [
+      { name: "Transaction Coordinator Fee", payer: "Team", amount: tc },
+      { name: "Compliance Fee", payer: "Agent", amount: compliance },
+    ];
+  }, [activeSideRadiusFee]);
+  const activeSideFeeBreakdown = feeBreakdownOverride ?? defaultFeeBreakdown;
   const radiusFeeRequiredForApproval = derivedBreakdown.sideSummaries.some((sideSummary) => sideSummary.agents.length > 0 && sideSummary.radiusFee <= 0);
 
   // Permission helpers
@@ -3003,19 +3028,37 @@ export function CommissionBreakdown() {
                             <span className="text-xs text-muted-foreground tabular-nums min-w-[80px] text-right">{currency(ded.amount)}</span>
                           )}
                           {(!isLocked && (isAgent || isTL || canEditAll)) && (
-                            <button
-                              onClick={() => {
-                                setSideGrossDeductions((prev) => ({
-                                  ...prev,
-                                  [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
-                                }));
-                                logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
-                              }}
-                              className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
-                              tabIndex={-1}
-                            >
-                              <X className="size-3" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingDeductionId(ded.id);
+                                  setCreditDescription(ded.name);
+                                  setCreditAmount(String(ded.amount));
+                                  setCreditPayableTo("radius");
+                                  setCreditPayableName("Radius");
+                                  setShowCreditReferralDialog(true);
+                                }}
+                                className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
+                                tabIndex={-1}
+                                aria-label={`Edit ${ded.name}`}
+                              >
+                                <Pencil className="size-3" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSideGrossDeductions((prev) => ({
+                                    ...prev,
+                                    [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
+                                  }));
+                                  logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
+                                }}
+                                className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                                tabIndex={-1}
+                                aria-label={`Remove ${ded.name}`}
+                              >
+                                <X className="size-3" />
+                              </button>
+                            </>
                           )}
                         </div>
                     </div>
@@ -3131,20 +3174,15 @@ export function CommissionBreakdown() {
                     <div className="mt-3 rounded-xl border bg-card px-4 py-3.5">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4 text-muted-foreground">
+                          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-6 text-muted-foreground">
                               <circle cx="12" cy="12" r="2" />
                               <circle cx="12" cy="12" r="6" strokeDasharray="6 4" />
                               <circle cx="12" cy="12" r="10" strokeDasharray="8 4" />
                             </svg>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground">Radius Fee</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {activeSide.agents.length > 1
-                                ? "Summation of all agents' Radius fees"
-                                : "Team-side fee applied to this side"}
-                            </p>
+                            <p className="text-sm font-semibold text-foreground">Payable to Radius</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -3164,6 +3202,42 @@ export function CommissionBreakdown() {
                           />
                         </div>
                       </div>
+
+                      {activeSideRadiusFee > 0 && (
+                        <div className="mt-3 border-t pt-3">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fees included</p>
+                          <ul className="space-y-1.5">
+                            {(activeSideFeeBreakdown.length > 0 ? activeSideFeeBreakdown : [{ name: "Radius Fee", payer: "Agent", amount: activeSideRadiusFee }]).map((f, i) => (
+                              <li key={i} className="group flex items-center justify-between gap-3 text-xs">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="font-medium text-foreground">{f.name}</span>
+                                  <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">{f.payer}</Badge>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="tabular-nums font-semibold underline underline-offset-2 text-[#5A5FF2]">{currency(f.amount)}</span>
+                                  {isAuditor && !isLocked && activeSideFeeBreakdown.length > 0 && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingFeeIndex(i);
+                                        setCreditDescription(f.name);
+                                        setCreditAmount(String(f.amount));
+                                        setCreditPayableTo("radius");
+                                        setCreditPayableName("Radius");
+                                        setShowCreditReferralDialog(true);
+                                      }}
+                                      className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
+                                      tabIndex={-1}
+                                      aria-label={`Edit ${f.name}`}
+                                    >
+                                      <Pencil className="size-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -3508,24 +3582,24 @@ export function CommissionBreakdown() {
       />
 
       {/* Credits / Referrals simplified popup (new) */}
-      <Dialog open={showCreditReferralDialog} onOpenChange={setShowCreditReferralDialog}>
+      <Dialog open={showCreditReferralDialog} onOpenChange={(open) => { setShowCreditReferralDialog(open); if (!open) resetCreditDialog(); }}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>Add Credit or Referral</DialogTitle>
+            <DialogTitle>{(isEditingDeduction || isEditingPayableFee) ? `Edit ${creditDescription || "Fee"}` : "Add Credit or Referral"}</DialogTitle>
             <DialogDescription>
-              Payable to is set in this flow. Wire instructions come later.
+              {(isEditingDeduction || isEditingPayableFee) ? "Update the fee details below." : "Payable to is set in this flow. Wire instructions come later."}
             </DialogDescription>
           </DialogHeader>
 
             <div className="space-y-4 px-6 py-5 text-sm">
               <div>
                 <Label className="text-xs">Description</Label>
-                <Input placeholder="Referral fee - John Smith" className="mt-1.5" />
+                <Input value={creditDescription} onChange={(e) => setCreditDescription(e.target.value)} placeholder="Referral fee - John Smith" className="mt-1.5" />
               </div>
 
               <div>
                 <Label className="text-xs">Amount</Label>
-                <Input placeholder="500" className="mt-1.5" />
+                <Input value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} placeholder="500" className="mt-1.5" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -3562,12 +3636,28 @@ export function CommissionBreakdown() {
             </div>
 
           <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setShowCreditReferralDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowCreditReferralDialog(false); resetCreditDialog(); }}>Cancel</Button>
             <Button onClick={() => {
+              const amt = parseFloat(creditAmount) || 0;
+              if (isEditingPayableFee && editingFeeIndex !== null) {
+                const next = activeSideFeeBreakdown.map((f, idx) => idx === editingFeeIndex ? { ...f, name: creditDescription || f.name, amount: amt } : f);
+                setFeeBreakdownOverride(next);
+                logActivity(`Updated ${creditDescription || "fee"} (payable to Radius) to ${currency(amt)}.`);
+                toast.success("Fee updated");
+              } else if (isEditingDeduction && editingDeductionId) {
+                setSideGrossDeductions((prev) => ({
+                  ...prev,
+                  [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === editingDeductionId ? { ...d, name: creditDescription || d.name, amount: amt } : d),
+                }));
+                logActivity(`Updated ${creditDescription || "fee"} on ${activeSide.title} to ${currency(amt)}.`);
+                toast.success("Fee updated");
+              } else {
+                toast.success("Credit/Referral added");
+              }
               setShowCreditReferralDialog(false);
-              toast.success("Credit/Referral added");
+              resetCreditDialog();
             }}>
-              Add Credit
+              {(isEditingDeduction || isEditingPayableFee) ? "Save changes" : "Add Credit"}
             </Button>
           </DialogFooter>
         </DialogContent>
