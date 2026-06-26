@@ -79,6 +79,7 @@ import {
   TooltipProvider,
 } from "../components/v4/ui/tooltip";
 import { Checkbox } from "../components/v4/ui/checkbox";
+import { Switch } from "../components/v4/ui/switch";
 import { Label } from "../components/v4/ui/label";
 import {
   Select,
@@ -1153,6 +1154,34 @@ export function CommissionBreakdown() {
     setEditingDeductionId(null);
     setEditingFeeIndex(null);
   };
+
+  // Payable-to-Radius fee modal (mirrors magicpath FeeModal)
+  type PayableFeeForm = {
+    feeName: string;
+    feeType: "Flat Fee" | "Percentage";
+    flatAmount: string;
+    percentAmount: string;
+    whenApplied: "Pre-Split" | "Post-Split";
+    feePayer: "Team" | "Agent";
+    coAgentSplits: "Split equally" | "Proportional to split" | "Higher-cap agent pays";
+    slidingScale: boolean;
+    contributesToCap: boolean;
+  };
+  const blankPayableFee = (): PayableFeeForm => ({
+    feeName: "",
+    feeType: "Flat Fee",
+    flatAmount: "",
+    percentAmount: "",
+    whenApplied: "Pre-Split",
+    feePayer: "Team",
+    coAgentSplits: "Split equally",
+    slidingScale: false,
+    contributesToCap: false,
+  });
+  const [showPayableFeeDialog, setShowPayableFeeDialog] = useState(false);
+  const [payableFeeForm, setPayableFeeForm] = useState<PayableFeeForm>(blankPayableFee);
+  const updatePayableFee = <K extends keyof PayableFeeForm>(key: K, val: PayableFeeForm[K]) =>
+    setPayableFeeForm((prev) => ({ ...prev, [key]: val }));
   const [inlineSidePreSplitLabel, setInlineSidePreSplitLabel] = useState("");
   const [inlineSidePreSplitAmount, setInlineSidePreSplitAmount] = useState("");
   // Keep retired hooks stable for dev fast-refresh on this page.
@@ -3186,20 +3215,7 @@ export function CommissionBreakdown() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <EditableValue
-                            value={activeSideRadiusFee}
-                            readOnly={!canEditAll || isLocked || activeSide.agents.length !== 1}
-                            onChange={(value) => {
-                              if (activeSide.agents.length === 1) {
-                                const agentId = activeSide.agents[0].id;
-                                setAgentRadiusFees((prev) => ({
-                                  ...prev,
-                                  [agentId]: value,
-                                }));
-                                logActivity(`Updated Radius Fee for ${activeSide.agents[0].name} to ${currency(value)}.`);
-                              }
-                            }}
-                          />
+                          <span className="text-sm font-semibold tabular-nums text-foreground">{currency(activeSideRadiusFee)}</span>
                         </div>
                       </div>
 
@@ -3219,11 +3235,14 @@ export function CommissionBreakdown() {
                                     <button
                                       onClick={() => {
                                         setEditingFeeIndex(i);
-                                        setCreditDescription(f.name);
-                                        setCreditAmount(String(f.amount));
-                                        setCreditPayableTo("radius");
-                                        setCreditPayableName("Radius");
-                                        setShowCreditReferralDialog(true);
+                                        setPayableFeeForm({
+                                          ...blankPayableFee(),
+                                          feeName: f.name,
+                                          feeType: "Flat Fee",
+                                          flatAmount: String(f.amount),
+                                          feePayer: f.payer === "Team" ? "Team" : "Agent",
+                                        });
+                                        setShowPayableFeeDialog(true);
                                       }}
                                       className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
                                       tabIndex={-1}
@@ -3585,9 +3604,9 @@ export function CommissionBreakdown() {
       <Dialog open={showCreditReferralDialog} onOpenChange={(open) => { setShowCreditReferralDialog(open); if (!open) resetCreditDialog(); }}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>{(isEditingDeduction || isEditingPayableFee) ? `Edit ${creditDescription || "Fee"}` : "Add Credit or Referral"}</DialogTitle>
+            <DialogTitle>{isEditingDeduction ? `Edit ${creditDescription || "Fee"}` : "Add Credit or Referral"}</DialogTitle>
             <DialogDescription>
-              {(isEditingDeduction || isEditingPayableFee) ? "Update the fee details below." : "Payable to is set in this flow. Wire instructions come later."}
+              {isEditingDeduction ? "Update the fee details below." : "Payable to is set in this flow. Wire instructions come later."}
             </DialogDescription>
           </DialogHeader>
 
@@ -3639,12 +3658,7 @@ export function CommissionBreakdown() {
             <Button variant="outline" onClick={() => { setShowCreditReferralDialog(false); resetCreditDialog(); }}>Cancel</Button>
             <Button onClick={() => {
               const amt = parseFloat(creditAmount) || 0;
-              if (isEditingPayableFee && editingFeeIndex !== null) {
-                const next = activeSideFeeBreakdown.map((f, idx) => idx === editingFeeIndex ? { ...f, name: creditDescription || f.name, amount: amt } : f);
-                setFeeBreakdownOverride(next);
-                logActivity(`Updated ${creditDescription || "fee"} (payable to Radius) to ${currency(amt)}.`);
-                toast.success("Fee updated");
-              } else if (isEditingDeduction && editingDeductionId) {
+              if (isEditingDeduction && editingDeductionId) {
                 setSideGrossDeductions((prev) => ({
                   ...prev,
                   [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === editingDeductionId ? { ...d, name: creditDescription || d.name, amount: amt } : d),
@@ -3657,8 +3671,130 @@ export function CommissionBreakdown() {
               setShowCreditReferralDialog(false);
               resetCreditDialog();
             }}>
-              {(isEditingDeduction || isEditingPayableFee) ? "Save changes" : "Add Credit"}
+              {isEditingDeduction ? "Save changes" : "Add Credit"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payable to Radius — Edit Fee dialog (mirrors magicpath FeeModal) */}
+      <Dialog open={showPayableFeeDialog} onOpenChange={(open) => { setShowPayableFeeDialog(open); if (!open) { setEditingFeeIndex(null); setPayableFeeForm(blankPayableFee()); } }}>
+        <DialogContent className="gap-0 p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b px-6 pb-4 pt-5">
+            <DialogTitle>{isEditingPayableFee ? "Edit Fee" : "Add Fee"}</DialogTitle>
+            <DialogDescription>Configure fee type details.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-5 text-sm">
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-semibold">Fee Name</Label>
+              <Input value={payableFeeForm.feeName} onChange={(e) => updatePayableFee("feeName", e.target.value)} placeholder="e.g., Transaction Coordinator Fee" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">Fee Type</Label>
+                <Select value={payableFeeForm.feeType} onValueChange={(v) => updatePayableFee("feeType", v as PayableFeeForm["feeType"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Flat Fee">Flat Fee</SelectItem>
+                    <SelectItem value="Percentage">Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">{payableFeeForm.feeType === "Flat Fee" ? "Flat Fee" : "Percentage"}</Label>
+                {payableFeeForm.feeType === "Flat Fee" ? (
+                  <div className="flex items-center border rounded-md overflow-hidden bg-background focus-within:ring-2 focus-within:ring-ring">
+                    <span className="px-3 py-2 text-sm text-muted-foreground bg-muted/50 border-r select-none">$</span>
+                    <Input value={payableFeeForm.flatAmount} onChange={(e) => updatePayableFee("flatAmount", e.target.value)} placeholder="495" className="border-0 focus-visible:ring-0" />
+                  </div>
+                ) : (
+                  <div className="flex items-center border rounded-md overflow-hidden bg-background focus-within:ring-2 focus-within:ring-ring">
+                    <Input value={payableFeeForm.percentAmount} onChange={(e) => updatePayableFee("percentAmount", e.target.value)} placeholder="1.5" className="border-0 focus-visible:ring-0" />
+                    <span className="px-3 py-2 text-sm text-muted-foreground bg-muted/50 border-l select-none">%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">When Applied</Label>
+                <Select value={payableFeeForm.whenApplied} onValueChange={(v) => updatePayableFee("whenApplied", v as PayableFeeForm["whenApplied"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pre-Split">Pre-Split</SelectItem>
+                    <SelectItem value="Post-Split">Post-Split</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">Fee Payer</Label>
+                <Select value={payableFeeForm.feePayer} onValueChange={(v) => updatePayableFee("feePayer", v as PayableFeeForm["feePayer"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Team">Team</SelectItem>
+                    <SelectItem value="Agent">Agent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">Co-Agent Splits</Label>
+                <Select value={payableFeeForm.coAgentSplits} onValueChange={(v) => updatePayableFee("coAgentSplits", v as PayableFeeForm["coAgentSplits"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Split equally">Split equally</SelectItem>
+                    <SelectItem value="Proportional to split">Proportional to split</SelectItem>
+                    <SelectItem value="Higher-cap agent pays">Higher-cap agent pays</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">Payable To</Label>
+                <div className="w-full border rounded-md px-3 py-2 text-sm text-muted-foreground bg-muted/40 cursor-not-allowed select-none">Radius</div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-semibold">Payable Name</Label>
+                <div className="w-full border rounded-md px-3 py-2 text-sm text-muted-foreground bg-muted/40 cursor-not-allowed select-none">Radius</div>
+              </div>
+              <p className="col-span-2 -mt-1 text-xs text-muted-foreground">Payable to Radius — this is a Radius fee.</p>
+            </div>
+            <div className="flex items-center justify-between border rounded-md px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold">Sliding Scale</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Enable tiered fee values.</div>
+              </div>
+              <Switch checked={payableFeeForm.slidingScale} onCheckedChange={(v) => updatePayableFee("slidingScale", v)} />
+            </div>
+            <div className="flex items-center justify-between border rounded-md px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold">Contributes to Cap</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Count toward cap.</div>
+              </div>
+              <Switch checked={payableFeeForm.contributesToCap} onCheckedChange={(v) => updatePayableFee("contributesToCap", v)} />
+            </div>
+          </div>
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => { setShowPayableFeeDialog(false); setEditingFeeIndex(null); setPayableFeeForm(blankPayableFee()); }}>Cancel</Button>
+            <Button
+              disabled={payableFeeForm.feeName.trim().length === 0}
+              onClick={() => {
+                const amt = payableFeeForm.feeType === "Flat Fee"
+                  ? parseFloat(payableFeeForm.flatAmount) || 0
+                  : Math.round(activeSideRadiusFee * ((parseFloat(payableFeeForm.percentAmount) || 0) / 100));
+                if (isEditingPayableFee && editingFeeIndex !== null) {
+                  const next = activeSideFeeBreakdown.map((f, idx) => idx === editingFeeIndex
+                    ? { ...f, name: payableFeeForm.feeName, payer: payableFeeForm.feePayer, amount: amt }
+                    : f);
+                  setFeeBreakdownOverride(next);
+                  logActivity(`Updated ${payableFeeForm.feeName} (payable to Radius) to ${currency(amt)}.`);
+                  toast.success("Fee updated");
+                }
+                setShowPayableFeeDialog(false);
+                setEditingFeeIndex(null);
+                setPayableFeeForm(blankPayableFee());
+              }}
+            >Save Fee Type</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
