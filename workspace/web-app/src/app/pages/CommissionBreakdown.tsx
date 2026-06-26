@@ -1144,8 +1144,10 @@ export function CommissionBreakdown() {
   const [creditAmount, setCreditAmount] = useState("");
   const [editingDeductionId, setEditingDeductionId] = useState<string | null>(null);
   const [editingFeeIndex, setEditingFeeIndex] = useState<number | null>(null);
+  const [editingPostSplit, setEditingPostSplit] = useState<{ agentId: string; deductionId: string } | null>(null);
   const isEditingDeduction = editingDeductionId !== null;
   const isEditingPayableFee = editingFeeIndex !== null;
+  const isEditingPostSplit = editingPostSplit !== null;
   const resetCreditDialog = () => {
     setCreditDescription("");
     setCreditAmount("");
@@ -1153,6 +1155,7 @@ export function CommissionBreakdown() {
     setCreditPayableName("");
     setEditingDeductionId(null);
     setEditingFeeIndex(null);
+    setEditingPostSplit(null);
   };
 
   // Payable-to-Radius fee modal (mirrors magicpath FeeModal)
@@ -2868,19 +2871,37 @@ export function CommissionBreakdown() {
                               }}
                             />
                             {canDelete && (
-                              <button
-                                onClick={() => {
-                                  setPostSplitDeductions((prev) => ({
-                                    ...prev,
-                                    [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
-                                  }));
-                                  logActivity(`Removed ${ded.name} from ${selectedAgent.agent.name}.`);
-                                }}
-                                className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
-                                tabIndex={-1}
-                              >
-                                <X className="size-3" />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingPostSplit({ agentId: selectedAgent.agent.id, deductionId: ded.id });
+                                    setCreditDescription(ded.name);
+                                    setCreditAmount(String(ded.amount));
+                                    setCreditPayableTo("radius");
+                                    setCreditPayableName("Radius");
+                                    setShowCreditReferralDialog(true);
+                                  }}
+                                  className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
+                                  tabIndex={-1}
+                                  aria-label={`Edit ${ded.name}`}
+                                >
+                                  <Pencil className="size-3" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setPostSplitDeductions((prev) => ({
+                                      ...prev,
+                                      [selectedAgent.agent.id]: (prev[selectedAgent.agent.id] ?? []).filter((d) => d.id !== ded.id),
+                                    }));
+                                    logActivity(`Removed ${ded.name} from ${selectedAgent.agent.name}.`);
+                                  }}
+                                  className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
+                                  tabIndex={-1}
+                                  aria-label={`Remove ${ded.name}`}
+                                >
+                                  <X className="size-3" />
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -2897,6 +2918,48 @@ export function CommissionBreakdown() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Payable to Radius — fees added from magicpath */}
+                  {activeSideFeeBreakdown.length > 0 && (
+                    <>
+                      <Separator className="my-3" />
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payable to Radius</p>
+                      <ul className="space-y-0">
+                      {activeSideFeeBreakdown.map((f, i) => (
+                        <li key={i} className="group flex items-center justify-between py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs text-muted-foreground">{f.name}</p>
+                            <span className="rounded px-1 py-0 text-[10px] font-medium bg-muted text-muted-foreground">{f.payer}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold tabular-nums underline underline-offset-2 text-[#5A5FF2]">{currency(f.amount)}</span>
+                            {isAuditor && !isLocked && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingFeeIndex(i);
+                                  setPayableFeeForm({
+                                    ...blankPayableFee(),
+                                    feeName: f.name,
+                                    feeType: "Flat Fee",
+                                    flatAmount: String(f.amount),
+                                    feePayer: f.payer === "Team" ? "Team" : "Agent",
+                                  });
+                                  setShowPayableFeeDialog(true);
+                                }}
+                                className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-[#5A5FF2] group-hover:inline-flex items-center justify-center"
+                                tabIndex={-1}
+                                aria-label={`Edit ${f.name}`}
+                              >
+                                <Pencil className="size-3" />
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                      </ul>
+                    </>
+                  )}
 
                   {/* Radius fee nudge strip */}
                   {showRadiusFeeToViewer && canEditAll && !isLocked && !(postSplitDeductions[selectedAgent.agent.id] ?? []).some((d) => d.isRadiusFee) && (
@@ -3605,9 +3668,9 @@ export function CommissionBreakdown() {
       <Dialog open={showCreditReferralDialog} onOpenChange={(open) => { setShowCreditReferralDialog(open); if (!open) resetCreditDialog(); }}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>{isEditingDeduction ? `Edit ${creditDescription || "Fee"}` : "Add Credit or Referral"}</DialogTitle>
+            <DialogTitle>{(isEditingDeduction || isEditingPostSplit) ? `Edit ${creditDescription || "Fee"}` : "Add Credit or Referral"}</DialogTitle>
             <DialogDescription>
-              {isEditingDeduction ? "Update the fee details below." : "Payable to is set in this flow. Wire instructions come later."}
+              {(isEditingDeduction || isEditingPostSplit) ? "Update the fee details below." : "Payable to is set in this flow. Wire instructions come later."}
             </DialogDescription>
           </DialogHeader>
 
@@ -3659,7 +3722,15 @@ export function CommissionBreakdown() {
             <Button variant="outline" onClick={() => { setShowCreditReferralDialog(false); resetCreditDialog(); }}>Cancel</Button>
             <Button onClick={() => {
               const amt = parseFloat(creditAmount) || 0;
-              if (isEditingDeduction && editingDeductionId) {
+              if (isEditingPostSplit && editingPostSplit) {
+                setPostSplitDeductions((prev) => ({
+                  ...prev,
+                  [editingPostSplit.agentId]: (prev[editingPostSplit.agentId] ?? []).map((d) => d.id === editingPostSplit.deductionId ? { ...d, name: creditDescription || d.name, amount: amt } : d),
+                }));
+                const agentName = sidesData.flatMap(s => s.agents).find(a => a.id === editingPostSplit.agentId)?.name || "agent";
+                logActivity(`Updated ${creditDescription || "post-split deduction"} for ${agentName} to ${currency(amt)}.`);
+                toast.success("Deduction updated");
+              } else if (isEditingDeduction && editingDeductionId) {
                 setSideGrossDeductions((prev) => ({
                   ...prev,
                   [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === editingDeductionId ? { ...d, name: creditDescription || d.name, amount: amt } : d),
@@ -3672,7 +3743,7 @@ export function CommissionBreakdown() {
               setShowCreditReferralDialog(false);
               resetCreditDialog();
             }}>
-              {isEditingDeduction ? "Save changes" : "Add Credit"}
+              {(isEditingDeduction || isEditingPostSplit) ? "Save changes" : "Add Credit"}
             </Button>
           </DialogFooter>
         </DialogContent>
