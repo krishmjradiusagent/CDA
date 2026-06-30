@@ -386,12 +386,14 @@ export function CDATemplates() {
                     </div>
                   </div>
 
-                  <div className="border rounded-lg p-4 bg-muted/10 flex justify-between items-center text-sm">
-                    <div>
-                      <span className="font-semibold block">Alex Gallardo</span>
-                      <span className="text-xs text-muted-foreground">Agent to provide payment instructions to escrow to be paid directly at closing.</span>
+                  <div className="border rounded-lg p-4 bg-muted/10 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-sm">Alex Gallardo</span>
+                      <span className="font-semibold text-sm text-teal-600">$6,400.00</span>
                     </div>
-                    <span className="font-semibold text-teal-600">$6,400.00</span>
+                    <div className="bg-background border rounded p-3 text-xs text-muted-foreground italic">
+                      Agent to provide payment instructions to escrow to be paid directly at closing.
+                    </div>
                   </div>
                 </div>
 
@@ -591,6 +593,14 @@ export function CDATemplates() {
                     If wire is not available, please send a check made payable to Radius, to 1160 Battery St #100, San Francisco, CA 94111. Please email a copy of the check and tracking information to lindsey.shaw@radiusagent.com.
                   </p>
 
+                  <div className="grid grid-cols-1 gap-8 mt-12 pt-6 border-t">
+                    <div className="space-y-4">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Broker Signature</div>
+                      <div className="border-b border-dashed h-8" />
+                      <div className="text-xs text-muted-foreground">5/21/2026</div>
+                    </div>
+                  </div>
+
                   <Separator className="my-8" />
                   <div className="text-[10px] text-center text-muted-foreground">
                     1160 Battery St East Suite 100, c/o Spaces Levis Plaza, San Francisco, CA 94111 · broker@radiusagent.com · V2024
@@ -598,7 +608,14 @@ export function CDATemplates() {
                 </Card>
 
                 {/* Page 2: Wiring options */}
-                <Card className="shadow-lg border-border bg-white dark:bg-card p-12 space-y-6">
+                <Card className="shadow-lg border-border relative overflow-hidden bg-white dark:bg-card p-12 space-y-6">
+                  <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-500 to-amber-400" />
+                  <div className="flex justify-between items-start">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center font-bold text-muted-foreground border">RA</div>
+                    <div className="text-right">
+                      <h2 className="text-lg font-semibold tracking-tight">Radius Payment Instructions</h2>
+                    </div>
+                  </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Radius/Agentdesks is the broker of record for all contracts. Any entity listed on a contract is a DBA of Radius/Agentdesks and can be verified on the applicable state licensing website. Radius does not accept paper checks as a standard form of payment.
                   </p>
