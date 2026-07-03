@@ -1064,6 +1064,28 @@ export function CommissionBreakdown() {
     toast.success(`${label} wire instructions saved`);
     setWireFormMode("none");
   }
+
+  function dropWireForDeduction(dedName: string) {
+    const currentStore = readWireInstructionsStore(
+      createDefaultWireInstructionsStore(
+        CURRENT_TEAM_LEAD_ID,
+        Array.from(new Set(sidesData.flatMap((side) => side.agents.map((a) => a.id)).concat([CURRENT_TEAM_LEAD_ID, CURRENT_AGENT_ID]))),
+      ),
+    );
+    const target = dedName.toLowerCase();
+    const matches = (r: WireInstructionRecord) =>
+      r.id === `ext-${dedName}` ||
+      r.payableName?.toLowerCase() === target ||
+      r.accountHolderName?.toLowerCase() === target;
+    currentStore.sharedRecipients = currentStore.sharedRecipients.filter((r) => !matches(r));
+    if (currentStore.privateRecipients) {
+      Object.keys(currentStore.privateRecipients).forEach((k) => {
+        currentStore.privateRecipients![k] = currentStore.privateRecipients![k].filter((r) => !matches(r));
+      });
+    }
+    writeWireInstructionsStore(currentStore);
+    setWireStoreVersion((v) => v + 1);
+  }
   const [activityView, setActivityView] = useState<ActivityView>("all");
   const commentTagPeople = [
     { id: "agent-a1", name: "Mark Perez", label: "Agent" },
@@ -1227,18 +1249,16 @@ export function CommissionBreakdown() {
     persistedState?.preSplitDeductions ?? {}
   );
 
-  const [sideGrossDeductions, setSideGrossDeductions] = useState<Record<string, SideDeduction[]>>(
-    persistedState?.sideGrossDeductions ?? {
-      listing: [
-        { id: "sg1", name: "Credits", amount: 0 },
-        { id: "sg2", name: "Referral", amount: 0 },
-      ],
-      buyer: [
-        { id: "sg1", name: "Credits", amount: 0 },
-        { id: "sg2", name: "Referral", amount: 0 },
-      ],
-    }
-  );
+  const [sideGrossDeductions, setSideGrossDeductions] = useState<Record<string, SideDeduction[]>>({
+    listing: [
+      { id: "sg1", name: "Credits", amount: 50 },
+      { id: "sg2", name: "Referral", amount: 20 },
+    ],
+    buyer: [
+      { id: "sg1", name: "Credits", amount: 50 },
+      { id: "sg2", name: "Referral", amount: 20 },
+    ],
+  });
 
 
   const [postSplitDeductions, setPostSplitDeductions] = useState<Record<string, AgentDeduction[]>>(
@@ -3102,12 +3122,14 @@ export function CommissionBreakdown() {
                     <div className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs text-muted-foreground">{ded.name}</p>
-                          <DeductionWireStatusIcon
-                            dedName={ded.name}
-                            payableToType={ded.payableToType}
-                            wireMode={resolveDeductionWireMode(ded)}
-                            onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)}
-                          />
+                          {ded.amount > 0 && (
+                            <DeductionWireStatusIcon
+                              dedName={ded.name}
+                              payableToType={ded.payableToType}
+                              wireMode={resolveDeductionWireMode(ded)}
+                              onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)}
+                            />
+                          )}
                           <span className={cn(
                             "rounded px-1 py-0 text-[10px] font-medium",
                             getDeductionBadgeClassName(ded),
@@ -3119,6 +3141,15 @@ export function CommissionBreakdown() {
                               value={ded.amount}
                               readOnly={false}
                               onChange={(v) => {
+                                if (v === 0) {
+                                  setSideGrossDeductions((prev) => ({
+                                    ...prev,
+                                    [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
+                                  }));
+                                  dropWireForDeduction(ded.name);
+                                  logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
+                                  return;
+                                }
                                 setSideGrossDeductions((prev) => ({
                                   ...prev,
                                   [activeSide.id]: (prev[activeSide.id] ?? []).map((d) => d.id === ded.id ? { ...d, amount: v } : d),
@@ -3152,6 +3183,7 @@ export function CommissionBreakdown() {
                                     ...prev,
                                     [activeSide.id]: (prev[activeSide.id] ?? []).filter((d) => d.id !== ded.id),
                                   }));
+                                  dropWireForDeduction(ded.name);
                                   logActivity(`Removed ${ded.name} from ${activeSide.title}.`);
                                 }}
                                 className="hidden size-4 shrink-0 text-muted-foreground/40 hover:text-destructive group-hover:inline-flex items-center justify-center"
@@ -3199,6 +3231,21 @@ export function CommissionBreakdown() {
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => { setShowCreditReferralDialog(true); }}>
                       <Plus className="size-3.5 mr-1" />Add Credit or Referral
+                    </Button>
+                  </div>
+                  )}
+                  {canEditAll && !isLocked && (
+                  <div className="pt-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]"
+                      onClick={() => {
+                        setFeeDialogTarget("side");
+                        setFeeDialogTiming("pre-split");
+                      }}
+                    >
+                      <Plus className="size-3.5 mr-1" />Add pre-split deduction
                     </Button>
                   </div>
                   )}
