@@ -1230,10 +1230,13 @@ export function CommissionBreakdown() {
   const [sideGrossDeductions, setSideGrossDeductions] = useState<Record<string, SideDeduction[]>>(
     persistedState?.sideGrossDeductions ?? {
       listing: [
-        { id: "sg1", name: "Credits", amount: 200 },
-        { id: "sg2", name: "Referrals", amount: 50 },
+        { id: "sg1", name: "Credits", amount: 0 },
+        { id: "sg2", name: "Referral", amount: 0 },
       ],
-      buyer: [],
+      buyer: [
+        { id: "sg1", name: "Credits", amount: 0 },
+        { id: "sg2", name: "Referral", amount: 0 },
+      ],
     }
   );
 
@@ -3095,9 +3098,16 @@ export function CommissionBreakdown() {
                   </div>
                   {/* Side-level gross deductions: Credits, Referrals */}
                   {(sideGrossDeductions[activeSide.id] ?? []).map((ded) => (
-                    <div key={ded.id} className="group flex items-center justify-between py-1.5">
+                    <React.Fragment key={ded.id}>
+                    <div className="group flex items-center justify-between py-1.5">
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs text-muted-foreground">{ded.name}</p>
+                          <DeductionWireStatusIcon
+                            dedName={ded.name}
+                            payableToType={ded.payableToType}
+                            wireMode={resolveDeductionWireMode(ded)}
+                            onClick={() => setOpenWireItemId(openWireItemId === ded.id ? null : ded.id)}
+                          />
                           <span className={cn(
                             "rounded px-1 py-0 text-[10px] font-medium",
                             getDeductionBadgeClassName(ded),
@@ -3154,6 +3164,8 @@ export function CommissionBreakdown() {
                           )}
                         </div>
                     </div>
+                    {openWireItemId === ded.id && renderWireInstructionForm()}
+                    </React.Fragment>
                   ))}
                   {showInlineSidePreSplitDraft && (
                     <div className="pt-1">
@@ -3280,6 +3292,27 @@ export function CommissionBreakdown() {
                         </div>
                       );
                     })}
+                    {(canEditAll || activeSideRadiusFee > 0) && (
+                      <div className="rounded-xl border bg-card px-4 py-3.5">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-6 text-muted-foreground">
+                                <circle cx="12" cy="12" r="2" />
+                                <circle cx="12" cy="12" r="6" strokeDasharray="6 4" />
+                                <circle cx="12" cy="12" r="10" strokeDasharray="8 4" />
+                              </svg>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">Radius commission</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-semibold tabular-nums text-foreground">{currency(activeSideRadiusFee)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
                       <div>
                         <p className="text-sm font-semibold text-foreground">Team commission</p>
@@ -3300,29 +3333,6 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                   </div>
-
-                  {(canEditAll || activeSideRadiusFee > 0) && (
-                    <div className="mt-3 rounded-xl border bg-card px-4 py-3.5">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-6 text-muted-foreground">
-                              <circle cx="12" cy="12" r="2" />
-                              <circle cx="12" cy="12" r="6" strokeDasharray="6 4" />
-                              <circle cx="12" cy="12" r="10" strokeDasharray="8 4" />
-                            </svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground">Payable to Radius</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-semibold tabular-nums text-foreground">{currency(activeSideRadiusFee)}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
 
                   <Separator className="my-4" />
 
@@ -3738,6 +3748,15 @@ export function CommissionBreakdown() {
                 logActivity(`Updated ${creditDescription || "fee"} on ${activeSide.title} to ${currency(amt)}.`);
                 toast.success("Fee updated");
               } else {
+                const name = creditDescription || "Credit";
+                setSideGrossDeductions((prev) => ({
+                  ...prev,
+                  [activeSide.id]: [
+                    ...(prev[activeSide.id] ?? []),
+                    { id: `sg-${Date.now()}`, name, amount: amt },
+                  ],
+                }));
+                logActivity(`Added ${name} on ${activeSide.title} at ${currency(amt)}.`);
                 toast.success("Credit/Referral added");
               }
               setShowCreditReferralDialog(false);
