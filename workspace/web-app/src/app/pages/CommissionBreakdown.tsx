@@ -2803,7 +2803,7 @@ export function CommissionBreakdown() {
                         setFeeDialogTiming("pre-split");
                       }}
                     >
-                      <Plus className="size-3.5 mr-1" />Add Credit or Referral
+                      <Plus className="size-3.5 mr-1" />Add credit or referral
                     </Button>
                   </div>
                   </>
@@ -3230,7 +3230,7 @@ export function CommissionBreakdown() {
                   {(isTL || canEditAll) && !isLocked && (
                   <div className="pt-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#5A5FF2] hover:bg-[#5A5FF2]/8 hover:text-[#5A5FF2]" onClick={() => { setShowCreditReferralDialog(true); }}>
-                      <Plus className="size-3.5 mr-1" />Add Credit or Referral
+                      <Plus className="size-3.5 mr-1" />Add credit or referral
                     </Button>
                   </div>
                   )}
@@ -3725,7 +3725,7 @@ export function CommissionBreakdown() {
       <Dialog open={showCreditReferralDialog} onOpenChange={(open) => { setShowCreditReferralDialog(open); if (!open) resetCreditDialog(); }}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pb-4 pt-5">
-            <DialogTitle>{(isEditingDeduction || isEditingPostSplit) ? `Edit ${creditDescription || "Fee"}` : "Add Credit or Referral"}</DialogTitle>
+            <DialogTitle>{(isEditingDeduction || isEditingPostSplit) ? `Edit ${creditDescription || "Fee"}` : "Add credit or referral"}</DialogTitle>
             <DialogDescription>
               {(isEditingDeduction || isEditingPostSplit) ? "Update the fee details below." : "Payable to is set in this flow. Wire instructions come later."}
             </DialogDescription>
