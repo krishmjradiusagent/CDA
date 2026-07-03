@@ -3733,8 +3733,14 @@ export function CommissionBreakdown() {
 
             <div className="space-y-4 px-6 py-5 text-sm">
               <div>
-                <Label className="text-xs">Description</Label>
-                <Input value={creditDescription} onChange={(e) => setCreditDescription(e.target.value)} placeholder="Referral fee - John Smith" className="mt-1.5" />
+                <Label className="text-xs">Fee type</Label>
+                <Select value={creditDescription} onValueChange={setCreditDescription}>
+                  <SelectTrigger className="mt-1.5 w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Credits">Credits</SelectItem>
+                    <SelectItem value="Referral">Referral</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
