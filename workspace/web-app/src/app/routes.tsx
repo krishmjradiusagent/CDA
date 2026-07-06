@@ -14,6 +14,7 @@ import { CDACalculatorBreakdown } from "./pages/CDACalculatorBreakdown";
 import { CommissionBreakdown } from "./pages/CommissionBreakdown";
 import { TransactionDetail } from "./pages/TransactionDetail";
 import { CDATemplates } from "./pages/CDATemplates";
+import { AuditingList } from "./pages/AuditingList";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 
 export const router = createBrowserRouter([
@@ -85,6 +86,10 @@ export const router = createBrowserRouter([
       {
         path: "cda/templates",
         Component: CDATemplates,
+      },
+      {
+        path: "cda/auditing",
+        Component: AuditingList,
       },
       {
         path: "transaction-detail",

@@ -3,6 +3,7 @@ import {
   Calculator,
   Settings,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ export function CDAFlowSwitcher() {
     { path: "/cda/commission-breakdown", label: "Commission Breakdown", icon: Calculator },
     { path: "/cda-settings", label: "Settings", icon: Settings },
     { path: "/cda/templates", label: "CDA Templates", icon: FileText },
+    { path: "/cda/auditing", label: "Auditing", icon: ShieldCheck },
   ];
 
   return (

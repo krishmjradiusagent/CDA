@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Transaction Queue — Auditor</title>
+<style>
+:root{
+  --background:#ffffff; --foreground:#0a0a0a;
+  --card:#ffffff; --border:#e5e5e5; --input:#e5e5e5;
+  --primary:#5a5ff2; --primary-fg:#fafafa;
+  --muted:#f5f5f5; --muted-fg:#737373;
+  --secondary:#f5f5f5; --secondary-fg:#171717;
+  --brand-purple:#9747ff;
+  --blue:#2563eb; --green:#6da544; --yellow:#ffda44; --orange:#ea580c; --red:#dc2626;
+  --page-bg:#f4f6f9;
+  --nav-bg:#4f46e5;
+  --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:14px; --radius-full:9999px;
+  --shadow-sm:0 1px 2px -1px rgba(0,0,0,0.1),0 1px 3px 0 rgba(0,0,0,0.1);
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--page-bg);color:var(--foreground);font-family:var(--font);font-size:14px;line-height:20px;-webkit-font-smoothing:antialiased}
+
+/* topbar */
+.topbar{background:var(--nav-bg);color:#fff;height:52px;display:flex;align-items:center;gap:16px;padding:0 20px}
+.topbar .home{width:32px;height:32px;display:grid;place-items:center;border-radius:6px;background:rgba(255,255,255,.1);cursor:pointer}
+.topbar .search{background:rgba(255,255,255,.15);border:0;color:#fff;height:32px;border-radius:6px;padding:0 12px;font-size:13px;width:220px}
+.topbar .search::placeholder{color:rgba(255,255,255,.75)}
+.topbar .spacer{flex:1}
+.topbar .navlink{color:#fff;font-size:13px;font-weight:500;padding:6px 10px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.topbar .navlink:hover{background:rgba(255,255,255,.1)}
+.topbar .cta{background:#fff;color:#0a0a0a;height:34px;border-radius:8px;font-size:13px;font-weight:600;padding:0 14px;border:0;cursor:pointer;margin-left:6px}
+
+/* viewas */
+.viewas{background:#eef1f6;height:36px;display:flex;align-items:center;gap:10px;padding:0 24px;font-size:12px;color:#374151}
+.viewas input{height:22px;border:1px solid var(--border);border-radius:4px;background:#fff;padding:0 6px;font-size:12px;width:140px}
+
+/* page */
+.page{padding:20px 24px 40px}
+.page-title{font-size:24px;font-weight:700;line-height:32px;color:#0a0a0a;margin:0}
+.page-sub{font-size:13px;color:var(--muted-fg);margin:4px 0 14px}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tab{padding:8px 14px;font-size:13px;font-weight:500;color:var(--muted-fg);cursor:pointer;border-radius:6px 6px 0 0}
+.tab.active{background:#eeeefd;color:var(--primary);font-weight:600}
+
+/* filter card */
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm)}
+.filter{padding:14px 16px 16px;margin-bottom:14px}
+.filter h3{font-size:13px;font-weight:600;margin:0 0 10px;color:#0a0a0a}
+.filters-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:500;color:#0a0a0a}
+.field input,.field select{height:32px;border:1px solid var(--input);border-radius:var(--radius-md);background:#fff;padding:0 8px;font-size:12px;color:#0a0a0a;font-family:inherit}
+.field input::placeholder{color:#9ca3af}
+
+/* table */
+.table-card{overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#fff;text-align:left;font-size:10.5px;font-weight:600;color:#525252;text-transform:uppercase;letter-spacing:.03em;padding:12px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody td{padding:12px 10px;border-bottom:1px solid #f1f3f6;vertical-align:top;color:#0a0a0a}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafafa}
+
+/* left status stripe */
+td.stripe{position:relative;padding-left:14px}
+td.stripe::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--stripe,transparent)}
+tr.s-red td.stripe::before{background:var(--red)}
+tr.s-orange td.stripe::before{background:var(--orange)}
+tr.s-yellow td.stripe::before{background:var(--yellow)}
+tr.s-green td.stripe::before{background:var(--green)}
+
+.uid{font-family:'SF Mono',ui-monospace,Menlo,monospace;font-size:11px;color:#111}
+.addr{font-size:12px;line-height:16px;color:#0a0a0a}
+.coe{margin-top:4px;display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:9999px;padding:1px 8px;font-weight:500}
+.coe::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--orange)}
+.agent{font-size:12px}
+.acct{font-size:12px}
+.date{font-size:12px;color:#374151}
+.link{color:var(--primary);text-decoration:underline;cursor:pointer}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:9999px;border:1px solid transparent;white-space:nowrap}
+.badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.8}
+.b-active{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe}
+.b-pending{background:#f5f3ff;color:#6d28d9;border-color:#ede9fe}
+.b-closed{background:#f1f5f9;color:#334155;border-color:#e2e8f0}
+.b-inprogress{background:#eff6ff;color:#1d4ed8;border-color:#dbeafe}
+.b-notstarted{color:#6b7280;background:transparent;border:0;padding:2px 0}
+.b-notstarted::before{display:none}
+.b-airev{background:#fdf2f8;color:#be185d;border-color:#fbcfe8}
+.b-final{background:#fef3c7;color:#a16207;border-color:#fde68a}
+.b-approved{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.b-overdue{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+.b-tlpending{background:#fff7ed;color:#b45309;border-color:#fed7aa}
+.b-agentpending{background:#fff7ed;color:#b45309;border-color:#fed7aa}
+.b-confirmed{background:#eef2ff;color:#3730a3;border-color:#e0e7ff}
+.b-finalized{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.b-sent{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.b-signed{background:#dcfce7;color:#166534;border-color:#86efac}
+
+/* Send disabled + Recall link */
+.cda-trio button:disabled{background:#e5e5e5;color:#a3a3a3;cursor:not-allowed}
+.recall-link{display:block;margin-top:4px;font-size:11px;color:var(--red);text-decoration:underline;cursor:pointer}
+
+/* CDA actions column */
+.gen-btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border:0;height:28px;border-radius:8px;padding:0 10px;font-size:11.5px;font-weight:600;cursor:pointer}
+.gen-btn .caret{opacity:.9}
+.review-cda{color:#0a0a0a;font-weight:600;font-size:12px}
+.view-cda{color:#0a0a0a;font-weight:600;font-size:12px}
+.reupload{color:var(--primary);font-size:11px;text-decoration:underline;cursor:pointer;display:block;margin-top:2px}
+.wire-warn{display:inline-flex;align-items:center;gap:5px;color:var(--red);font-size:11px;font-weight:500}
+.wire-warn::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--red)}
+.upload-cda{margin-top:4px;height:24px;border:1px solid var(--border);border-radius:6px;background:#fff;color:#0a0a0a;font-size:11px;padding:0 8px;cursor:pointer;font-weight:500}
+.dash{color:#9ca3af}
+
+/* CDA action trio — Download / View / Send segmented button */
+.cda-trio{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;height:28px}
+.cda-trio button{background:#fff;border:0;border-right:1px solid var(--border);height:100%;padding:0 10px;font-size:11.5px;font-weight:600;color:#0a0a0a;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit}
+.cda-trio button:last-child{border-right:0;background:var(--primary);color:#fff}
+.cda-trio button:hover{background:#f5f5f5}
+.cda-trio button:last-child:hover{background:#4d52d9}
+.cda-trio .caret{opacity:.7}
+.cda-trio button:last-child .caret{opacity:.9}
+.draft-note{display:block;font-size:10.5px;color:var(--muted-fg);margin-top:3px}
+
+/* breakdown auditor strip */
+.breakdown-strip{background:#fff;border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:12px 16px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.breakdown-strip .meta{font-size:12px;color:var(--muted-fg)}
+.breakdown-strip .meta strong{color:#0a0a0a;font-weight:600;font-size:13px;display:block;margin-bottom:2px}
+.strip-actions{display:flex;align-items:center;gap:10px}
+.finalize-btn{background:var(--primary);color:#fff;border:0;height:34px;border-radius:8px;padding:0 14px;font-size:12.5px;font-weight:600;cursor:pointer}
+.finalize-btn:disabled{background:#d4d4d8;cursor:not-allowed}
+
+/* compliance pill (dropdown) */
+.pill{display:inline-flex;align-items:center;gap:6px;height:26px;border-radius:9999px;padding:0 10px;font-size:11.5px;font-weight:500;border:1px solid transparent;cursor:pointer}
+.pill .caret{margin-left:2px;opacity:.6}
+.pill-pending{background:#fefce8;color:#a16207;border-color:#fde68a}
+.pill-compliant{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* action column icons */
+.icons{display:inline-flex;gap:6px;color:#9ca3af}
+.icons svg{width:14px;height:14px}
+
+/* right rail scrollbar look */
+.table-wrap{overflow-x:auto}
+
+/* popover menu */
+.popover{position:fixed;z-index:100;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:6px;font-size:12.5px}
+.popover .pop-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#0a0a0a}
+.popover .pop-item:hover{background:#f4f6f9}
+.popover .pop-item .sub{font-size:10.5px;color:var(--muted-fg)}
+.popover .pop-sep{height:1px;background:var(--border);margin:4px 2px}
+.popover .pop-head{font-size:10.5px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;padding:6px 10px 4px}
+</style>
+</head>
+<body>
+
+<!-- topbar -->
+<div class="topbar">
+  <div class="home" aria-label="home">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+  </div>
+  <input class="search" placeholder="Quick Agent Search">
+  <input class="search" placeholder="Quick Transaction / Listing Search" style="width:260px">
+  <div class="spacer"></div>
+  <span class="navlink">Mortgage <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span>
+  <span class="navlink">Dashboards <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span>
+  <button class="cta">Create Agent Account</button>
+</div>
+
+<!-- view as -->
+<div class="viewas">
+  <span>View as:</span>
+  <input placeholder="">
+</div>
+
+<!-- page -->
+<div class="page">
+  <h1 class="page-title">Transaction Queue</h1>
+  <p class="page-sub">Review and manage transactions awaiting audit</p>
+
+  <div class="tabs">
+    <div class="tab active">All</div>
+    <div class="tab">Transactions</div>
+    <div class="tab">Listings</div>
+  </div>
+
+  <!-- filter -->
+  <div class="card filter">
+    <h3>Search &amp; Filter Transactions</h3>
+    <div class="filters-grid">
+      <div class="field"><label>Search Address</label><input placeholder="Enter property address…"></div>
+      <div class="field"><label>Agent / Account</label><input placeholder="Search by name…"></div>
+      <div class="field"><label>Auditing Status</label><input placeholder=""></div>
+      <div class="field"><label>Date From</label><input placeholder="MM / DD / YYYY"></div>
+      <div class="field"><label>Date To</label><input placeholder="MM / DD / YYYY"></div>
+      <div class="field"><label>Close of Escrow</label><select><option>All</option></select></div>
+    </div>
+  </div>
+
+  <!-- table -->
+  <div class="card table-card">
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:70px">Unique ID</th>
+          <th style="width:180px">Property Address</th>
+          <th style="width:100px">Agent</th>
+          <th style="width:120px">Account Name</th>
+          <th style="width:80px">Added Date</th>
+          <th style="width:110px">Transaction Status</th>
+          <th style="width:110px">Auditing Status</th>
+          <th style="width:110px">Recent Auditor</th>
+          <th style="width:180px">Commission Approval Confirmation</th>
+          <th style="width:150px">CDA Actions</th>
+          <th style="width:120px">Compliance</th>
+          <th style="width:60px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="s-red">
+          <td class="stripe uid">AAABG</td>
+          <td><div class="addr">240 Duhig Rd, San Francisco, CA 94559</div><span class="coe">COE Today</span></td>
+          <td class="agent">Chris Strange</td>
+          <td class="acct">Future Real Estate</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-inprogress">In Progress</span></td>
+          <td><span class="link">Sarah Johnson</span></td>
+          <td><span class="badge b-tlpending">TL Pending</span></td>
+          <td><span class="dash">—</span></td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-orange">
+          <td class="stripe uid">BBCDE</td>
+          <td><div class="addr">1234 Market St, San Francisco, CA 94102</div><span class="coe">COE Tomorrow</span></td>
+          <td class="agent">Alice Brown</td>
+          <td class="acct">Prime Properties</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-airev">AI Review</span></td>
+          <td><span class="link">Assign auditor</span></td>
+          <td><span class="badge b-agentpending">Agent Pending</span></td>
+          <td>
+            <div class="wire-warn">Wire Incomplete</div>
+            <button class="upload-cda">Upload CDA</button>
+          </td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-orange">
+          <td class="stripe uid">CDFGH</td>
+          <td><div class="addr">1234 Market St, San Francisco, CA 94102</div><span class="coe">COE 24/12/2026</span></td>
+          <td class="agent">Mike Chen</td>
+          <td class="acct">Bay Realty Group</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-pending">Pending</span></td>
+          <td><span class="b-notstarted">Not Started</span></td>
+          <td><span class="link">Assign auditor</span></td>
+          <td><span class="badge b-confirmed">Confirmed by Team Lead and Agent</span></td>
+          <td><button class="gen-btn menu-btn" data-menu="gen-cda">Generate CDA <svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button></td>
+          <td><span class="pill pill-compliant">Compliant<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-orange">
+          <td class="stripe uid">DEFIJ</td>
+          <td><div class="addr">890 Pine Street, Berkeley, CA 94704</div><span class="coe">COE Tomorrow</span></td>
+          <td class="agent">Jennifer Lee</td>
+          <td class="acct">Elite Realty</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-final">Final Review</span></td>
+          <td><span class="link">Sarah Johnson</span></td>
+          <td><span class="badge b-confirmed">Confirmed by Team Lead and Agent</span></td>
+          <td><span class="review-cda">Review CDA</span></td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-yellow">
+          <td class="stripe uid">EFKLM</td>
+          <td><div class="addr">1234 Market St, San Francisco, CA 94102</div><span class="coe">COE 04/12/2026</span></td>
+          <td class="agent">Robert Wilson</td>
+          <td class="acct">Silicon Valley Homes</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-approved">Approved</span></td>
+          <td><span class="link">David Martinez</span></td>
+          <td><span class="badge b-tlpending">TL Pending</span></td>
+          <td><span class="dash">—</span></td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-yellow">
+          <td class="stripe uid">FGNOP</td>
+          <td><div class="addr">678 Birch Lane, San Jose, CA 95110</div><span class="coe">COE 04/12/2026</span></td>
+          <td class="agent">Sarah Davis</td>
+          <td class="acct">Metro Real Estate</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-overdue">Overdue</span></td>
+          <td><span class="link">Sarah Johnson</span></td>
+          <td><span class="badge b-agentpending">Agent Pending</span></td>
+          <td>
+            <div class="wire-warn">Wire Incomplete</div>
+            <button class="upload-cda">Upload CDA</button>
+          </td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-yellow">
+          <td class="stripe uid">GHQRS</td>
+          <td><div class="addr">1234 Market St, San Francisco, CA 94102</div><span class="coe">COE 04/12/2026</span></td>
+          <td class="agent">Tom Anderson</td>
+          <td class="acct">Sunset Properties</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-inprogress">In Progress</span></td>
+          <td><span class="link">Emily Rodriguez</span></td>
+          <td><span class="badge b-confirmed">Confirmed by Team Lead and Agent</span></td>
+          <td><button class="gen-btn menu-btn" data-menu="gen-cda">Generate CDA <svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button></td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-yellow">
+          <td class="stripe uid">HITUV</td>
+          <td><div class="addr">456 Cedar Way, Mountain View, CA 94040</div><span class="coe">COE 04/12/2026</span></td>
+          <td class="agent">Linda Martinez</td>
+          <td class="acct">Tech Valley Realty</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-closed">Closed</span></td>
+          <td><span class="badge b-approved">Approved</span></td>
+          <td><span class="link">David Martinez</span></td>
+          <td><span class="badge b-confirmed">Confirmed by Team Lead and Agent</span></td>
+          <td><span class="review-cda">Review CDA</span></td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-green">
+          <td class="stripe uid">IJWXY</td>
+          <td><div class="addr">789 Redwood Path, Redwood City, CA 94063</div></td>
+          <td class="agent">Kevin Taylor</td>
+          <td class="acct">Peninsula Properties</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-airev">AI Review</span></td>
+          <td><span class="link">Assign auditor</span></td>
+          <td><span class="badge b-finalized">Finalized</span></td>
+          <td>
+            <div class="cda-trio">
+              <button class="menu-btn" data-menu="view-2" title="View drafts (2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              <button class="menu-btn" data-menu="send-2" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            </div>
+          </td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-red">
+          <td class="stripe uid">JKZAB</td>
+          <td><div class="addr">321 Spruce Street, Menlo Park, CA 94025</div><span class="coe">COE Today</span></td>
+          <td class="agent">Nancy White</td>
+          <td class="acct">Premier Homes Inc</td>
+          <td class="date">2024-03-15</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-inprogress">In Progress</span></td>
+          <td><span class="link">Sarah Johnson</span></td>
+          <td><span class="badge b-tlpending">TL Pending</span></td>
+          <td><span class="dash">—</span></td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <tr class="s-yellow">
+          <td class="stripe uid">KLBCD</td>
+          <td><div class="addr">99 Finch Ave, San Mateo, CA 94402</div><span class="coe">COE 04/12/2026</span></td>
+          <td class="agent">Daniel Park</td>
+          <td class="acct">Bay Bridge Realty</td>
+          <td class="date">2024-03-20</td>
+          <td><span class="badge b-closed">Closed</span></td>
+          <td><span class="badge b-approved">Approved</span></td>
+          <td><span class="link">Emily Rodriguez</span></td>
+          <td><span class="badge b-finalized">Finalized</span></td>
+          <td>
+            <div class="cda-trio">
+              <button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button class="menu-btn" data-menu="send-1" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            </div>
+          </td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <!-- State D: Sent for signature -->
+        <tr class="s-green">
+          <td class="stripe uid">LMEFG</td>
+          <td><div class="addr">17 Ivy Lane, Palo Alto, CA 94301</div><span class="coe">COE 10/12/2026</span></td>
+          <td class="agent">Priya Shah</td>
+          <td class="acct">Coastal Realty</td>
+          <td class="date">2024-03-22</td>
+          <td><span class="badge b-active">Active</span></td>
+          <td><span class="badge b-approved">Approved</span></td>
+          <td><span class="link">Sarah Johnson</span></td>
+          <td><span class="badge b-sent">Sent for Signature</span></td>
+          <td>
+            <div class="cda-trio">
+              <button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button disabled title="Awaiting broker signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
+            </div>
+          </td>
+          <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+        <!-- State E: Signed -->
+        <tr class="s-green">
+          <td class="stripe uid">MNGHI</td>
+          <td><div class="addr">55 Ocean Ave, Half Moon Bay, CA 94019</div></td>
+          <td class="agent">Marcus Reid</td>
+          <td class="acct">Harbor Homes</td>
+          <td class="date">2024-03-18</td>
+          <td><span class="badge b-closed">Closed</span></td>
+          <td><span class="badge b-approved">Approved</span></td>
+          <td><span class="link">David Martinez</span></td>
+          <td><span class="badge b-signed">Signed</span></td>
+          <td>
+            <div class="cda-trio">
+              <button title="View signed CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button title="Download signed CDA" style="background:var(--primary);color:#fff"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+            </div>
+          </td>
+          <td><span class="pill pill-compliant">Compliant<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
+          <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
+        </tr>
+
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+const CDA_LAYOUTS = [
+  {label:"Full Transparency", sub:""},
+  {label:"Radius Split Hidden (Partner)", sub:""},
+  {label:"Radius Split Hidden (Associate)", sub:""},
+  {label:"Team Split Hidden (Partner)", sub:""},
+  {label:"Gross CDA", sub:""}
+];
+const SEND_LAYOUTS = [
+  {label:"Full Transparency", sub:""},
+  {label:"Radius Split Hidden", sub:""}
+];
+const MENUS = {
+  "view-2":  {head:"", items: CDA_LAYOUTS},
+  "send-2":  {head:"", items: SEND_LAYOUTS},
+  "view-1":  {head:"", items: CDA_LAYOUTS},
+  "send-1":  {head:"", items: SEND_LAYOUTS},
+  "gen-cda": {head:"", items: CDA_LAYOUTS}
+};
+
+let openPop = null;
+function closePop(){ if(openPop){ openPop.remove(); openPop=null; } }
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".menu-btn");
+  if(!btn){
+    if(openPop && !e.target.closest(".popover")) closePop();
+    return;
+  }
+  e.stopPropagation();
+  const key = btn.dataset.menu;
+  const menu = MENUS[key];
+  if(!menu) return;
+  closePop();
+  const pop = document.createElement("div");
+  pop.className = "popover";
+  pop.innerHTML = (menu.head ? `<div class="pop-head">${menu.head}</div>` : "") +
+    menu.items.map(i => `<div class="pop-item"><span>${i.label}</span>${i.sub ? `<span class="sub">${i.sub}</span>` : ""}</div>`).join("");
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect();
+  pop.style.top = (r.bottom + 4) + "px";
+  pop.style.left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 12) + "px";
+  openPop = pop;
+  pop.querySelectorAll(".pop-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const label = el.querySelector("span").textContent;
+      const action = key.startsWith("send") ? "Send" : key.startsWith("gen") ? "Generate" : "View";
+      alert(`${action}: ${label}`);
+      closePop();
+    });
+  });
+});
+window.addEventListener("resize", closePop);
+window.addEventListener("scroll", closePop, true);
+
+// Row click → navigate parent to commission breakdown for that transaction
+document.querySelectorAll("tbody tr").forEach((row) => {
+  row.style.cursor = "pointer";
+  row.addEventListener("click", (e) => {
+    if (e.target.closest("button, a, .menu-btn, .link, .recall-link, .pop-item, .popover, .cda-trio, .upload-cda")) return;
+    const dest = "/cda/commission-breakdown";
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "auditing-row-click", dest }, "*");
+    } else {
+      window.location.href = dest;
+    }
+  });
+});
+</script>
+
+</body>
+</html>

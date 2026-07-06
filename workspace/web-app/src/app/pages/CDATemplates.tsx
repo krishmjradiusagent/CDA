@@ -29,6 +29,7 @@ import {
 
 export function CDATemplates() {
   const [copied, setCopied] = useState(false);
+  const initialTab = (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab")) || "tab1";
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -89,7 +90,7 @@ export function CDATemplates() {
 
         {/* Main Content Area */}
         <div className="flex-1 p-6 max-w-[1024px] mx-auto w-full">
-          <Tabs defaultValue="tab1" className="w-full space-y-6">
+          <Tabs defaultValue={initialTab} className="w-full space-y-6">
             <div className="flex justify-center border-b pb-4">
               <TabsList className="bg-background border p-1 rounded-lg flex flex-wrap gap-1 w-full justify-between">
                 <TabsTrigger value="tab1" className="text-xs flex-1 py-2">Full Transparency</TabsTrigger>

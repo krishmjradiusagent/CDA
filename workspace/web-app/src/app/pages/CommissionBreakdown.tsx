@@ -26,6 +26,7 @@ import {
   AtSign,
   Check,
   CheckCircle2,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1237,6 +1238,7 @@ export function CommissionBreakdown() {
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [pdfCdaType, setPdfCdaType] = useState<CDAType | "">("full-transparency");
   const [rejectInput, setRejectInput] = useState("");
   const hasCommentNotification = Boolean(rejectionNote);
@@ -2321,14 +2323,53 @@ export function CommissionBreakdown() {
                 Confirm
               </Button>
             )}
-            {isAuditor && (
+            {isAuditor && txStatus !== "processed" && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0 rounded-lg p-0"
+                  title="Download CDA"
+                  onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
+                >
+                  <Download className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0 rounded-lg p-0"
+                  title="View CDA drafts"
+                  onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
+                >
+                  <Eye className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0 rounded-lg p-0"
+                  title="Send CDA to broker for signature"
+                  onClick={() => setShowSendConfirm(true)}
+                >
+                  <Send className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 shrink-0 rounded-lg px-4 text-xs"
+                  disabled={!canAuditorApprove}
+                  onClick={() => setShowProcessDialog(true)}
+                >
+                  Finalize
+                </Button>
+              </>
+            )}
+            {isAuditor && txStatus === "processed" && (
               <Button
                 size="sm"
-                className="h-8 shrink-0 rounded-lg px-4 text-xs"
-                disabled={!canAuditorApprove}
-                onClick={() => setShowProcessDialog(true)}
+                className="h-8 shrink-0 gap-1.5 rounded-lg px-4 text-xs"
+                onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
               >
-                Finalize
+                <CheckCircle2 className="size-3.5" />
+                Signed CDA
               </Button>
             )}
             {/* Download PDF — visible to all when processed */}
@@ -3579,10 +3620,16 @@ export function CommissionBreakdown() {
                   <Printer className="mr-2 size-4" />
                   Print
                 </Button>
-                <Button className="h-11 rounded-[10px] bg-blue-600 px-5 text-[15px] hover:bg-blue-700" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
+                <Button variant="outline" className="h-11 rounded-[10px] px-5 text-[15px] text-slate-700" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
                   <Download className="mr-2 size-4" />
                   Download
                 </Button>
+                {isAuditor && (
+                  <Button className="h-11 rounded-[10px] bg-primary px-5 text-[15px] hover:bg-primary/90" onClick={() => setShowSendConfirm(true)}>
+                    <Send className="mr-2 size-4" />
+                    Send for Signature
+                  </Button>
+                )}
                 <DialogClose asChild>
                   <Button variant="ghost" size="icon" className="size-11 rounded-[10px] text-slate-500 hover:bg-slate-100 hover:text-slate-800">
                     <X className="size-5" />
@@ -3592,7 +3639,15 @@ export function CommissionBreakdown() {
               </div>
             </div>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-[clamp(16px,5vw,84px)] py-8">
+          <div className="min-h-0 flex-1 overflow-hidden bg-slate-50">
+            <iframe
+              key={pdfCdaType}
+              src={`/cda/templates?tab=${pdfCdaType === "full-transparency" ? "tab1" : pdfCdaType === "radius-hidden" ? "tab2" : pdfCdaType === "team-hidden" ? "tab4" : pdfCdaType === "full-gross" ? "tab5" : "tab1"}`}
+              title="CDA Document Templates"
+              className="h-full w-full border-0 bg-white"
+            />
+          </div>
+          <div className="hidden">
             <div className="mx-auto w-full max-w-[1020px] rounded-[14px] bg-white px-[clamp(20px,4vw,72px)] py-[clamp(24px,4vw,56px)] shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
               <div className="flex flex-col gap-6 border-b border-slate-200 pb-8 md:flex-row md:items-start md:justify-between">
                 <div className="mx-auto max-w-[520px] text-center md:mx-0 md:flex-1">
@@ -3695,6 +3750,33 @@ export function CommissionBreakdown() {
                 </p>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send CDA to broker confirmation */}
+      <Dialog open={showSendConfirm} onOpenChange={setShowSendConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send CDA for signature?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>
+              Sending the <strong className="text-foreground">{pdfCdaType.replace("-", " ")}</strong> CDA to the managing broker via DocuSign.
+            </p>
+            <p>Once sent, drafts lock until the broker signs or rejects.</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setShowSendConfirm(false);
+                toast.success(`CDA (${pdfCdaType}) sent to broker for signature`);
+              }}
+            >
+              <Send className="mr-2 size-4" />
+              Send
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
