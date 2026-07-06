@@ -175,6 +175,7 @@ type CommissionPlanOption = {
   agentSplit: number;
   teamSplit: number;
   radiusFeePaidBy?: RadiusFeePaidBy;
+  dealScoped?: boolean;
 };
 
 type TierRow = {
@@ -1733,6 +1734,9 @@ export function CommissionBreakdown() {
   const [showAddPlanDialog, setShowAddPlanDialog] = useState(false);
   const [planForm, setPlanForm] = useState<PlanForm>(getFreshPlanForm());
   const [planErrors, setPlanErrors] = useState<PlanErrors>({});
+  const [dealScopedPlans, setDealScopedPlans] = useState<CommissionPlanOption[]>([]);
+  const [planFormDirty, setPlanFormDirty] = useState(false);
+  const [showDiscardPlanConfirm, setShowDiscardPlanConfirm] = useState(false);
 
   const isAgent = role === "agent";
   const isTL = role === "team_lead";
@@ -2616,21 +2620,31 @@ export function CommissionBreakdown() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                    {/* Apply plan — dropdown (team_lead + radius only) */}
+                    {/* Apply plan — dropdown (team_lead + auditors) */}
                     {role !== "agent" && !selectedAgentIsExternal ? (
+                      <>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" size="sm" className={cn("h-7 rounded-lg px-3 text-xs gap-1", !appliedPlans[selectedAgent.agent.id] && "text-muted-foreground")}>
-                            {appliedPlans[selectedAgent.agent.id]
-                              ? commissionPlans.find((p) => p.id === appliedPlans[selectedAgent.agent.id])?.name
-                              : "No plan selected"}
+                            {(() => {
+                              const applied = appliedPlans[selectedAgent.agent.id];
+                              const plan = applied ? [...commissionPlans, ...dealScopedPlans].find((p) => p.id === applied) : null;
+                              return (
+                                <span className="flex items-center gap-1.5">
+                                  {plan ? plan.name : "No plan selected"}
+                                  {plan?.dealScoped && (
+                                    <span className="inline-flex h-4 items-center rounded-full bg-muted px-1.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Deal-only</span>
+                                  )}
+                                </span>
+                              );
+                            })()}
                             <ChevronRight className="size-3 rotate-90" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-52">
+                        <DropdownMenuContent align="start" className="w-64">
                           <DropdownMenuLabel className="text-xs text-muted-foreground">Commission plans</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {commissionPlans.map((plan) => (
+                          {[...commissionPlans, ...dealScopedPlans].map((plan) => (
                             <DropdownMenuItem
                               key={plan.id}
                               onClick={() => {
@@ -2644,36 +2658,76 @@ export function CommissionBreakdown() {
                                 }
                               }}
                             >
-                              <div>
-                                <p className="text-sm font-medium">{plan.name}</p>
-                                <p className="text-xs text-muted-foreground">{plan.detail}</p>
+                              <div className="flex w-full items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-medium">{plan.name}</p>
+                                  <p className="text-xs text-muted-foreground">{plan.detail}</p>
+                                </div>
+                                {plan.dealScoped && (
+                                  <span className="inline-flex h-4 shrink-0 items-center rounded-full bg-muted px-1.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Deal-only</span>
+                                )}
                               </div>
                             </DropdownMenuItem>
                           ))}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setPlanForm({
+                                ...getFreshPlanForm(),
+                                selectedAgentIds: [selectedAgent.agent.id],
+                              });
+                              setPlanErrors({});
+                              setPlanFormDirty(false);
+                              setShowAddPlanDialog(true);
+                            }}
+                          >
+                            <span className="flex items-center gap-1.5 text-sm font-medium text-primary">
+                              <Plus className="size-3.5" /> Create plan for this deal
+                            </span>
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      {(() => {
+                        const applied = appliedPlans[selectedAgent.agent.id];
+                        const plan = applied ? dealScopedPlans.find((p) => p.id === applied) : null;
+                        if (!plan) return null;
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="Edit deal-only plan"
+                            className="h-7 w-7 rounded-lg p-0"
+                            onClick={() => {
+                              setPlanForm({
+                                editingPlanId: plan.id,
+                                planName: plan.name,
+                                planType: "flat",
+                                agentSplit: String(plan.agentSplit),
+                                teamSplit: String(plan.teamSplit),
+                                resetPeriod: "annually",
+                                basedOn: "gross_commission",
+                                feeType: plan.feeType,
+                                feeAmount: String(plan.feeAmount),
+                                capAmount: String(plan.capAmount),
+                                applyAsDefault: false,
+                                selectedAgentIds: [selectedAgent.agent.id],
+                                tiers: [],
+                              });
+                              setPlanErrors({});
+                              setPlanFormDirty(false);
+                              setShowAddPlanDialog(true);
+                            }}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        );
+                      })()}
+                      </>
                     ) : null}
                     {selectedAgentIsExternal && (
                       <Badge variant="outline" className="h-7 rounded-lg border-primary/20 bg-primary/5 px-2.5 text-[11px] font-medium text-primary">
                         Manual agent
                       </Badge>
-                    )}
-
-                    {!selectedAgentIsExternal && !appliedPlans[selectedAgent.agent.id] && role !== "agent" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1 rounded-lg border-primary/40 px-3 text-xs text-primary hover:bg-primary/[0.03]"
-                        onClick={() => {
-                          setPlanForm({
-                            ...getFreshPlanForm(),
-                            selectedAgentIds: [selectedAgent.agent.id]
-                          });
-                          setShowAddPlanDialog(true);
-                        }}
-                      >
-                        <Plus className="size-3" /> Commission plan
-                      </Button>
                     )}
                     {!isAgent && !isLocked && (
                       <Button
@@ -2709,6 +2763,8 @@ export function CommissionBreakdown() {
                             ...getFreshPlanForm(),
                             selectedAgentIds: [selectedAgent.agent.id]
                           });
+                          setPlanErrors({});
+                          setPlanFormDirty(false);
                           setShowAddPlanDialog(true);
                         }}
                       >
@@ -4478,6 +4534,123 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
+      {/* Deal-scoped commission plan create/edit dialog */}
+      <AddPlanDialog
+        open={showAddPlanDialog}
+        title={planForm.editingPlanId ? "Edit deal-only plan" : "Create plan for this deal"}
+        subtitle="Applies to this CDA only. Won't save to settings."
+        saveLabel={planForm.editingPlanId ? "Save changes" : "Create & apply"}
+        form={planForm}
+        errors={planErrors}
+        onFormChange={(patch) => { setPlanForm((f) => ({ ...f, ...patch })); setPlanFormDirty(true); }}
+        onAgentSplitChange={(value) => {
+          const num = value.replace(/[^0-9]/g, "");
+          const a = Number(num) || 0;
+          setPlanForm((f) => ({ ...f, agentSplit: num, teamSplit: String(Math.max(0, 100 - a)) }));
+          setPlanFormDirty(true);
+        }}
+        onTeamSplitChange={(value) => {
+          const num = value.replace(/[^0-9]/g, "");
+          const t = Number(num) || 0;
+          setPlanForm((f) => ({ ...f, teamSplit: num, agentSplit: String(Math.max(0, 100 - t)) }));
+          setPlanFormDirty(true);
+        }}
+        onUpdateTier={(tierId, patch) => {
+          setPlanForm((f) => ({ ...f, tiers: f.tiers.map((t) => (t.id === tierId ? { ...t, ...patch } : t)) }));
+          setPlanFormDirty(true);
+        }}
+        onAddTier={() => {
+          setPlanForm((f) => ({ ...f, tiers: [...f.tiers, { id: `t-${Date.now()}`, from: "", to: "", agentSplit: "", teamSplit: "" }] }));
+          setPlanFormDirty(true);
+        }}
+        onRemoveTier={(tierId) => {
+          setPlanForm((f) => ({ ...f, tiers: f.tiers.filter((t) => t.id !== tierId) }));
+          setPlanFormDirty(true);
+        }}
+        onOpenChange={(open) => {
+          if (!open && planFormDirty) {
+            setShowDiscardPlanConfirm(true);
+            return;
+          }
+          setShowAddPlanDialog(open);
+          if (!open) setPlanFormDirty(false);
+        }}
+        onSave={() => {
+          const errors: PlanErrors = {};
+          if (!planForm.planName.trim()) errors.planName = "Name required";
+          const splitTotal = (Number(planForm.agentSplit) || 0) + (Number(planForm.teamSplit) || 0);
+          if (splitTotal !== 100) errors.splitTotal = "Splits must total 100%";
+          if (Object.keys(errors).length) { setPlanErrors(errors); return; }
+
+          const agentSplit = Number(planForm.agentSplit) || 0;
+          const teamSplit = Number(planForm.teamSplit) || 0;
+          const feeAmount = Number(planForm.feeAmount) || 0;
+          const capAmount = Number(planForm.capAmount) || 0;
+          const detail = `${agentSplit}% agent · ${teamSplit}% team`;
+
+          if (planForm.editingPlanId) {
+            setDealScopedPlans((plans) => plans.map((p) => p.id === planForm.editingPlanId ? {
+              ...p,
+              name: planForm.planName,
+              detail,
+              feeType: planForm.feeType,
+              feeAmount,
+              capAmount,
+              agentSplit,
+              teamSplit,
+            } : p));
+            logActivity(`Updated deal-only plan ${planForm.planName}.`);
+            toast.success(`"${planForm.planName}" updated`);
+          } else {
+            const newPlan: CommissionPlanOption = {
+              id: `deal-${Date.now()}`,
+              name: planForm.planName,
+              detail,
+              feeType: planForm.feeType,
+              feeAmount,
+              capAmount,
+              agentSplit,
+              teamSplit,
+              dealScoped: true,
+            };
+            setDealScopedPlans((plans) => [...plans, newPlan]);
+            const targetAgent = planForm.selectedAgentIds[0];
+            if (targetAgent) {
+              setAppliedPlans((p) => ({ ...p, [targetAgent]: newPlan.id }));
+              const agentName = initialSides.flatMap((s) => s.agents).find((a) => a.id === targetAgent)?.name ?? "agent";
+              logActivity(`Created deal-only plan ${newPlan.name} and applied to ${agentName}.`);
+              toast.success(`"${newPlan.name}" created & applied`);
+            }
+          }
+          setShowAddPlanDialog(false);
+          setPlanFormDirty(false);
+          setPlanErrors({});
+        }}
+      />
+
+      {/* Discard deal-only plan changes confirm */}
+      <AlertDialog open={showDiscardPlanConfirm} onOpenChange={setShowDiscardPlanConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this plan?</AlertDialogTitle>
+            <AlertDialogDescription>Your changes won't be saved.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowDiscardPlanConfirm(false);
+                setShowAddPlanDialog(false);
+                setPlanFormDirty(false);
+                setPlanErrors({});
+              }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       </div>
     </TooltipProvider>
   );
@@ -4486,6 +4659,8 @@ export function CommissionBreakdown() {
 function AddPlanDialog({
   open,
   title,
+  subtitle,
+  saveLabel = "Save Plan",
   form,
   errors,
   onFormChange,
@@ -4499,6 +4674,8 @@ function AddPlanDialog({
 }: {
   open: boolean;
   title: string;
+  subtitle?: string;
+  saveLabel?: string;
   form: PlanForm;
   errors: PlanErrors;
   onFormChange: (patch: Partial<PlanForm>) => void;
@@ -4521,7 +4698,7 @@ function AddPlanDialog({
             <div>
               <DialogTitle className="text-base font-semibold leading-5">{title}</DialogTitle>
               <DialogDescription className="mt-1 text-xs text-muted-foreground">
-                Define split rules, caps, and transaction types for this plan.
+                {subtitle ?? "Define split rules, caps, and transaction types for this plan."}
               </DialogDescription>
             </div>
             <button
@@ -4594,7 +4771,7 @@ function AddPlanDialog({
         </div>
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={onSave} className="bg-[#5A5FF2] hover:bg-[#5A5FF2]/90">Save Plan</Button>
+          <Button onClick={onSave} className="bg-[#5A5FF2] hover:bg-[#5A5FF2]/90">{saveLabel}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
