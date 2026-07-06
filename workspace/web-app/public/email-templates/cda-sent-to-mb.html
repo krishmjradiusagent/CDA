@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>CDA Sent to MB — Signature Request</title>
+<style>
+  body { margin:0; padding:0; background:#f4f5f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:#1a1a1a; }
+  .wrap { max-width: 640px; margin: 0 auto; background:#ffffff; }
+  .header { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 32px 32px 24px; color:#ffffff; }
+  .brand { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; margin: 0 0 8px; }
+  .h1 { margin: 0; font-size: 26px; line-height: 1.25; font-weight: 700; }
+  .body { padding: 32px; font-size: 15px; line-height: 1.6; color:#2b2b31; }
+  .greet { margin: 0 0 16px; }
+  .card { border:1px solid #e5e7eb; border-radius: 12px; padding: 20px 22px; margin: 20px 0; background:#fafafa; }
+  .row { display:flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+  .k { color:#6b7280; }
+  .v { color:#111827; font-weight: 600; }
+  .cta { text-align: center; padding: 24px 0 8px; }
+  .btn { display:inline-block; background:#4f46e5; color:#ffffff !important; text-decoration:none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+  .foot { padding: 24px 32px; font-size: 12px; color:#6b7280; border-top:1px solid #e5e7eb; text-align:center; }
+  .tag { background:#eef2ff; color:#4338ca; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <p class="brand">Radius Agent · Commission Disbursement</p>
+      <h1 class="h1">Signature requested on a CDA</h1>
+    </div>
+    <div class="body">
+      <p class="greet">Hi <span class="tag">{{mb_name}}</span>,</p>
+      <p>A Commission Disbursement Authorization (CDA) is ready for your signature as Managing Broker. Please review the details below and sign at your earliest convenience.</p>
+
+      <div class="card">
+        <div class="row"><span class="k">Transaction</span><span class="v"><span class="tag">{{deal_address}}</span></span></div>
+        <div class="row"><span class="k">Agent</span><span class="v"><span class="tag">{{agent_name}}</span></span></div>
+        <div class="row"><span class="k">Team Lead</span><span class="v"><span class="tag">{{team_lead_name}}</span></span></div>
+        <div class="row"><span class="k">Commission</span><span class="v"><span class="tag">{{commission_amount}}</span></span></div>
+        <div class="row"><span class="k">Close of Escrow</span><span class="v"><span class="tag">{{coe_date}}</span></span></div>
+      </div>
+
+      <div class="cta">
+        <a class="btn" href="{{cda_link}}">Review &amp; Sign CDA</a>
+      </div>
+
+      <p style="margin-top:24px; color:#6b7280; font-size:13px;">This link expires in 7 days. If you have questions, reply to this email or contact <span class="tag">{{auditor_email}}</span>.</p>
+    </div>
+    <div class="foot">
+      Radius Agent Inc. · 123 Market Street, San Francisco, CA<br>
+      You received this because you are the Managing Broker of record on this transaction.
+    </div>
+  </div>
+</body>
+</html>

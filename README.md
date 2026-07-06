@@ -1,4 +1,12 @@
-# Makato Radius Core
+---
+project: Commission Breakdown
+tags: [project/commission-breakdown, readme, type/documentation]
+updated: 2026-07-05
+---
+
+# Commission Breakdown - Readme
+
+**Connected to:** [[CLAUDE.md|Commission Breakdown CLAUDE]], [[workspace/CDA_SETTINGS_BACKEND_REFERENCE.md|CDA Settings Backend Reference]]
 
 Clone this repo to start a Radius Agent product-design project.
 

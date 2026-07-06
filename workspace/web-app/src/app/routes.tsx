@@ -15,6 +15,7 @@ import { CommissionBreakdown } from "./pages/CommissionBreakdown";
 import { TransactionDetail } from "./pages/TransactionDetail";
 import { CDATemplates } from "./pages/CDATemplates";
 import { AuditingList } from "./pages/AuditingList";
+import { EmailTemplateBrokerSignature } from "./pages/EmailTemplateBrokerSignature";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 
 export const router = createBrowserRouter([
@@ -90,6 +91,10 @@ export const router = createBrowserRouter([
       {
         path: "cda/auditing",
         Component: AuditingList,
+      },
+      {
+        path: "cda/email-template",
+        Component: EmailTemplateBrokerSignature,
       },
       {
         path: "transaction-detail",

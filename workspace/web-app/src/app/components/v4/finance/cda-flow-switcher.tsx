@@ -4,6 +4,7 @@ import {
   Settings,
   FileText,
   ShieldCheck,
+  Mail,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ export function CDAFlowSwitcher() {
     { path: "/cda-settings", label: "Settings", icon: Settings },
     { path: "/cda/templates", label: "CDA Templates", icon: FileText },
     { path: "/cda/auditing", label: "Auditing", icon: ShieldCheck },
+    { path: "/cda/email-template", label: "Email Template for Broker Signature", icon: Mail },
   ];
 
   return (

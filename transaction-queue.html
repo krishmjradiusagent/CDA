@@ -104,6 +104,9 @@ tr.s-green td.stripe::before{background:var(--green)}
 /* Send disabled + Recall link */
 .cda-trio button:disabled{background:#e5e5e5;color:#a3a3a3;cursor:not-allowed}
 .recall-link{display:block;margin-top:4px;font-size:11px;color:var(--red);text-decoration:underline;cursor:pointer}
+.actions-row{display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+.delete-cda{width:28px;height:28px;border:1px solid #fecaca;background:#fff;color:var(--red);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.delete-cda:hover{background:#fef2f2}
 
 /* CDA actions column */
 .gen-btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border:0;height:28px;border-radius:8px;padding:0 10px;font-size:11.5px;font-weight:600;cursor:pointer}
@@ -363,7 +366,7 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <tr class="s-green">
+        <tr class="s-green" data-state="finalized">
           <td class="stripe uid">IJWXY</td>
           <td><div class="addr">789 Redwood Path, Redwood City, CA 94063</div></td>
           <td class="agent">Kevin Taylor</td>
@@ -374,9 +377,12 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="link">Assign auditor</span></td>
           <td><span class="badge b-finalized">Finalized</span></td>
           <td>
-            <div class="cda-trio">
-              <button class="menu-btn" data-menu="view-2" title="View drafts (2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
-              <button class="menu-btn" data-menu="send-2" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="actions-row">
+              <div class="cda-trio">
+                <button class="menu-btn" data-menu="view-2" title="View drafts (2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+                <button class="menu-btn" data-menu="send-2" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </div>
+              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
           <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
@@ -398,7 +404,7 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <tr class="s-yellow">
+        <tr class="s-yellow" data-state="finalized">
           <td class="stripe uid">KLBCD</td>
           <td><div class="addr">99 Finch Ave, San Mateo, CA 94402</div><span class="coe">COE 04/12/2026</span></td>
           <td class="agent">Daniel Park</td>
@@ -409,9 +415,12 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="link">Emily Rodriguez</span></td>
           <td><span class="badge b-finalized">Finalized</span></td>
           <td>
-            <div class="cda-trio">
-              <button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              <button class="menu-btn" data-menu="send-1" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="actions-row">
+              <div class="cda-trio">
+                <button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button class="menu-btn" data-menu="send-1" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </div>
+              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
           <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
@@ -565,6 +574,84 @@ function openCdaModal(action, label){
 }
 window.addEventListener("resize", closePop);
 window.addEventListener("scroll", closePop, true);
+
+// Delete CDA trash icon in CDA Actions column (Finalized rows only)
+document.querySelectorAll(".delete-cda").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const row = btn.closest("tr");
+    if(row) confirmDeleteCda(row);
+  });
+});
+
+// Row action ⋯ menu — offers Delete CDA on Finalized rows
+document.querySelectorAll("tbody tr").forEach(row => {
+  const icons = row.querySelector(".icons");
+  if(!icons) return;
+  const dots = icons.querySelector("svg"); // first svg is ⋯
+  if(!dots) return;
+  dots.style.cursor = "pointer";
+  dots.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closePop();
+    if(row.dataset.state !== "finalized") return;
+    const pop = document.createElement("div");
+    pop.className = "popover";
+    pop.innerHTML = `<div class="pop-item" style="color:var(--red)"><span>Delete CDA</span></div>`;
+    document.body.appendChild(pop);
+    const r = dots.getBoundingClientRect();
+    pop.style.top = (r.bottom + 4) + "px";
+    pop.style.left = Math.min(r.left - 160, window.innerWidth - pop.offsetWidth - 12) + "px";
+    openPop = pop;
+    pop.querySelector(".pop-item").addEventListener("click", () => {
+      closePop();
+      confirmDeleteCda(row);
+    });
+  });
+});
+
+function confirmDeleteCda(row){
+  const uid = row.querySelector(".uid")?.textContent || "this deal";
+  const overlay = document.createElement("div");
+  overlay.className = "cda-modal open";
+  overlay.style.alignItems = "center";
+  overlay.innerHTML = `
+    <div class="cda-modal-panel" style="width:min(92vw,440px);height:auto;border-radius:12px">
+      <div class="cda-modal-head" style="padding:18px 20px;background:#fff;border-bottom:0">
+        <div>
+          <h3 class="cda-modal-title" style="font-size:16px">Delete CDA draft?</h3>
+          <div class="cda-modal-sub" style="margin-top:6px;font-size:13px">Deleting the CDA for ${uid} reverts this deal to <strong>Confirmed by TL & Agent</strong>. You'll need to Generate CDA again.</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 20px 18px">
+        <button class="cancel" style="height:36px;padding:0 14px;border:1px solid var(--border);border-radius:8px;background:#fff;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
+        <button class="delete" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--red);color:#fff;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">Delete CDA</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", e => { if(e.target === overlay) close(); });
+  overlay.querySelector(".cancel").addEventListener("click", close);
+  overlay.querySelector(".delete").addEventListener("click", () => {
+    revertRowToConfirmed(row);
+    close();
+  });
+}
+
+function revertRowToConfirmed(row){
+  row.dataset.state = "confirmed";
+  const badge = row.querySelector(".b-finalized");
+  if(badge){
+    badge.classList.remove("b-finalized");
+    badge.classList.add("b-confirmed");
+    badge.textContent = "Confirmed by Team Lead and Agent";
+  }
+  const trioCell = row.querySelector(".cda-trio")?.parentElement;
+  if(trioCell){
+    trioCell.innerHTML = `<button class="gen-btn menu-btn" data-menu="gen-cda">Generate CDA <svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>`;
+  }
+  row.querySelector(".delete-cda")?.remove();
+}
 
 // Row click → navigate parent to commission breakdown for that transaction
 document.querySelectorAll("tbody tr").forEach((row) => {

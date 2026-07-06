@@ -1,4 +1,13 @@
+---
+project: Commission Breakdown
+tags: [project/commission-breakdown, backend-reference, type/documentation]
+updated: 2026-07-05
+---
+
 # CDA Settings Backend Reference
+
+**Connected to:** [[../CLAUDE.md|Commission Breakdown CLAUDE]], [[../README.md|Readme]]
+
 
 ## Purpose
 

@@ -1,4 +1,13 @@
+---
+project: Commission Breakdown
+tags: [project/commission-breakdown, agents, type/documentation]
+updated: 2026-07-05
+---
+
 # AGENTS.md
+
+**Connected to:** [[CLAUDE.md|Commission Breakdown CLAUDE]], [[README.md|Readme]]
+
 
 ## Purpose
 
