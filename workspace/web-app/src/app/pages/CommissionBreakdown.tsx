@@ -26,6 +26,7 @@ import {
   AtSign,
   Check,
   CheckCircle2,
+  ChevronDown,
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1786,7 +1787,7 @@ export function CommissionBreakdown() {
     (role === "agent" && txStatus === "draft") ||
     (role === "team_lead" && txStatus === "agent_confirmed") ||
     (isAuditor && txStatus === "team_lead_confirmed");
-  const canAuditorApprove = canConfirmNow && !radiusFeeRequiredForApproval;
+  const canAuditorApprove = canConfirmNow;
   const showFullBreakdown = !isAgent;
   const scopedAgentId = isAgent ? CURRENT_AGENT_ID : undefined;
   const transactionGross = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
@@ -2324,13 +2325,23 @@ export function CommissionBreakdown() {
               </Button>
             )}
             {isAuditor && txStatus !== "processed" && (
+              <Button
+                size="sm"
+                className="h-8 shrink-0 rounded-lg px-4 text-xs"
+                disabled={!canAuditorApprove}
+                onClick={() => setShowProcessDialog(true)}
+              >
+                Finalize
+              </Button>
+            )}
+            {isAuditor && txStatus === "processed" && (
               <>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-8 w-8 shrink-0 rounded-lg p-0"
-                  title="Download CDA"
-                  onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
+                  title="Download signed CDA"
+                  onClick={() => toast.success("Signed CDA downloaded")}
                 >
                   <Download className="size-4" />
                 </Button>
@@ -2338,39 +2349,21 @@ export function CommissionBreakdown() {
                   size="sm"
                   variant="outline"
                   className="h-8 w-8 shrink-0 rounded-lg p-0"
-                  title="View CDA drafts"
+                  title="View CDA"
                   onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
                 >
                   <Eye className="size-4" />
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="h-8 w-8 shrink-0 rounded-lg p-0"
-                  title="Send CDA to broker for signature"
+                  className="h-8 shrink-0 gap-1 rounded-lg px-2 text-xs"
+                  title="Send CDA (pick layout)"
                   onClick={() => setShowSendConfirm(true)}
                 >
-                  <Send className="size-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 shrink-0 rounded-lg px-4 text-xs"
-                  disabled={!canAuditorApprove}
-                  onClick={() => setShowProcessDialog(true)}
-                >
-                  Finalize
+                  <Send className="size-3.5" />
+                  <ChevronDown className="size-3" />
                 </Button>
               </>
-            )}
-            {isAuditor && txStatus === "processed" && (
-              <Button
-                size="sm"
-                className="h-8 shrink-0 gap-1.5 rounded-lg px-4 text-xs"
-                onClick={() => { setPdfCdaType(wireStore.teamWireInstructions.cdaType || "full-transparency"); setShowPdfPreview(true); }}
-              >
-                <CheckCircle2 className="size-3.5" />
-                Signed CDA
-              </Button>
             )}
             {/* Download PDF — visible to all when processed */}
             {txStatus === "processed" && (

@@ -148,6 +148,19 @@ tr.s-green td.stripe::before{background:var(--green)}
 /* right rail scrollbar look */
 .table-wrap{overflow-x:auto}
 
+/* CDA preview modal */
+.cda-modal{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,0.55);display:none;align-items:stretch;justify-content:center}
+.cda-modal.open{display:flex}
+.cda-modal-panel{background:#fff;width:min(96vw,1440px);height:94vh;margin:auto;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.35)}
+.cda-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 22px;border-bottom:1px solid var(--border);background:#f8fafc}
+.cda-modal-title{font-size:18px;font-weight:600;color:#0f172a;margin:0}
+.cda-modal-sub{font-size:12px;color:var(--muted-fg);margin-top:2px}
+.cda-modal-actions{display:flex;gap:8px}
+.cda-modal-actions button{height:36px;border-radius:8px;padding:0 14px;font-size:13px;font-weight:600;border:1px solid var(--border);background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;color:#0f172a}
+.cda-modal-actions button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.cda-modal-actions button.close{border:0;background:transparent;font-size:20px;color:#64748b}
+.cda-modal iframe{flex:1;border:0;background:#f8fafc}
+
 /* popover menu */
 .popover{position:fixed;z-index:100;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:6px;font-size:12.5px}
 .popover .pop-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#0a0a0a}
@@ -501,13 +514,71 @@ document.addEventListener("click", (e) => {
     el.addEventListener("click", () => {
       const label = el.querySelector("span").textContent;
       const action = key.startsWith("send") ? "Send" : key.startsWith("gen") ? "Generate" : "View";
-      alert(`${action}: ${label}`);
+      openCdaModal(action, label);
       closePop();
     });
   });
 });
+
+// CDA preview modal
+const LAYOUT_TO_TAB = {
+  "Full Transparency": "tab1",
+  "Radius Split Hidden (Partner)": "tab2",
+  "Radius Split Hidden (Associate)": "tab3",
+  "Radius Split Hidden": "tab2",
+  "Team Split Hidden (Partner)": "tab4",
+  "Gross CDA": "tab5"
+};
+function openCdaModal(action, label){
+  const tab = LAYOUT_TO_TAB[label] || "tab1";
+  let modal = document.querySelector(".cda-modal");
+  if(!modal){
+    modal = document.createElement("div");
+    modal.className = "cda-modal";
+    modal.innerHTML = `
+      <div class="cda-modal-panel">
+        <div class="cda-modal-head">
+          <div>
+            <h3 class="cda-modal-title"></h3>
+            <div class="cda-modal-sub"></div>
+          </div>
+          <div class="cda-modal-actions">
+            <button class="print">Print</button>
+            <button class="primary savepdf">Save PDF</button>
+            <button class="close" aria-label="Close">×</button>
+          </div>
+        </div>
+        <iframe title="CDA Preview"></iframe>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener("click", e => { if(e.target === modal) modal.classList.remove("open"); });
+    modal.querySelector(".close").addEventListener("click", () => modal.classList.remove("open"));
+    const doPrint = () => { try { modal.querySelector("iframe").contentWindow.print(); } catch { window.print(); } };
+    modal.querySelector(".print").addEventListener("click", doPrint);
+    modal.querySelector(".savepdf").addEventListener("click", doPrint);
+  }
+  modal.dataset.label = label;
+  modal.querySelector(".cda-modal-title").textContent = label;
+  modal.querySelector(".cda-modal-sub").textContent = action + " · CDA Document Templates";
+  modal.querySelector("iframe").src = "/cda/templates?tab=" + tab + "&embed=1";
+  modal.classList.add("open");
+}
 window.addEventListener("resize", closePop);
 window.addEventListener("scroll", closePop, true);
+
+// Row click → navigate parent to commission breakdown for that transaction
+document.querySelectorAll("tbody tr").forEach((row) => {
+  row.style.cursor = "pointer";
+  row.addEventListener("click", (e) => {
+    if (e.target.closest("button, a, .menu-btn, .link, .recall-link, .pop-item, .popover, .cda-trio, .upload-cda")) return;
+    const dest = "/cda/commission-breakdown";
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "auditing-row-click", dest }, "*");
+    } else {
+      window.location.href = dest;
+    }
+  });
+});
 </script>
 
 </body>

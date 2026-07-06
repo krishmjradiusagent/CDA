@@ -29,7 +29,9 @@ import {
 
 export function CDATemplates() {
   const [copied, setCopied] = useState(false);
-  const initialTab = (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab")) || "tab1";
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const initialTab = params.get("tab") || "tab1";
+  const embed = params.get("embed") === "1";
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -43,55 +45,59 @@ export function CDATemplates() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <div className="max-w-[1440px] mx-auto flex flex-col">
-        {/* Breadcrumb + Switcher Bar */}
-        <div className="flex items-center justify-between border-b bg-background px-6 py-2.5">
-          <div className="flex items-center gap-4">
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="text-xs">CDA Document Templates</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <Separator orientation="vertical" className="!h-4" />
-            <CDAFlowSwitcher />
-          </div>
-        </div>
+    <div className={embed ? "bg-muted/20" : "min-h-screen bg-muted/40"}>
+      <div className={embed ? "flex flex-col" : "max-w-[1440px] mx-auto flex flex-col"}>
+        {!embed && (
+          <>
+            {/* Breadcrumb + Switcher Bar */}
+            <div className="flex items-center justify-between border-b bg-background px-6 py-2.5">
+              <div className="flex items-center gap-4">
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem>
+                      <BreadcrumbPage className="text-xs">CDA Document Templates</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+                <Separator orientation="vertical" className="!h-4" />
+                <CDAFlowSwitcher />
+              </div>
+            </div>
 
-        {/* Page Title Bar */}
-        <div className="flex items-center justify-between gap-4 border-b bg-background px-6 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <Button variant="ghost" size="icon" asChild className="size-8 text-muted-foreground hover:text-foreground">
-              <Link to="/">
-                <ArrowLeft className="size-4" />
-              </Link>
-            </Button>
-            <Separator orientation="vertical" className="h-4" />
-            <h1 className="min-w-0 truncate text-sm font-semibold">CDA Document Templates</h1>
-            <Separator orientation="vertical" className="h-4 shrink-0" />
-            <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium border bg-muted/30">
-              <FileText className="size-3 text-muted-foreground" />
-              <span>5 Layout Options</span>
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 gap-1.5 rounded-lg px-3 text-xs">
-              <Printer className="size-3.5" />
-              Print / Save PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleCopyLink} className="h-8 gap-1.5 rounded-lg px-3 text-xs">
-              <Copy className="size-3.5" />
-              {copied ? "Copied" : "Copy Link"}
-            </Button>
-          </div>
-        </div>
+            {/* Page Title Bar */}
+            <div className="flex items-center justify-between gap-4 border-b bg-background px-6 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <Button variant="ghost" size="icon" asChild className="size-8 text-muted-foreground hover:text-foreground">
+                  <Link to="/">
+                    <ArrowLeft className="size-4" />
+                  </Link>
+                </Button>
+                <Separator orientation="vertical" className="h-4" />
+                <h1 className="min-w-0 truncate text-sm font-semibold">CDA Document Templates</h1>
+                <Separator orientation="vertical" className="h-4 shrink-0" />
+                <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium border bg-muted/30">
+                  <FileText className="size-3 text-muted-foreground" />
+                  <span>5 Layout Options</span>
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 gap-1.5 rounded-lg px-3 text-xs">
+                  <Printer className="size-3.5" />
+                  Print / Save PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCopyLink} className="h-8 gap-1.5 rounded-lg px-3 text-xs">
+                  <Copy className="size-3.5" />
+                  {copied ? "Copied" : "Copy Link"}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Main Content Area */}
-        <div className="flex-1 p-6 max-w-[1024px] mx-auto w-full">
+        <div className={embed ? "p-6 max-w-[1024px] mx-auto w-full" : "flex-1 p-6 max-w-[1024px] mx-auto w-full"}>
           <Tabs defaultValue={initialTab} className="w-full space-y-6">
-            <div className="flex justify-center border-b pb-4">
+            <div className={embed ? "hidden" : "flex justify-center border-b pb-4"}>
               <TabsList className="bg-background border p-1 rounded-lg flex flex-wrap gap-1 w-full justify-between">
                 <TabsTrigger value="tab1" className="text-xs flex-1 py-2">Full Transparency</TabsTrigger>
                 <TabsTrigger value="tab2" className="text-xs flex-1 py-2">Radius Split Hidden (Partner)</TabsTrigger>
