@@ -19,6 +19,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
+import { BrokerSignature } from "../components/BrokerSignature";
 import { toast } from "sonner";
 import {
   Breadcrumb,
@@ -32,6 +33,8 @@ export function CDATemplates() {
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const initialTab = params.get("tab") || "tab1";
   const embed = params.get("embed") === "1";
+  const [demoState, setDemoState] = useState(params.get("demo_state") || "CA");
+  const [demoTeam, setDemoTeam] = useState(params.get("demo_team") || "");
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -81,6 +84,36 @@ export function CDATemplates() {
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2 py-1 text-[11px]">
+                  <span className="text-muted-foreground">Broker demo:</span>
+                  <select
+                    value={demoState}
+                    onChange={(e) => {
+                      setDemoState(e.target.value);
+                      if (e.target.value !== "GA") setDemoTeam("");
+                    }}
+                    className="bg-transparent font-medium text-foreground outline-none cursor-pointer"
+                  >
+                    <option value="CA">CA → Roger</option>
+                    <option value="TX">TX → Kathy</option>
+                    <option value="FL">FL → Kathy</option>
+                    <option value="WA">WA → Kathy</option>
+                    <option value="CO">CO → Kathy</option>
+                    <option value="AZ">AZ → Kathy</option>
+                    <option value="GA">GA → …</option>
+                    <option value="NY">NY → Kevin</option>
+                  </select>
+                  {demoState === "GA" && (
+                    <select
+                      value={demoTeam}
+                      onChange={(e) => setDemoTeam(e.target.value)}
+                      className="bg-transparent font-medium text-foreground outline-none cursor-pointer border-l pl-1.5"
+                    >
+                      <option value="">Standard → Kathy</option>
+                      <option value="indigo-road">Indigo Road → Rhonda</option>
+                    </select>
+                  )}
+                </div>
                 <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 gap-1.5 rounded-lg px-3 text-xs">
                   <Printer className="size-3.5" />
                   Print / Save PDF
@@ -201,11 +234,8 @@ export function CDATemplates() {
                     <div className="border-b border-dashed h-8" />
                     <div className="text-xs text-muted-foreground">5/28/2026</div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Broker Signature</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">5/28/2026</div>
-                  </div>
+                  <BrokerSignature state={demoState} team={demoTeam} />
+
                 </div>
 
                 <Separator className="my-8" />
@@ -308,11 +338,8 @@ export function CDATemplates() {
                     <div className="border-b border-dashed h-8" />
                     <div className="text-xs text-muted-foreground">6/2/2026</div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Broker Signature</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
+                  <BrokerSignature state={demoState} team={demoTeam} />
+
                 </div>
 
                 <Separator className="my-8" />
@@ -420,11 +447,8 @@ export function CDATemplates() {
                     <div className="border-b border-dashed h-8" />
                     <div className="text-xs text-muted-foreground">6/2/2026</div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Broker</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
+                  <BrokerSignature state={demoState} team={demoTeam} />
+
                 </div>
 
                 <Separator className="my-8" />
@@ -513,11 +537,8 @@ export function CDATemplates() {
                     <div className="border-b border-dashed h-8" />
                     <div className="text-xs text-muted-foreground">5/21/2026</div>
                   </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Broker Signature</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">5/21/2026</div>
-                  </div>
+                  <BrokerSignature state={demoState} team={demoTeam} />
+
                 </div>
 
                 <Separator className="my-8" />
@@ -601,11 +622,8 @@ export function CDATemplates() {
                   </p>
 
                   <div className="grid grid-cols-1 gap-8 mt-12 pt-6 border-t">
-                    <div className="space-y-4">
-                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Broker Signature</div>
-                      <div className="border-b border-dashed h-8" />
-                      <div className="text-xs text-muted-foreground">5/21/2026</div>
-                    </div>
+                    <BrokerSignature state={demoState} team={demoTeam} />
+
                   </div>
 
                   <Separator className="my-8" />

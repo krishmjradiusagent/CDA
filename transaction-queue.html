@@ -98,8 +98,24 @@ tr.s-green td.stripe::before{background:var(--green)}
 .b-agentpending{background:#fff7ed;color:#b45309;border-color:#fed7aa}
 .b-confirmed{background:#eef2ff;color:#3730a3;border-color:#e0e7ff}
 .b-finalized{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.b-generated{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
 .b-sent{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
 .b-signed{background:#dcfce7;color:#166534;border-color:#86efac}
+.b-regen{background:#fffbeb;color:#b45309;border-color:#fde68a}
+.b-deleted{background:#f5f5f5;color:#525252;border-color:#d4d4d4;text-decoration:line-through;text-decoration-color:#a3a3a3}
+.version-tag{display:inline-block;margin-left:4px;padding:0 5px;font-size:9.5px;font-weight:700;background:#fff;border:1px solid currentColor;border-radius:3px;line-height:14px;vertical-align:middle;text-decoration:none}
+.history-link{display:block;margin-top:3px;font-size:10.5px;color:var(--primary);text-decoration:underline;cursor:pointer}
+.tomb-meta{display:block;margin-top:3px;font-size:10.5px;color:var(--muted-fg)}
+
+/* role visibility — actions gated by body[data-role] */
+body[data-role="agent"] .delete-cda,
+body[data-role="agent"] .regen-btn,
+body[data-role="agent"] .cda-trio button[data-menu^="send"],
+body[data-role="lead"] .regen-btn{display:none !important}
+body[data-role="agent"] tr[data-cda-state="deleted"]{display:none}
+body[data-role="agent"] .history-link{display:none}
+.regen-btn{width:28px;height:28px;border:1px solid var(--border);background:#fff;color:var(--primary);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.regen-btn:hover{background:#eef0ff}
 
 /* Send disabled + Recall link */
 .cda-trio button:disabled{background:#e5e5e5;color:#a3a3a3;cursor:not-allowed}
@@ -171,6 +187,34 @@ tr.s-green td.stripe::before{background:var(--green)}
 .popover .pop-item .sub{font-size:10.5px;color:var(--muted-fg)}
 .popover .pop-sep{height:1px;background:var(--border);margin:4px 2px}
 .popover .pop-head{font-size:10.5px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;padding:6px 10px 4px}
+
+/* Send CDA email modal */
+.send-modal{position:fixed;inset:0;z-index:210;background:rgba(15,23,42,0.55);display:none;align-items:center;justify-content:center;font-family:inherit}
+.send-modal.open{display:flex}
+.send-panel{background:#fff;width:min(94vw,640px);max-height:92vh;border-radius:14px;box-shadow:0 25px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden}
+.send-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border)}
+.send-head h3{margin:0;font-size:18px;font-weight:600;color:#0f172a}
+.send-head .send-close{border:0;background:transparent;font-size:22px;color:#64748b;cursor:pointer;line-height:1}
+.send-body{padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.send-body label.send-label{font-size:13px;font-weight:600;color:#0f172a;display:block;margin-bottom:8px}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#eef0ff;color:#4338ca;font-size:13px;padding:6px 10px;border-radius:999px;font-weight:500}
+.chip .chip-x{border:0;background:transparent;color:#6366f1;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.email-row{display:flex;gap:8px}
+.email-row input{flex:1;height:38px;border:1px solid var(--border);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:#0f172a;background:#fff}
+.email-row input::placeholder{color:#94a3b8}
+.email-row .add-email{height:38px;padding:0 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:#0f172a;display:inline-flex;align-items:center;gap:6px}
+.send-body textarea{width:100%;min-height:200px;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;font-family:inherit;color:#0f172a;resize:vertical;line-height:1.5}
+.send-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px 18px;border-top:1px solid var(--border);background:#fafbfc}
+.send-foot button{height:38px;padding:0 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.send-foot .send-cancel{border:1px solid var(--border);background:#fff;color:#0f172a}
+.send-foot .send-primary{border:0;background:var(--primary);color:#fff}
+.send-foot .send-primary:disabled{opacity:.55;cursor:not-allowed}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 12px 32px rgba(0,0,0,.25);z-index:300;display:flex;align-items:center;gap:10px;transform:translateY(20px);opacity:0;transition:transform .2s ease,opacity .2s ease;font-family:inherit}
+.toast.show{transform:translateY(0);opacity:1}
+.toast svg{color:#22c55e}
 </style>
 </head>
 <body>
@@ -191,7 +235,11 @@ tr.s-green td.stripe::before{background:var(--green)}
 <!-- view as -->
 <div class="viewas">
   <span>View as:</span>
-  <input placeholder="">
+  <select id="role-select" style="height:22px;border:1px solid var(--border);border-radius:4px;background:#fff;padding:0 6px;font-size:12px;font-family:inherit;color:#0a0a0a">
+    <option value="auditor">Auditor (full access)</option>
+    <option value="lead">Team Lead</option>
+    <option value="agent">Agent (view only, latest version)</option>
+  </select>
 </div>
 
 <!-- page -->
@@ -366,7 +414,7 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <tr class="s-green" data-state="finalized">
+        <tr class="s-green" data-state="finalized" data-cda-state="generated" data-cda-version="1">
           <td class="stripe uid">IJWXY</td>
           <td><div class="addr">789 Redwood Path, Redwood City, CA 94063</div></td>
           <td class="agent">Kevin Taylor</td>
@@ -375,13 +423,14 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="badge b-active">Active</span></td>
           <td><span class="badge b-airev">AI Review</span></td>
           <td><span class="link">Assign auditor</span></td>
-          <td><span class="badge b-finalized">Finalized</span></td>
+          <td><span class="badge b-generated">Generated</span></td>
           <td>
             <div class="actions-row">
               <div class="cda-trio">
                 <button class="menu-btn" data-menu="view-2" title="View drafts (2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
                 <button class="menu-btn" data-menu="send-2" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
               </div>
+              <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
               <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
@@ -404,7 +453,7 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <tr class="s-yellow" data-state="finalized">
+        <tr class="s-yellow" data-cda-state="deleted" data-cda-deleted-by="Emily Rodriguez" data-cda-deleted-at="Jul 7, 2026 · 10:42 AM">
           <td class="stripe uid">KLBCD</td>
           <td><div class="addr">99 Finch Ave, San Mateo, CA 94402</div><span class="coe">COE 04/12/2026</span></td>
           <td class="agent">Daniel Park</td>
@@ -413,22 +462,21 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="badge b-closed">Closed</span></td>
           <td><span class="badge b-approved">Approved</span></td>
           <td><span class="link">Emily Rodriguez</span></td>
-          <td><span class="badge b-finalized">Finalized</span></td>
+          <td>
+            <span class="badge b-deleted">Deleted</span>
+            <span class="tomb-meta">by Emily Rodriguez · Jul 7, 10:42 AM</span>
+          </td>
           <td>
             <div class="actions-row">
-              <div class="cda-trio">
-                <button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                <button class="menu-btn" data-menu="send-1" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
-              </div>
-              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+              <button class="regen-btn" title="Regenerate CDA (Auditor)" style="width:auto;padding:0 10px;font-size:11.5px;font-weight:600;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>
             </div>
           </td>
           <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <!-- State D: Sent for signature -->
-        <tr class="s-green">
+        <!-- State D: Sent -->
+        <tr class="s-green" data-cda-state="sent" data-cda-version="1" data-cda-sent-at="Jul 7, 09:15 AM">
           <td class="stripe uid">LMEFG</td>
           <td><div class="addr">17 Ivy Lane, Palo Alto, CA 94301</div><span class="coe">COE 10/12/2026</span></td>
           <td class="agent">Priya Shah</td>
@@ -437,19 +485,25 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="badge b-active">Active</span></td>
           <td><span class="badge b-approved">Approved</span></td>
           <td><span class="link">Sarah Johnson</span></td>
-          <td><span class="badge b-sent">Sent for Signature</span></td>
           <td>
-            <div class="cda-trio">
-              <button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              <button disabled title="Awaiting broker signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
+            <span class="badge b-sent">Sent</span>
+            <span class="tomb-meta">Jul 7, 09:15 AM</span>
+          </td>
+          <td>
+            <div class="actions-row">
+              <div class="cda-trio">
+                <button class="menu-btn" data-menu="view-1" title="View sent CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
+              <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
           <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <!-- State E: Signed -->
-        <tr class="s-green">
+        <!-- State E: Regenerated (v2 current, v1 in history) -->
+        <tr class="s-green" data-cda-state="regenerated" data-cda-version="2" data-cda-prev-sent-at="Jul 5, 04:20 PM">
           <td class="stripe uid">MNGHI</td>
           <td><div class="addr">55 Ocean Ave, Half Moon Bay, CA 94019</div></td>
           <td class="agent">Marcus Reid</td>
@@ -458,11 +512,18 @@ tr.s-green td.stripe::before{background:var(--green)}
           <td><span class="badge b-closed">Closed</span></td>
           <td><span class="badge b-approved">Approved</span></td>
           <td><span class="link">David Martinez</span></td>
-          <td><span class="badge b-signed">Signed</span></td>
           <td>
-            <div class="cda-trio">
-              <button title="View signed CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              <button title="Download signed CDA" style="background:var(--primary);color:#fff"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+            <span class="badge b-regen">Regenerated<span class="version-tag">v2</span></span>
+            <span class="history-link" data-history="MNGHI">View history (v1 sent Jul 5)</span>
+          </td>
+          <td>
+            <div class="actions-row">
+              <div class="cda-trio">
+                <button class="menu-btn" data-menu="view-1" title="View current CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button class="menu-btn" data-menu="send-1" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+              </div>
+              <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
           <td><span class="pill pill-compliant">Compliant<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
@@ -523,7 +584,12 @@ document.addEventListener("click", (e) => {
     el.addEventListener("click", () => {
       const label = el.querySelector("span").textContent;
       const action = key.startsWith("send") ? "Send" : key.startsWith("gen") ? "Generate" : "View";
-      openCdaModal(action, label);
+      const row = btn.closest("tr");
+      if(action === "Send"){
+        openSendCdaModal(row, label);
+      } else {
+        openCdaModal(action, label);
+      }
       closePop();
     });
   });
@@ -574,6 +640,137 @@ function openCdaModal(action, label){
 }
 window.addEventListener("resize", closePop);
 window.addEventListener("scroll", closePop, true);
+
+// Send CDA email modal
+function pickRecipientEmail(row){
+  const chain = [
+    row?.dataset.radiusEscrowEmail,
+    row?.dataset.escrowEmail,
+    row?.dataset.titleEmail,
+    row?.dataset.attorneyEmail
+  ].filter(Boolean);
+  return chain[0] || "chris.strange@example.com";
+}
+function buildLindseyTemplate(row){
+  const agent = row?.querySelector(".agent")?.textContent?.trim() || "Agent";
+  const addr = row?.querySelector(".addr")?.textContent?.trim() || "the property";
+  const coe = row?.querySelector(".coe")?.textContent?.replace(/^COE\s*/i,"").trim() || "the scheduled COE date";
+  return (
+    "Hi,\n\n" +
+    "Please find attached the Commission Disbursement Authorization for " + addr + ".\n" +
+    "Kindly review and confirm receipt so we can proceed to close on " + coe + ".\n\n" +
+    "Reach out with any questions.\n\n" +
+    "Thanks,\n" + agent + "\n" +
+    "Radius Agent"
+  );
+}
+function openSendCdaModal(row, layoutLabel){
+  const recipient = pickRecipientEmail(row);
+  const uid = row?.querySelector(".uid")?.textContent?.trim() || "";
+  const overlay = document.createElement("div");
+  overlay.className = "send-modal open";
+  overlay.innerHTML = `
+    <div class="send-panel">
+      <div class="send-head">
+        <h3>Send CDA</h3>
+        <button class="send-close" aria-label="Close">×</button>
+      </div>
+      <div class="send-body">
+        <div>
+          <label class="send-label">To</label>
+          <div class="chip-row"></div>
+          <div class="email-row">
+            <input type="email" placeholder="Add email address" />
+            <button class="add-email"><span style="font-size:14px;line-height:1">+</span> Add Email</button>
+          </div>
+        </div>
+        <div>
+          <label class="send-label">Message</label>
+          <textarea>${buildLindseyTemplate(row)}</textarea>
+        </div>
+      </div>
+      <div class="send-foot">
+        <button class="send-cancel">Cancel</button>
+        <button class="send-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+          Send
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const chipRow = overlay.querySelector(".chip-row");
+  const input = overlay.querySelector('input[type="email"]');
+  const addBtn = overlay.querySelector(".add-email");
+  const primary = overlay.querySelector(".send-primary");
+  const recipients = new Set();
+
+  function renderChips(){
+    chipRow.innerHTML = "";
+    recipients.forEach(email => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = `<span>${email}</span><button class="chip-x" aria-label="Remove">×</button>`;
+      chip.querySelector(".chip-x").addEventListener("click", () => { recipients.delete(email); renderChips(); });
+      chipRow.appendChild(chip);
+    });
+    primary.disabled = recipients.size === 0;
+  }
+  function addFromInput(){
+    const v = input.value.trim();
+    if(v && /.+@.+\..+/.test(v)){ recipients.add(v); input.value = ""; renderChips(); }
+  }
+  recipients.add(recipient);
+  renderChips();
+
+  addBtn.addEventListener("click", addFromInput);
+  input.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); addFromInput(); } });
+
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", e => { if(e.target === overlay) close(); });
+  overlay.querySelector(".send-close").addEventListener("click", close);
+  overlay.querySelector(".send-cancel").addEventListener("click", close);
+  primary.addEventListener("click", () => {
+    if(primary.disabled) return;
+    const to = [...recipients][0];
+    close();
+    advanceRowToSent(row);
+    showToast("CDA sent to " + to);
+  });
+}
+
+function advanceRowToSent(row){
+  if(!row) return;
+  row.dataset.state = "sent";
+  const badge = row.querySelector(".b-finalized");
+  if(badge){
+    badge.classList.remove("b-finalized");
+    badge.classList.add("b-sent");
+    badge.textContent = "Sent for Signature";
+  }
+  // Replace Send button in trio with disabled state; remove trash icon
+  const trio = row.querySelector(".cda-trio");
+  if(trio){
+    const sendBtn = trio.querySelector('[data-menu^="send"]');
+    if(sendBtn){
+      const disabled = document.createElement("button");
+      disabled.disabled = true;
+      disabled.title = "Awaiting broker signature";
+      disabled.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>';
+      sendBtn.replaceWith(disabled);
+    }
+  }
+  row.querySelector(".delete-cda")?.remove();
+}
+
+function showToast(msg){
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span>${msg}</span>`;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 2600);
+}
 
 // Delete CDA trash icon in CDA Actions column (Finalized rows only)
 document.querySelectorAll(".delete-cda").forEach(btn => {
@@ -666,6 +863,99 @@ document.querySelectorAll("tbody tr").forEach((row) => {
     }
   });
 });
+
+// Role switcher — reads ?role= param + drives body[data-role]
+(function initRoleSwitch(){
+  const sel = document.getElementById("role-select");
+  if (!sel) return;
+  const urlRole = new URLSearchParams(location.search).get("role");
+  const initial = ["auditor","lead","agent"].includes(urlRole) ? urlRole : "auditor";
+  sel.value = initial;
+  document.body.setAttribute("data-role", initial);
+  sel.addEventListener("change", () => {
+    document.body.setAttribute("data-role", sel.value);
+    const u = new URL(location.href);
+    u.searchParams.set("role", sel.value);
+    history.replaceState(null, "", u.toString());
+    showToast("Viewing as " + sel.options[sel.selectedIndex].textContent);
+  });
+})();
+
+// Regenerate — bumps row to regenerated state
+document.querySelectorAll(".regen-btn").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const row = btn.closest("tr");
+    if (!row) return;
+    const uid = row.querySelector(".uid")?.textContent?.trim() || "row";
+
+    if (row.getAttribute("data-cda-state") === "deleted") {
+      row.setAttribute("data-cda-state", "generated");
+      row.setAttribute("data-cda-version", "1");
+      const cell = row.querySelector("td:nth-child(9)");
+      if (cell) cell.innerHTML = '<span class="badge b-generated">Generated</span>';
+      const actions = row.querySelector(".actions-row");
+      if (actions) actions.innerHTML = defaultGeneratedActionsHTML();
+      wireRowActions(row);
+      showToast("CDA regenerated for " + uid);
+      return;
+    }
+
+    const prevVersion = parseInt(row.getAttribute("data-cda-version") || "1", 10);
+    const nextVersion = prevVersion + 1;
+    row.setAttribute("data-cda-state", "regenerated");
+    row.setAttribute("data-cda-version", String(nextVersion));
+    const cell = row.querySelector("td:nth-child(9)");
+    if (cell) {
+      cell.innerHTML = '<span class="badge b-regen">Regenerated<span class="version-tag">v' + nextVersion + '</span></span>' +
+                       '<span class="history-link" data-history="' + uid + '">View history (v' + prevVersion + ' sent)</span>';
+    }
+    showToast("CDA regenerated (v" + nextVersion + ") for " + uid);
+  });
+});
+
+// History drawer stub
+document.addEventListener("click", (e) => {
+  const link = e.target.closest(".history-link");
+  if (!link) return;
+  e.stopPropagation();
+  const uid = link.getAttribute("data-history") || "row";
+  alert("Version history for " + uid + "\n\nv1 — Sent Jul 5, 04:20 PM · by David Martinez\nv2 — Current (regenerated Jul 7, 03:00 PM)\n\n[Full activity log — coming from backend]");
+});
+
+function defaultGeneratedActionsHTML(){
+  return '<div class="cda-trio">' +
+    '<button class="menu-btn" data-menu="view-1" title="View draft"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+    '<button class="menu-btn" data-menu="send-1" title="Send for signature"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>' +
+    '</div>' +
+    '<button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>' +
+    '<button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>';
+}
+
+function wireRowActions(row){
+  const regen = row.querySelector(".regen-btn");
+  if (regen && !regen.dataset.wired){
+    regen.dataset.wired = "1";
+    regen.addEventListener("click", (e) => { e.stopPropagation(); showToast("Regenerate wired (demo)"); });
+  }
+  const del = row.querySelector(".delete-cda");
+  if (del && !del.dataset.wired){
+    del.dataset.wired = "1";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!confirm("Delete this CDA?")) return;
+      row.setAttribute("data-cda-state", "deleted");
+      const uid = row.querySelector(".uid")?.textContent?.trim() || "row";
+      const now = new Date().toLocaleString("en-US", {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+      const cell = row.querySelector("td:nth-child(9)");
+      if (cell) cell.innerHTML = '<span class="badge b-deleted">Deleted</span><span class="tomb-meta">by You · ' + now + '</span>';
+      const actions = row.querySelector(".actions-row");
+      if (actions) actions.innerHTML = '<button class="regen-btn" title="Regenerate CDA (Auditor)" style="width:auto;padding:0 10px;font-size:11.5px;font-weight:600;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>';
+      wireRowActions(row);
+      showToast("CDA deleted for " + uid);
+    });
+  }
+}
 </script>
 
 </body>
