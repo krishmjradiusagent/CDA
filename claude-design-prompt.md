@@ -1,5 +1,41 @@
 # CDA — Broker Signature + Auditing Queue States (2026-07-07)
 
+## Pass 3 — Activity log drawer + Commission Breakdown page mirror
+
+Two surfaces now speak the same 4-state language: `transaction-queue.html` (auditing queue) + `CommissionBreakdown.tsx` (deal page).
+
+**Auditing queue additions:**
+- Slide-in Activity Log drawer (420px, right-aligned) w/ reverse-chron entries per UID
+- Entry types: `generated · sent · regenerated · deleted`, each w/ color-coded icon
+- "View this version →" link per entry (stub → `/cda/templates?version=vN`)
+- Seeded log data: `window.__cdaLog` object keyed by UID
+- All Send / Regenerate / Delete handlers write log entries via `logAppend()`
+- History links now on Sent / Regenerated / Deleted rows (Generated deferred)
+- Legacy `revertRowToConfirmed` rewired: delete now → tombstone (not revert to Confirmed)
+
+**Commission Breakdown (CommissionBreakdown.tsx) additions:**
+- New CDA Status strip above Total Gross Commission — chip + version + activity log button + state-aware Send/Regenerate/Delete cluster
+- Radix `Sheet` drawer w/ same visual language as auditing queue
+- Seeded `defaultActivityLog` (3 entries) + `pushLog()` writes on every state transition
+- State machine: `generated → sent`, `generated|sent|regenerated → regenerated (v++)`, `any → deleted`, `deleted → generated (v1 fresh start)`
+
+**Key decision locked (was Krish's open Q):**
+- Placement of regenerated CDA = **option (a) in-place**. One row = one active CDA. History drawer holds all versions. Matches Krish's own "only latest active CDA shown to all roles" rule.
+
+**Files this pass:**
+- `transaction-queue.html` (drawer CSS + JS + seed data)
+- `workspace/web-app/public/auditing-queue.html` (synced)
+- `workspace/web-app/src/app/lib/cda-state.ts` (new — shared types + style map)
+- `workspace/web-app/src/app/pages/CommissionBreakdown.tsx` (CDA status strip + Sheet)
+
+**Open threads (Milan):**
+- Backend contract for `activity_log[]`: id, ts, actor, action, version, doc_url
+- Confirm history drawer scope (audit trail vs prior versions only)
+- Confirm "View this version" URL pattern
+
+---
+
+
 ## Pass 2 — Auditing Queue CDA states + role visibility
 
 Files: `transaction-queue.html` (root) + `workspace/web-app/public/auditing-queue.html` (synced).

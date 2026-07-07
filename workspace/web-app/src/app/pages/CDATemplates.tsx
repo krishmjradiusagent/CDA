@@ -228,14 +228,8 @@ export function CDATemplates() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 mt-12 pt-6 border-t">
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Agent Signature</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">5/28/2026</div>
-                  </div>
+                <div className="mt-12 pt-6 border-t max-w-[320px] ml-auto">
                   <BrokerSignature state={demoState} team={demoTeam} />
-
                 </div>
 
                 <Separator className="my-8" />
@@ -327,19 +321,8 @@ export function CDATemplates() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mt-12 pt-6 border-t">
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Operations Manager</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Partner Signature</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
+                <div className="mt-12 pt-6 border-t max-w-[320px] ml-auto">
                   <BrokerSignature state={demoState} team={demoTeam} />
-
                 </div>
 
                 <Separator className="my-8" />
@@ -431,24 +414,8 @@ export function CDATemplates() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4 mt-12 pt-6 border-t">
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Partner</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Manager</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Agent</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">6/2/2026</div>
-                  </div>
+                <div className="mt-12 pt-6 border-t max-w-[320px] ml-auto">
                   <BrokerSignature state={demoState} team={demoTeam} />
-
                 </div>
 
                 <Separator className="my-8" />
@@ -531,14 +498,8 @@ export function CDATemplates() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 mt-12 pt-6 border-t">
-                  <div className="space-y-4">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Partner Signature</div>
-                    <div className="border-b border-dashed h-8" />
-                    <div className="text-xs text-muted-foreground">5/21/2026</div>
-                  </div>
+                <div className="mt-12 pt-6 border-t max-w-[320px] ml-auto">
                   <BrokerSignature state={demoState} team={demoTeam} />
-
                 </div>
 
                 <Separator className="my-8" />

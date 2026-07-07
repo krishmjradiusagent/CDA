@@ -66,6 +66,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/v4/ui/dialog";
+import { History, FileText, Paperclip } from "lucide-react";
+import { cdaStateStyle, defaultActivityLog, type CdaState, type LogEntry } from "../lib/cda-state";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/v4/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1240,6 +1243,60 @@ export function CommissionBreakdown() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [cdaState, setCdaState] = useState<CdaState>("generated");
+  const [cdaVersion, setCdaVersion] = useState(1);
+  const [activityLog, setActivityLog] = useState<LogEntry[]>(defaultActivityLog);
+  const [logOpen, setLogOpen] = useState(false);
+  const [transparency, setTransparency] = useState<"full"|"radius"|"team">("full");
+  const [cdaKind, setCdaKind] = useState<"cda"|"gross">("cda");
+  const comboLabel = () => `${transparency==="full"?"Full transparency":transparency==="radius"?"Radius hidden":"Team hidden"} + ${cdaKind==="cda"?"CDA":"Gross CDA"}`;
+  const [genPickerOpen, setGenPickerOpen] = useState(false);
+  const [regenPickerOpen, setRegenPickerOpen] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendTo, setSendTo] = useState<string[]>(["escrow@example.com"]);
+  const [sendCc, setSendCc] = useState<string[]>([]);
+  const [sendToInput, setSendToInput] = useState("");
+  const [sendCcInput, setSendCcInput] = useState("");
+  const [sendSubject, setSendSubject] = useState("Commission Disbursement Authorization — 1284 Willow Creek Dr");
+  const [sendBody, setSendBody] = useState("Hi,\n\nPlease find attached the Commission Disbursement Authorization for 1284 Willow Creek Dr.\nKindly review and confirm receipt so we can proceed to close on the scheduled COE date.\n\nReach out with any questions.\n\nThanks");
+  function pushLog(entry: LogEntry) { setActivityLog(prev => [...prev, entry]); }
+  function nowLabel() { return new Date().toLocaleString("en-US", {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+  function handleCdaSend() {
+    if(sendTo.length === 0) return;
+    const to = sendTo[0];
+    const cc = sendCc;
+    setCdaState("sent");
+    const note = `Emailed to ${to}${cc.length?` · CC ${cc.join(", ")}`:""} · ${comboLabel()}`;
+    pushLog({ action:"sent", ts: nowLabel(), actor:"You", version:`v${cdaVersion}`, note });
+    toast.success("CDA sent to closing party");
+    setSendModalOpen(false);
+  }
+  function handleCdaRegenWithCombo() {
+    const next = cdaVersion + 1;
+    setCdaVersion(next);
+    setCdaState("regenerated");
+    pushLog({ action:"regenerated", ts: nowLabel(), actor:"You", version:`v${next}`, note:comboLabel() });
+    toast.success(`CDA regenerated (v${next}) — ${comboLabel()}`);
+    setRegenPickerOpen(false);
+  }
+  function handleCdaGenerateWithCombo() {
+    setCdaVersion(1);
+    setCdaState("generated");
+    pushLog({ action:"generated", ts: nowLabel(), actor:"You", version:"v1", note:comboLabel() });
+    toast.success(`CDA generated — ${comboLabel()}`);
+    setGenPickerOpen(false);
+  }
+  function handleCdaDelete() {
+    setCdaState("deleted");
+    pushLog({ action:"deleted", ts: nowLabel(), actor:"You", version:`v${cdaVersion}` });
+    toast.success("CDA deleted");
+  }
+  function handleCdaRestore() {
+    setCdaVersion(1);
+    setCdaState("generated");
+    pushLog({ action:"generated", ts: nowLabel(), actor:"You", version:"v1", note:"Regenerated after deletion" });
+    toast.success("CDA regenerated");
+  }
   const [pdfCdaType, setPdfCdaType] = useState<CDAType | "">("full-transparency");
   const [rejectInput, setRejectInput] = useState("");
   const hasCommentNotification = Boolean(rejectionNote);
@@ -2452,6 +2509,72 @@ export function CommissionBreakdown() {
           </div>
         )}
 
+        {/* ── CDA state strip ── */}
+        <div className="border-b bg-background px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground">CDA Status</span>
+            <Badge variant="outline" className={`rounded-lg px-2.5 py-0.5 text-[11.5px] font-semibold border ${cdaStateStyle(cdaState).cls}`}>
+              {cdaStateStyle(cdaState).label}
+              {(cdaState === "regenerated" || cdaState === "sent") && (
+                <span className="ml-1.5 rounded border border-current px-1 text-[9px] font-bold no-underline">v{cdaVersion} active</span>
+              )}
+            </Badge>
+            <button
+              type="button"
+              onClick={() => setLogOpen(true)}
+              className="inline-flex items-center gap-1 text-[11.5px] text-[#5A5FF2] hover:underline"
+            >
+              <History className="size-3.5" />
+              Activity log ({activityLog.length})
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(cdaState === "generated" || cdaState === "regenerated") && (
+              <Button size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={() => setSendModalOpen(true)}>
+                <Send className="mr-1.5 size-3.5" />Send CDA
+              </Button>
+            )}
+            {cdaState !== "deleted" && (
+              <Popover open={regenPickerOpen} onOpenChange={setRegenPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs">
+                    <RefreshCw className="mr-1.5 size-3.5" />Regenerate<ChevronDown className="ml-1 size-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[280px] p-2">
+                  <CdaComboPicker
+                    transparency={transparency} setTransparency={setTransparency}
+                    cdaKind={cdaKind} setCdaKind={setCdaKind}
+                    onConfirm={handleCdaRegenWithCombo}
+                    confirmLabel="Regenerate"
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+            {cdaState !== "deleted" ? (
+              <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={handleCdaDelete}>
+                <Trash2 className="mr-1.5 size-3.5" />Delete
+              </Button>
+            ) : (
+              <Popover open={genPickerOpen} onOpenChange={setGenPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" className="h-8 rounded-lg px-3 text-xs">
+                    <RefreshCw className="mr-1.5 size-3.5" />Generate CDA<ChevronDown className="ml-1 size-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[280px] p-2">
+                  <CdaComboPicker
+                    transparency={transparency} setTransparency={setTransparency}
+                    cdaKind={cdaKind} setCdaKind={setCdaKind}
+                    onConfirm={handleCdaGenerateWithCombo}
+                    confirmLabel="Generate"
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+        </div>
+
         {/* ── Stats strip ── */}
         <div className="grid grid-cols-[1fr_1px_1fr] items-stretch border-b bg-background">
           <div className="px-6 py-5">
@@ -3662,20 +3785,59 @@ export function CommissionBreakdown() {
                 <Card className="rounded-[14px] border border-black/10 shadow-none p-0 gap-0 block">
                   <CardContent className="p-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <h3 className="text-base font-medium text-black">PDF Preview</h3>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="text-base font-medium text-black">PDF Preview</h3>
+                        <Badge variant="outline" className={`rounded-lg px-2.5 py-0.5 text-[11px] font-medium border ${cdaStateStyle(cdaState).cls}`}>
+                          {cdaStateStyle(cdaState).label}
+                          {(cdaState === "regenerated" || cdaState === "sent") && (
+                            <span className="ml-1.5 rounded border border-current px-1 text-[9px] font-bold no-underline">v{cdaVersion} active</span>
+                          )}
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={() => setLogOpen(true)}
+                          className="inline-flex items-center gap-1 text-[11.5px] text-[#5A5FF2] hover:underline"
+                        >
+                          <History className="size-3.5" />
+                          Activity log ({activityLog.length})
+                        </button>
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
-                          <Download className="mr-2 size-3.5" />
-                          Download
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => window.print()}>
-                          <Printer className="mr-2 size-3.5" />
-                          Print
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("PDF regenerated")}>
-                          <RefreshCw className="mr-2 size-3.5" />
-                          Regenerate PDF
-                        </Button>
+                        {cdaState !== "deleted" && (
+                          <>
+                            <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
+                              <Download className="mr-2 size-3.5" />
+                              Download
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => window.print()}>
+                              <Printer className="mr-2 size-3.5" />
+                              Print
+                            </Button>
+                          </>
+                        )}
+                        {(cdaState === "generated" || cdaState === "regenerated") && (
+                          <Button size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={handleCdaSend}>
+                            <Send className="mr-2 size-3.5" />
+                            Send CDA
+                          </Button>
+                        )}
+                        {cdaState !== "deleted" && (
+                          <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={handleCdaRegenWithCombo}>
+                            <RefreshCw className="mr-2 size-3.5" />
+                            Regenerate
+                          </Button>
+                        )}
+                        {cdaState !== "deleted" ? (
+                          <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={handleCdaDelete}>
+                            <Trash2 className="mr-2 size-3.5" />
+                            Delete CDA
+                          </Button>
+                        ) : (
+                          <Button size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={handleCdaRestore}>
+                            <RefreshCw className="mr-2 size-3.5" />
+                            Regenerate CDA
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -4609,6 +4771,126 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
+      {/* Send CDA modal */}
+      <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
+        <DialogContent className="max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Send CDA</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold mb-1.5">To</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {sendTo.map(e => (
+                  <span key={e} className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700">
+                    {e}
+                    <button type="button" onClick={() => setSendTo(prev => prev.filter(x => x !== e))} className="text-indigo-400 hover:text-indigo-600">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input value={sendToInput} onChange={e => setSendToInput(e.target.value)} placeholder="Add email address" className="flex-1 h-9"
+                  onKeyDown={e => { if(e.key==="Enter" && sendToInput.trim()){ e.preventDefault(); setSendTo(prev => [...prev, sendToInput.trim()]); setSendToInput(""); }}}/>
+                <Button variant="outline" onClick={() => { if(sendToInput.trim()){ setSendTo(prev => [...prev, sendToInput.trim()]); setSendToInput(""); }}}>+ Add Email</Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-1.5">CC</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {sendCc.map(e => (
+                  <span key={e} className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700">
+                    {e}
+                    <button type="button" onClick={() => setSendCc(prev => prev.filter(x => x !== e))} className="text-indigo-400 hover:text-indigo-600">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input value={sendCcInput} onChange={e => setSendCcInput(e.target.value)} placeholder="Add CC email" className="flex-1 h-9"
+                  onKeyDown={e => { if(e.key==="Enter" && sendCcInput.trim()){ e.preventDefault(); setSendCc(prev => [...prev, sendCcInput.trim()]); setSendCcInput(""); }}}/>
+                <Button variant="outline" onClick={() => { if(sendCcInput.trim()){ setSendCc(prev => [...prev, sendCcInput.trim()]); setSendCcInput(""); }}}>+ Add CC</Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-1.5">Subject</p>
+              <Input value={sendSubject} onChange={e => setSendSubject(e.target.value)} className="h-9"/>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-1.5">Message</p>
+              <Textarea value={sendBody} onChange={e => setSendBody(e.target.value)} rows={7}/>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-1.5">Attachment</p>
+              <div className="inline-flex items-center gap-2 rounded-lg bg-neutral-100 border px-3 py-1.5 text-xs">
+                <Paperclip className="size-3 text-muted-foreground" />
+                <span>CDA-Willow-Creek.pdf</span>
+                <span className="text-muted-foreground">· {comboLabel()}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCdaSend} disabled={sendTo.length === 0}>
+              <Send className="mr-1.5 size-3.5" />Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CDA Activity Log drawer */}
+      <Sheet open={logOpen} onOpenChange={setLogOpen}>
+        <SheetContent side="right" className="w-[420px] sm:w-[420px] p-0 flex flex-col">
+          <SheetHeader className="px-5 py-4 border-b">
+            <SheetTitle className="text-sm">CDA Activity</SheetTitle>
+            <SheetDescription className="text-[11.5px]">Every generate, send, regenerate, and delete for this deal.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-5 py-2">
+            {activityLog.length === 0 ? (
+              <div className="py-10 text-center text-xs text-muted-foreground">No activity yet.</div>
+            ) : (
+              [...activityLog].reverse().map((e, i) => {
+                const iconBg =
+                  e.action === "generated" ? "bg-emerald-50 text-emerald-700" :
+                  e.action === "sent" ? "bg-blue-50 text-blue-700" :
+                  e.action === "regenerated" ? "bg-amber-50 text-amber-700" :
+                  "bg-neutral-100 text-neutral-600";
+                const label =
+                  e.action === "generated" ? "Generated" :
+                  e.action === "sent" ? "Sent for signature" :
+                  e.action === "regenerated" ? "Regenerated" : "Deleted";
+                const Icon =
+                  e.action === "sent" ? Send :
+                  e.action === "regenerated" ? RefreshCw :
+                  e.action === "deleted" ? Trash2 : FileText;
+                return (
+                  <div key={i} className="flex gap-3 py-3 border-b border-black/5 last:border-b-0">
+                    <div className={`size-8 rounded-full grid place-items-center flex-shrink-0 ${iconBg}`}>
+                      <Icon className="size-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-semibold text-black leading-5">
+                        {label}{e.version ? ` · ${e.version}` : ""}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {e.ts} · {e.actor}{e.note ? ` — ${e.note}` : ""}
+                      </div>
+                      {(e.action !== "deleted") && (
+                        <button
+                          type="button"
+                          className="mt-1.5 text-[11.5px] text-[#5A5FF2] underline"
+                          onClick={() => toast.success(`Opening ${e.version || "v1"} preview`)}
+                        >
+                          View this version →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Deal-scoped commission plan create/edit dialog */}
       <AddPlanDialog
         open={showAddPlanDialog}
@@ -5123,6 +5405,73 @@ function AdornedInput({
           {adornment}
         </span>
       )}
+    </div>
+  );
+}
+
+function CdaComboPicker({
+  transparency, setTransparency, cdaKind, setCdaKind, onConfirm, confirmLabel
+}: {
+  transparency: "full"|"radius"|"team";
+  setTransparency: (v: "full"|"radius"|"team") => void;
+  cdaKind: "cda"|"gross";
+  setCdaKind: (v: "cda"|"gross") => void;
+  onConfirm: () => void;
+  confirmLabel: string;
+}) {
+  const tOpts: Array<{id:"full"|"radius"|"team"; label:string; preferred?:boolean}> = [
+    { id:"full", label:"Full transparency", preferred:true },
+    { id:"radius", label:"Radius hidden" },
+    { id:"team", label:"Team hidden" }
+  ];
+  const cOpts: Array<{id:"cda"|"gross"; label:string; preferred?:boolean}> = [
+    { id:"cda", label:"CDA", preferred:true },
+    { id:"gross", label:"Gross CDA" }
+  ];
+  const tLabel = tOpts.find(o => o.id === transparency)!.label;
+  const cLabel = cOpts.find(o => o.id === cdaKind)!.label;
+  return (
+    <div className="space-y-1">
+      <div className="px-3 pt-2 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">Transparency Settings</div>
+      {tOpts.map(o => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => setTransparency(o.id)}
+          className="w-full flex items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12.5px] hover:bg-neutral-100"
+        >
+          <span className={`size-3.5 rounded-full border-[1.5px] flex-shrink-0 grid place-items-center ${transparency===o.id?"border-primary":"border-neutral-300"}`}>
+            {transparency===o.id && <span className="size-1.5 rounded-full bg-primary"/>}
+          </span>
+          <span className="flex-1">{o.label}</span>
+          {o.preferred && <span className="text-[10px] text-muted-foreground">Default</span>}
+        </button>
+      ))}
+      <div className="my-2 h-px bg-neutral-200"/>
+      <div className="px-3 pt-1 pb-1 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">CDA Settings</div>
+      {cOpts.map(o => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => setCdaKind(o.id)}
+          className="w-full flex items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12.5px] hover:bg-neutral-100"
+        >
+          <span className={`size-3.5 rounded-full border-[1.5px] flex-shrink-0 grid place-items-center ${cdaKind===o.id?"border-primary":"border-neutral-300"}`}>
+            {cdaKind===o.id && <span className="size-1.5 rounded-full bg-primary"/>}
+          </span>
+          <span className="flex-1">{o.label}</span>
+          {o.preferred && <span className="text-[10px] text-muted-foreground">Default</span>}
+        </button>
+      ))}
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="w-full h-9 rounded-lg bg-primary text-white text-[12.5px] font-semibold hover:bg-primary/90"
+        >
+          {confirmLabel} — <span className="font-normal opacity-90">{tLabel} + {cLabel}</span>
+        </button>
+      </div>
     </div>
   );
 }
