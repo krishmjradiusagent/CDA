@@ -101,11 +101,8 @@ tr.s-green td.stripe::before{background:var(--green)}
 .b-generated{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
 .b-sent{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
 .b-signed{background:#dcfce7;color:#166534;border-color:#86efac}
-.b-regen{background:#fffbeb;color:#b45309;border-color:#fde68a}
-.b-deleted{background:#f5f5f5;color:#525252;border-color:#d4d4d4;text-decoration:line-through;text-decoration-color:#a3a3a3}
-.version-tag{display:inline-block;margin-left:4px;padding:0 5px;font-size:9.5px;font-weight:700;background:#fff;border:1px solid currentColor;border-radius:3px;line-height:14px;vertical-align:middle;text-decoration:none}
-.history-link{display:block;margin-top:3px;font-size:10.5px;color:var(--primary);text-decoration:underline;cursor:pointer}
-.tomb-meta{display:block;margin-top:3px;font-size:10.5px;color:var(--muted-fg)}
+.history-link{display:none}
+.tomb-meta{display:none}
 
 /* role visibility — actions gated by body[data-role] */
 body[data-role="agent"] .delete-cda,
@@ -118,7 +115,8 @@ body[data-role="agent"] .history-link{display:none}
 .regen-btn:hover{background:#eef0ff}
 .send-btn{width:28px;height:28px;border:0;background:var(--primary);color:#fff;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
 .send-btn:hover{background:#4d52d9}
-.cda-trio .send-btn{border-radius:0;height:100%;width:36px}
+.view-btn{width:28px;height:28px;border:1px solid var(--border);background:#fff;color:#0a0a0a;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.view-btn:hover{background:#f5f5f5}
 .attach-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f5f5f5;border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:#0a0a0a;margin-top:4px}
 .attach-chip svg{color:var(--muted-fg)}
 .send-subject{width:100%;height:36px;border:1px solid var(--border);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:#0a0a0a;background:#fff}
@@ -477,10 +475,8 @@ body[data-role="agent"] .history-link{display:none}
           <td><span class="badge b-generated">Generated</span></td>
           <td>
             <div class="actions-row">
-              <div class="cda-trio">
-                <button class="menu-btn" data-menu="view-2" title="View drafts (2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
-                <button class="send-btn" data-send-direct="1" title="Send CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
-              </div>
+              <button class="view-btn menu-btn" data-menu="view-2" title="View CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button class="send-btn" data-send-direct="1" title="Send CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
               <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
               <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
@@ -504,7 +500,7 @@ body[data-role="agent"] .history-link{display:none}
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <tr class="s-yellow" data-cda-state="deleted" data-cda-deleted-by="Emily Rodriguez" data-cda-deleted-at="Jul 7, 2026 · 10:42 AM">
+        <tr class="s-yellow" data-cda-state="generated" data-cda-version="1">
           <td class="stripe uid">KLBCD</td>
           <td><div class="addr">99 Finch Ave, San Mateo, CA 94402</div><span class="coe">COE 04/12/2026</span></td>
           <td class="agent">Daniel Park</td>
@@ -513,14 +509,13 @@ body[data-role="agent"] .history-link{display:none}
           <td><span class="badge b-closed">Closed</span></td>
           <td><span class="badge b-approved">Approved</span></td>
           <td><span class="link">Emily Rodriguez</span></td>
-          <td>
-            <span class="badge b-deleted">Deleted</span>
-            <span class="tomb-meta">by Emily Rodriguez · Jul 7, 10:42 AM</span>
-            <span class="history-link" data-history="KLBCD">View activity log</span>
-          </td>
+          <td><span class="badge b-generated">Generated</span></td>
           <td>
             <div class="actions-row">
-              <button class="regen-btn" title="Regenerate CDA (Auditor)" style="width:auto;padding:0 10px;font-size:11.5px;font-weight:600;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>
+              <button class="view-btn menu-btn" data-menu="view-1" title="View CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button class="send-btn" data-send-direct="1" title="Send CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
+              <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
           <td><span class="pill pill-pending">Pending<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
@@ -537,16 +532,10 @@ body[data-role="agent"] .history-link{display:none}
           <td><span class="badge b-active">Active</span></td>
           <td><span class="badge b-approved">Approved</span></td>
           <td><span class="link">Sarah Johnson</span></td>
-          <td>
-            <span class="badge b-sent">Sent</span>
-            <span class="tomb-meta">Jul 7, 09:15 AM</span>
-            <span class="history-link" data-history="LMEFG">View activity log</span>
-          </td>
+          <td><span class="badge b-sent">Sent</span></td>
           <td>
             <div class="actions-row">
-              <div class="cda-trio">
-                <button class="menu-btn" data-menu="view-1" title="View sent CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              </div>
+              <button class="view-btn menu-btn" data-menu="view-1" title="View CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
               <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
               <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
@@ -555,8 +544,8 @@ body[data-role="agent"] .history-link{display:none}
           <td><span class="icons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><rect x="5" y="4" width="14" height="18" rx="2"/></svg></span></td>
         </tr>
 
-        <!-- State E: Regenerated (v2 current, v1 in history) -->
-        <tr class="s-green" data-cda-state="regenerated" data-cda-version="2" data-cda-prev-sent-at="Jul 5, 04:20 PM">
+        <!-- State E: Signed -->
+        <tr class="s-green" data-cda-state="signed" data-cda-version="1">
           <td class="stripe uid">MNGHI</td>
           <td><div class="addr">55 Ocean Ave, Half Moon Bay, CA 94019</div></td>
           <td class="agent">Marcus Reid</td>
@@ -565,18 +554,10 @@ body[data-role="agent"] .history-link{display:none}
           <td><span class="badge b-closed">Closed</span></td>
           <td><span class="badge b-approved">Approved</span></td>
           <td><span class="link">David Martinez</span></td>
-          <td>
-            <span class="badge b-regen">Regenerated<span class="version-tag">v2 active</span></span>
-            <span class="history-link" data-history="MNGHI">View activity log (2 versions)</span>
-          </td>
+          <td><span class="badge b-signed">Signed</span></td>
           <td>
             <div class="actions-row">
-              <div class="cda-trio">
-                <button class="menu-btn" data-menu="view-1" title="View current CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                <button class="send-btn" data-send-direct="1" title="Send CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
-              </div>
-              <button class="regen-btn" title="Regenerate CDA (Auditor)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
-              <button class="delete-cda" title="Delete CDA"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+              <button class="view-btn menu-btn" data-menu="view-1" title="View CDA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </td>
           <td><span class="pill pill-compliant">Compliant<svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></td>
@@ -710,27 +691,15 @@ document.addEventListener("click", (e) => {
       openSendCdaModal(row, label);
     } else if(kind === "regen"){
       const uid2 = row.querySelector(".uid")?.textContent?.trim() || "row";
-      if (row.getAttribute("data-cda-state") === "deleted") {
-        row.setAttribute("data-cda-state", "generated");
-        row.setAttribute("data-cda-version", "1");
-        const cell = row.querySelector("td:nth-child(9)");
-        if (cell) cell.innerHTML = '<span class="badge b-generated">Generated</span><span class="history-link" data-history="'+uid2+'">View activity log</span>';
-        const actions = row.querySelector(".actions-row");
-        if (actions) actions.innerHTML = defaultGeneratedActionsHTML();
-        wireRowActions(row);
-        logAppend(uid2, { action:"generated", ts:nowStamp(), actor:"You", version:"v1", note:"Regenerated after deletion · "+label });
-        showToast("CDA regenerated — "+label);
-      } else {
-        const prev = parseInt(row.getAttribute("data-cda-version") || "1", 10);
-        const next = prev + 1;
-        row.setAttribute("data-cda-state", "regenerated");
-        row.setAttribute("data-cda-version", String(next));
-        const cell = row.querySelector("td:nth-child(9)");
-        if (cell) cell.innerHTML = '<span class="badge b-regen">Regenerated<span class="version-tag">v'+next+' active</span></span>' +
-                                   '<span class="history-link" data-history="'+uid2+'">View activity log ('+next+' versions)</span>';
-        logAppend(uid2, { action:"regenerated", ts:nowStamp(), actor:"You", version:"v"+next, note:label });
-        showToast("CDA regenerated (v"+next+") — "+label);
-      }
+      // regen keeps state as Generated (no separate Regenerated chip)
+      row.setAttribute("data-cda-state", "generated");
+      const prev = parseInt(row.getAttribute("data-cda-version") || "1", 10);
+      const next = prev + 1;
+      row.setAttribute("data-cda-version", String(next));
+      const cell = row.querySelector("td:nth-child(9)");
+      if (cell) cell.innerHTML = '<span class="badge b-generated">Generated</span>';
+      logAppend(uid2, { action:"generated", ts:nowStamp(), actor:"You", version:"v"+next, note:"Regenerated · "+label });
+      showToast("CDA regenerated — "+label);
     } else if(kind === "gen"){
       logAppend(uid, { action:"generated", ts:nowStamp(), actor:"You", version:"v1", note:label });
       showToast("CDA generated — "+label);
@@ -923,29 +892,9 @@ function advanceRowToSent(row){
     badge.classList.remove("b-generated");
     badge.classList.add("b-sent");
     badge.textContent = "Sent";
-    // add history link if not present
-    const cell = badge.parentElement;
-    if (cell && !cell.querySelector('.history-link')){
-      const uid = row.querySelector(".uid")?.textContent?.trim() || "row";
-      const link = document.createElement("span");
-      link.className = "history-link";
-      link.setAttribute("data-history", uid);
-      link.textContent = "View activity log";
-      cell.appendChild(link);
-    }
   }
-  // Replace Send button in trio with disabled state; remove trash icon
-  const trio = row.querySelector(".cda-trio");
-  if(trio){
-    const sendBtn = trio.querySelector('[data-menu^="send"]');
-    if(sendBtn){
-      const disabled = document.createElement("button");
-      disabled.disabled = true;
-      disabled.title = "Awaiting broker signature";
-      disabled.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>';
-      sendBtn.replaceWith(disabled);
-    }
-  }
+  // Remove send button (already sent) + trash icon
+  row.querySelector(".send-btn")?.remove();
   row.querySelector(".delete-cda")?.remove();
 }
 
@@ -1022,27 +971,19 @@ function confirmDeleteCda(row){
 }
 
 function revertRowToConfirmed(row){
-  // New spec: delete → tombstone Deleted state, not revert to Confirmed.
-  row.setAttribute("data-cda-state", "deleted");
-  row.dataset.state = "deleted";
-  const uid = row.querySelector(".uid")?.textContent?.trim() || "row";
-  const now = (typeof nowStamp === "function") ? nowStamp() : new Date().toLocaleString();
-  const version = "v" + (row.getAttribute("data-cda-version") || "1");
-  if (typeof logAppend === "function"){
-    logAppend(uid, { action:"deleted", ts:now, actor:"You", version });
-  }
-  const badgeCell = row.querySelector(".b-finalized, .b-generated, .b-sent, .b-regen")?.parentElement;
+  // Delete → row's CDA cell reverts to Confirmed by TL & Agent; Generate CDA button reappears
+  row.setAttribute("data-cda-state", "");
+  row.dataset.state = "confirmed";
+  const badgeCell = row.querySelector(".b-finalized, .b-generated, .b-sent, .b-regen, .b-signed")?.parentElement;
   if(badgeCell){
-    badgeCell.innerHTML = '<span class="badge b-deleted">Deleted</span>' +
-                          '<span class="tomb-meta">by You · ' + now + '</span>' +
-                          '<span class="history-link" data-history="'+uid+'">View activity log</span>';
+    badgeCell.innerHTML = '<span class="badge b-confirmed">Confirmed by Team Lead and Agent</span>';
   }
   const actionsCell = row.querySelector(".actions-row")?.parentElement;
   if(actionsCell){
     actionsCell.innerHTML = '<div class="actions-row">' +
-      '<button class="regen-btn" title="Regenerate CDA (Auditor)" style="width:auto;padding:0 10px;font-size:11.5px;font-weight:600;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate</button>' +
+      '<button class="gen-btn menu-btn" data-menu="gen-cda">Generate CDA <svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>' +
+      '<button class="upload-cda" style="height:28px;margin-top:0">Upload CDA</button>' +
       '</div>';
-    wireRowActions(row);
   }
 }
 

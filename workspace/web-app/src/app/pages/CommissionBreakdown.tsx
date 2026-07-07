@@ -1274,9 +1274,9 @@ export function CommissionBreakdown() {
   function handleCdaRegenWithCombo() {
     const next = cdaVersion + 1;
     setCdaVersion(next);
-    setCdaState("regenerated");
-    pushLog({ action:"regenerated", ts: nowLabel(), actor:"You", version:`v${next}`, note:comboLabel() });
-    toast.success(`CDA regenerated (v${next}) — ${comboLabel()}`);
+    setCdaState("generated");
+    pushLog({ action:"generated", ts: nowLabel(), actor:"You", version:`v${next}`, note:`Regenerated · ${comboLabel()}` });
+    toast.success(`CDA regenerated — ${comboLabel()}`);
     setRegenPickerOpen(false);
   }
   function handleCdaGenerateWithCombo() {
@@ -1284,18 +1284,17 @@ export function CommissionBreakdown() {
     setCdaState("generated");
     pushLog({ action:"generated", ts: nowLabel(), actor:"You", version:"v1", note:comboLabel() });
     toast.success(`CDA generated — ${comboLabel()}`);
-    setGenPickerOpen(false);
   }
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   function handleCdaDelete() {
-    setCdaState("deleted");
-    pushLog({ action:"deleted", ts: nowLabel(), actor:"You", version:`v${cdaVersion}` });
-    toast.success("CDA deleted");
+    setDeleteConfirmOpen(true);
   }
-  function handleCdaRestore() {
+  function confirmCdaDelete() {
+    setCdaState("none");
     setCdaVersion(1);
-    setCdaState("generated");
-    pushLog({ action:"generated", ts: nowLabel(), actor:"You", version:"v1", note:"Regenerated after deletion" });
-    toast.success("CDA regenerated");
+    pushLog({ action:"none", ts: nowLabel(), actor:"You", note:"CDA deleted" });
+    toast.success("CDA deleted — Generate a new one when ready");
+    setDeleteConfirmOpen(false);
   }
   const [pdfCdaType, setPdfCdaType] = useState<CDAType | "">("full-transparency");
   const [rejectInput, setRejectInput] = useState("");
@@ -2515,26 +2514,35 @@ export function CommissionBreakdown() {
             <span className="text-xs font-medium text-muted-foreground">CDA Status</span>
             <Badge variant="outline" className={`rounded-lg px-2.5 py-0.5 text-[11.5px] font-semibold border ${cdaStateStyle(cdaState).cls}`}>
               {cdaStateStyle(cdaState).label}
-              {(cdaState === "regenerated" || cdaState === "sent") && (
-                <span className="ml-1.5 rounded border border-current px-1 text-[9px] font-bold no-underline">v{cdaVersion} active</span>
-              )}
             </Badge>
-            <button
-              type="button"
-              onClick={() => setLogOpen(true)}
-              className="inline-flex items-center gap-1 text-[11.5px] text-[#5A5FF2] hover:underline"
-            >
-              <History className="size-3.5" />
-              Activity log ({activityLog.length})
-            </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {(cdaState === "generated" || cdaState === "regenerated") && (
+            {cdaState === "none" && isAuditor && (
+              <Popover open={genPickerOpen} onOpenChange={setGenPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" className="h-8 rounded-lg px-3 text-xs">
+                    Generate CDA<ChevronDown className="ml-1 size-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[280px] p-2">
+                  <CdaComboPicker
+                    transparency={transparency} setTransparency={setTransparency}
+                    cdaKind={cdaKind} setCdaKind={setCdaKind}
+                    onConfirm={() => { handleCdaGenerateWithCombo(); setGenPickerOpen(false); }}
+                    confirmLabel="Generate"
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+            {cdaState === "none" && !isAuditor && (
+              <span className="text-[11.5px] text-muted-foreground italic">Awaiting Auditor to generate CDA</span>
+            )}
+            {cdaState === "generated" && (
               <Button size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={() => setSendModalOpen(true)}>
                 <Send className="mr-1.5 size-3.5" />Send CDA
               </Button>
             )}
-            {cdaState !== "deleted" && (
+            {cdaState !== "none" && cdaState !== "signed" && (
               <Popover open={regenPickerOpen} onOpenChange={setRegenPickerOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs">
@@ -2551,26 +2559,10 @@ export function CommissionBreakdown() {
                 </PopoverContent>
               </Popover>
             )}
-            {cdaState !== "deleted" ? (
+            {cdaState !== "none" && cdaState !== "signed" && (
               <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={handleCdaDelete}>
                 <Trash2 className="mr-1.5 size-3.5" />Delete
               </Button>
-            ) : (
-              <Popover open={genPickerOpen} onOpenChange={setGenPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button size="sm" className="h-8 rounded-lg px-3 text-xs">
-                    <RefreshCw className="mr-1.5 size-3.5" />Generate CDA<ChevronDown className="ml-1 size-3" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-[280px] p-2">
-                  <CdaComboPicker
-                    transparency={transparency} setTransparency={setTransparency}
-                    cdaKind={cdaKind} setCdaKind={setCdaKind}
-                    onConfirm={handleCdaGenerateWithCombo}
-                    confirmLabel="Generate"
-                  />
-                </PopoverContent>
-              </Popover>
             )}
           </div>
         </div>
@@ -3789,53 +3781,33 @@ export function CommissionBreakdown() {
                         <h3 className="text-base font-medium text-black">PDF Preview</h3>
                         <Badge variant="outline" className={`rounded-lg px-2.5 py-0.5 text-[11px] font-medium border ${cdaStateStyle(cdaState).cls}`}>
                           {cdaStateStyle(cdaState).label}
-                          {(cdaState === "regenerated" || cdaState === "sent") && (
-                            <span className="ml-1.5 rounded border border-current px-1 text-[9px] font-bold no-underline">v{cdaVersion} active</span>
-                          )}
                         </Badge>
-                        <button
-                          type="button"
-                          onClick={() => setLogOpen(true)}
-                          className="inline-flex items-center gap-1 text-[11.5px] text-[#5A5FF2] hover:underline"
-                        >
-                          <History className="size-3.5" />
-                          Activity log ({activityLog.length})
-                        </button>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        {cdaState !== "deleted" && (
-                          <>
-                            <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
-                              <Download className="mr-2 size-3.5" />
-                              Download
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => window.print()}>
-                              <Printer className="mr-2 size-3.5" />
-                              Print
-                            </Button>
-                          </>
-                        )}
-                        {(cdaState === "generated" || cdaState === "regenerated") && (
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => toast.success("Commission breakdown PDF downloaded")}>
+                          <Download className="mr-2 size-3.5" />
+                          Download
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={() => window.print()}>
+                          <Printer className="mr-2 size-3.5" />
+                          Print
+                        </Button>
+                        {cdaState === "generated" && (
                           <Button size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={handleCdaSend}>
                             <Send className="mr-2 size-3.5" />
                             Send CDA
                           </Button>
                         )}
-                        {cdaState !== "deleted" && (
+                        {cdaState !== "signed" && (
                           <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={handleCdaRegenWithCombo}>
                             <RefreshCw className="mr-2 size-3.5" />
                             Regenerate
                           </Button>
                         )}
-                        {cdaState !== "deleted" ? (
+                        {cdaState !== "signed" && (
                           <Button variant="outline" size="sm" className="h-8 rounded-lg px-4 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={handleCdaDelete}>
                             <Trash2 className="mr-2 size-3.5" />
                             Delete CDA
-                          </Button>
-                        ) : (
-                          <Button size="sm" className="h-8 rounded-lg px-4 text-xs" onClick={handleCdaRestore}>
-                            <RefreshCw className="mr-2 size-3.5" />
-                            Regenerate CDA
                           </Button>
                         )}
                       </div>
@@ -4771,6 +4743,24 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete CDA confirm */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Delete CDA draft?</DialogTitle>
+            <DialogDescription>
+              This will remove the current CDA and reset status back to <strong>Confirmed by Team Lead and Agent</strong>. You'll need to Generate CDA again from scratch.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmCdaDelete}>
+              <Trash2 className="mr-1.5 size-3.5" />Delete CDA
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Send CDA modal */}
       <Dialog open={sendModalOpen} onOpenChange={setSendModalOpen}>
         <DialogContent className="max-w-[640px]">
@@ -4836,60 +4826,6 @@ export function CommissionBreakdown() {
         </DialogContent>
       </Dialog>
 
-      {/* CDA Activity Log drawer */}
-      <Sheet open={logOpen} onOpenChange={setLogOpen}>
-        <SheetContent side="right" className="w-[420px] sm:w-[420px] p-0 flex flex-col">
-          <SheetHeader className="px-5 py-4 border-b">
-            <SheetTitle className="text-sm">CDA Activity</SheetTitle>
-            <SheetDescription className="text-[11.5px]">Every generate, send, regenerate, and delete for this deal.</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-5 py-2">
-            {activityLog.length === 0 ? (
-              <div className="py-10 text-center text-xs text-muted-foreground">No activity yet.</div>
-            ) : (
-              [...activityLog].reverse().map((e, i) => {
-                const iconBg =
-                  e.action === "generated" ? "bg-emerald-50 text-emerald-700" :
-                  e.action === "sent" ? "bg-blue-50 text-blue-700" :
-                  e.action === "regenerated" ? "bg-amber-50 text-amber-700" :
-                  "bg-neutral-100 text-neutral-600";
-                const label =
-                  e.action === "generated" ? "Generated" :
-                  e.action === "sent" ? "Sent for signature" :
-                  e.action === "regenerated" ? "Regenerated" : "Deleted";
-                const Icon =
-                  e.action === "sent" ? Send :
-                  e.action === "regenerated" ? RefreshCw :
-                  e.action === "deleted" ? Trash2 : FileText;
-                return (
-                  <div key={i} className="flex gap-3 py-3 border-b border-black/5 last:border-b-0">
-                    <div className={`size-8 rounded-full grid place-items-center flex-shrink-0 ${iconBg}`}>
-                      <Icon className="size-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] font-semibold text-black leading-5">
-                        {label}{e.version ? ` · ${e.version}` : ""}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
-                        {e.ts} · {e.actor}{e.note ? ` — ${e.note}` : ""}
-                      </div>
-                      {(e.action !== "deleted") && (
-                        <button
-                          type="button"
-                          className="mt-1.5 text-[11.5px] text-[#5A5FF2] underline"
-                          onClick={() => toast.success(`Opening ${e.version || "v1"} preview`)}
-                        >
-                          View this version →
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Deal-scoped commission plan create/edit dialog */}
       <AddPlanDialog
