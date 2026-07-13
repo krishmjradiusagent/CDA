@@ -230,9 +230,9 @@ export function CDATemplates() {
                   <h2 className="text-base font-semibold tracking-tight">Disbursement Authorization</h2>
                 </div>
 
-                <p className="text-xs font-medium text-muted-foreground mb-3">Please disburse funds as follows:</p>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Please disburse funds as follows:</p>
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-muted/20 p-3 rounded-md border text-xs mb-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-muted/20 p-2.5 rounded-md border text-xs mb-2">
                   <div className="col-span-2">
                     <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Property Address</div>
                     <div className="font-medium text-foreground">1801 E Katella, Apt 2133, Anaheim, California, 92805</div>
@@ -264,7 +264,7 @@ export function CDATemplates() {
                 </div>
 
                 {/* Ledger */}
-                <div className="space-y-2 mb-4">
+                <div className="space-y-1.5 mb-2">
                   <div className="border rounded-md p-2.5 bg-muted/10 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-xs">Radius Agent</span>
