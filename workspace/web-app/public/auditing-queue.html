@@ -184,6 +184,24 @@ body[data-role="agent"] .history-link{display:none}
 .cda-modal-actions button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
 .cda-modal-actions button.close{border:0;background:transparent;font-size:20px;color:#64748b}
 .cda-modal iframe{flex:1;border:0;background:#f8fafc}
+.cda-modal .cda-doc-wrap{flex:1;overflow:auto;background:#f1f5f9;padding:28px 0}
+.cda-doc{background:#fff;width:min(880px,92%);margin:0 auto;padding:56px 64px;box-shadow:0 8px 28px rgba(15,23,42,.10);border-radius:4px;font-family:"Inter",system-ui,sans-serif;color:#0f172a}
+.cda-doc h1{font-size:20px;font-weight:700;margin:0 0 4px;letter-spacing:.01em}
+.cda-doc .doc-sub{font-size:12px;color:#64748b;margin-bottom:24px}
+.cda-doc .doc-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:12px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:14px 0;margin-bottom:22px}
+.cda-doc .doc-meta div{display:flex;justify-content:space-between;gap:12px}
+.cda-doc .doc-meta span:first-child{color:#64748b}
+.cda-doc h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin:20px 0 8px}
+.cda-doc table{width:100%;border-collapse:collapse;font-size:12.5px}
+.cda-doc table th,.cda-doc table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left}
+.cda-doc table th{color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:#f8fafc}
+.cda-doc table td.num,.cda-doc table th.num{text-align:right;font-variant-numeric:tabular-nums}
+.cda-doc .total-row td{font-weight:700;background:#f8fafc;border-top:2px solid #0f172a;border-bottom:2px solid #0f172a}
+.cda-doc .redacted{color:#94a3b8;font-style:italic}
+.cda-doc .sig-block{margin-top:36px;display:flex;justify-content:flex-end}
+.cda-doc .sig-block .sig{border-top:1px solid #0f172a;padding-top:6px;min-width:240px;text-align:center;font-size:12px}
+.cda-doc .sig-block .sig .sig-name{font-family:"Dancing Script","Snell Roundhand",cursive;font-size:22px;color:#0f172a;margin-bottom:4px}
+.cda-doc .sig-block .sig .sig-role{color:#64748b;font-size:11px}
 
 /* popover menu */
 .popover{position:fixed;z-index:100;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:6px;font-size:12.5px}
@@ -737,20 +755,75 @@ function openCdaModal(action, label){
             <button class="close" aria-label="Close">×</button>
           </div>
         </div>
-        <iframe title="CDA Preview"></iframe>
+        <div class="cda-doc-wrap"><div class="cda-doc"></div></div>
       </div>`;
     document.body.appendChild(modal);
     modal.addEventListener("click", e => { if(e.target === modal) modal.classList.remove("open"); });
     modal.querySelector(".close").addEventListener("click", () => modal.classList.remove("open"));
-    const doPrint = () => { try { modal.querySelector("iframe").contentWindow.print(); } catch { window.print(); } };
+    const doPrint = () => window.print();
     modal.querySelector(".print").addEventListener("click", doPrint);
     modal.querySelector(".savepdf").addEventListener("click", doPrint);
   }
   modal.dataset.label = label;
   modal.querySelector(".cda-modal-title").textContent = label;
   modal.querySelector(".cda-modal-sub").textContent = action + " · CDA Document Templates";
-  modal.querySelector("iframe").src = "/cda/templates?tab=" + tab + "&embed=1";
+  modal.querySelector(".cda-doc").innerHTML = renderCdaDoc(tab, label);
   modal.classList.add("open");
+}
+function renderCdaDoc(tab, label){
+  const R = '<span class="redacted">— hidden —</span>';
+  const gross = 24000, radiusFee = 3600, teamSplit = 6120, agentNet = 14280;
+  const rows = {
+    tab1: [
+      ["Gross commission", "$"+gross.toLocaleString()],
+      ["Radius fee (15%)", "$"+radiusFee.toLocaleString()],
+      ["Team split (30%)", "$"+teamSplit.toLocaleString()],
+      ["Agent net", "$"+agentNet.toLocaleString()],
+    ],
+    tab2: [
+      ["Gross commission", "$"+gross.toLocaleString()],
+      ["Radius fee", R],
+      ["Team split (30%)", "$"+teamSplit.toLocaleString()],
+      ["Agent net", "$"+agentNet.toLocaleString()],
+    ],
+    tab4: [
+      ["Gross commission", "$"+gross.toLocaleString()],
+      ["Radius fee (15%)", "$"+radiusFee.toLocaleString()],
+      ["Team split", R],
+      ["Agent net", "$"+agentNet.toLocaleString()],
+    ],
+    tab5: [
+      ["Gross commission", "$"+gross.toLocaleString()],
+      ["Deductions", R],
+      ["Net to agent", R],
+    ],
+  }[tab] || [];
+  const rowsHtml = rows.map(([k,v])=>`<tr><td>${k}</td><td class="num">${v}</td></tr>`).join("");
+  return `
+    <h1>Commission Disbursement Authorization</h1>
+    <div class="doc-sub">${label} · Radius Agent</div>
+    <div class="doc-meta">
+      <div><span>Property</span><span>1245 Oak Ave, Austin TX</span></div>
+      <div><span>COE</span><span>Aug 14, 2026</span></div>
+      <div><span>Agent</span><span>Chris Strange</span></div>
+      <div><span>Escrow #</span><span>ES-88214-A</span></div>
+      <div><span>Sale price</span><span>$800,000</span></div>
+      <div><span>Commission %</span><span>3.0%</span></div>
+    </div>
+    <h2>Disbursement</h2>
+    <table>
+      <thead><tr><th>Line</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        ${rowsHtml}
+        <tr class="total-row"><td>Total to agent</td><td class="num">$${agentNet.toLocaleString()}</td></tr>
+      </tbody>
+    </table>
+    <div class="sig-block">
+      <div class="sig">
+        <div class="sig-name">Lindsey McKenzie</div>
+        <div class="sig-role">Managing Broker · Radius Agent</div>
+      </div>
+    </div>`;
 }
 window.addEventListener("resize", closePop);
 window.addEventListener("scroll", closePop, true);
