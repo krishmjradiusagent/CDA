@@ -184,24 +184,35 @@ body[data-role="agent"] .history-link{display:none}
 .cda-modal-actions button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
 .cda-modal-actions button.close{border:0;background:transparent;font-size:20px;color:#64748b}
 .cda-modal iframe{flex:1;border:0;background:#f8fafc}
-.cda-modal .cda-doc-wrap{flex:1;overflow:auto;background:#f1f5f9;padding:28px 0}
-.cda-doc{background:#fff;width:min(880px,92%);margin:0 auto;padding:56px 64px;box-shadow:0 8px 28px rgba(15,23,42,.10);border-radius:4px;font-family:"Inter",system-ui,sans-serif;color:#0f172a}
-.cda-doc h1{font-size:20px;font-weight:700;margin:0 0 4px;letter-spacing:.01em}
-.cda-doc .doc-sub{font-size:12px;color:#64748b;margin-bottom:24px}
-.cda-doc .doc-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:12px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:14px 0;margin-bottom:22px}
-.cda-doc .doc-meta div{display:flex;justify-content:space-between;gap:12px}
-.cda-doc .doc-meta span:first-child{color:#64748b}
-.cda-doc h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin:20px 0 8px}
-.cda-doc table{width:100%;border-collapse:collapse;font-size:12.5px}
-.cda-doc table th,.cda-doc table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:left}
-.cda-doc table th{color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:#f8fafc}
-.cda-doc table td.num,.cda-doc table th.num{text-align:right;font-variant-numeric:tabular-nums}
-.cda-doc .total-row td{font-weight:700;background:#f8fafc;border-top:2px solid #0f172a;border-bottom:2px solid #0f172a}
-.cda-doc .redacted{color:#94a3b8;font-style:italic}
-.cda-doc .sig-block{margin-top:36px;display:flex;justify-content:flex-end}
-.cda-doc .sig-block .sig{border-top:1px solid #0f172a;padding-top:6px;min-width:240px;text-align:center;font-size:12px}
-.cda-doc .sig-block .sig .sig-name{font-family:"Dancing Script","Snell Roundhand",cursive;font-size:22px;color:#0f172a;margin-bottom:4px}
-.cda-doc .sig-block .sig .sig-role{color:#64748b;font-size:11px}
+.cda-modal .cda-doc-wrap{flex:1;overflow:auto;background:#f8fafc;padding:32px 0}
+.cda-doc{background:#fff;width:min(768px,92%);margin:0 auto;padding:48px;box-shadow:0 10px 30px rgba(15,23,42,.10);border:1px solid #e2e8f0;border-radius:8px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;color:#0f172a}
+.cda-doc .teal-bar{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#14b8a6,#2dd4bf)}
+.cda-doc .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px}
+.cda-doc .doc-head .ra{width:40px;height:40px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#64748b;font-size:13px}
+.cda-doc .doc-head h2{font-size:18px;font-weight:600;letter-spacing:-.01em;margin:0}
+.cda-doc .doc-lead{font-size:14px;font-weight:500;color:#64748b;margin:0 0 24px}
+.cda-doc .doc-meta{background:rgba(241,245,249,.4);border:1px solid #e2e8f0;border-radius:8px;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px;margin-bottom:32px}
+.cda-doc .doc-meta .full{grid-column:1/-1}
+.cda-doc .doc-meta .k{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.cda-doc .doc-meta .v{font-weight:500;color:#0f172a}
+.cda-doc .doc-meta .v.teal{color:#0d9488;font-weight:700;font-size:16px}
+.cda-doc .doc-meta .v.redacted{color:#94a3b8;font-style:italic;font-weight:400;letter-spacing:.02em}
+.cda-doc .ledger{display:flex;flex-direction:column;gap:16px;margin-bottom:32px}
+.cda-doc .payee{border:1px solid #e2e8f0;border-radius:8px;padding:16px;background:rgba(241,245,249,.25)}
+.cda-doc .payee-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.cda-doc .payee-head .name{font-size:14px;font-weight:600}
+.cda-doc .payee-head .sub{font-size:11px;color:#64748b;display:block;margin-top:2px}
+.cda-doc .payee-head .amt{font-size:14px;font-weight:600;color:#0d9488}
+.cda-doc .wire{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:12px;color:#64748b}
+.cda-doc .wire .row{display:flex;justify-content:space-between;padding:2px 0}
+.cda-doc .wire .row .lbl{color:#0f172a;font-weight:600}
+.cda-doc .wire .memo{font-size:10px;font-style:italic;padding-top:6px;margin-top:6px;border-top:1px solid #e2e8f0;color:#64748b}
+.cda-doc .sig-block{margin-top:48px;padding-top:24px;border-top:1px solid #e2e8f0;max-width:320px;margin-left:auto}
+.cda-doc .sig-block .sig-name{font-family:"Dancing Script","Snell Roundhand",cursive;font-size:26px;color:#0f172a;line-height:1;margin-bottom:6px}
+.cda-doc .sig-block .sig-line{border-top:1px solid #0f172a;padding-top:6px}
+.cda-doc .sig-block .sig-role{font-size:11px;color:#64748b}
+.cda-doc .doc-foot{margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0;text-align:center;font-size:10px;color:#94a3b8}
+.cda-doc .redacted-inline{color:#94a3b8;font-style:italic}
 
 /* popover menu */
 .popover{position:fixed;z-index:100;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:6px;font-size:12.5px}
@@ -771,59 +782,66 @@ function openCdaModal(action, label){
   modal.classList.add("open");
 }
 function renderCdaDoc(tab, label){
-  const R = '<span class="redacted">— hidden —</span>';
-  const gross = 24000, radiusFee = 3600, teamSplit = 6120, agentNet = 14280;
-  const rows = {
-    tab1: [
-      ["Gross commission", "$"+gross.toLocaleString()],
-      ["Radius fee (15%)", "$"+radiusFee.toLocaleString()],
-      ["Team split (30%)", "$"+teamSplit.toLocaleString()],
-      ["Agent net", "$"+agentNet.toLocaleString()],
-    ],
-    tab2: [
-      ["Gross commission", "$"+gross.toLocaleString()],
-      ["Radius fee", R],
-      ["Team split (30%)", "$"+teamSplit.toLocaleString()],
-      ["Agent net", "$"+agentNet.toLocaleString()],
-    ],
-    tab4: [
-      ["Gross commission", "$"+gross.toLocaleString()],
-      ["Radius fee (15%)", "$"+radiusFee.toLocaleString()],
-      ["Team split", R],
-      ["Agent net", "$"+agentNet.toLocaleString()],
-    ],
-    tab5: [
-      ["Gross commission", "$"+gross.toLocaleString()],
-      ["Deductions", R],
-      ["Net to agent", R],
-    ],
-  }[tab] || [];
-  const rowsHtml = rows.map(([k,v])=>`<tr><td>${k}</td><td class="num">${v}</td></tr>`).join("");
-  return `
-    <h1>Commission Disbursement Authorization</h1>
-    <div class="doc-sub">${label} · Radius Agent</div>
-    <div class="doc-meta">
-      <div><span>Property</span><span>1245 Oak Ave, Austin TX</span></div>
-      <div><span>COE</span><span>Aug 14, 2026</span></div>
-      <div><span>Agent</span><span>Chris Strange</span></div>
-      <div><span>Escrow #</span><span>ES-88214-A</span></div>
-      <div><span>Sale price</span><span>$800,000</span></div>
-      <div><span>Commission %</span><span>3.0%</span></div>
-    </div>
-    <h2>Disbursement</h2>
-    <table>
-      <thead><tr><th>Line</th><th class="num">Amount</th></tr></thead>
-      <tbody>
-        ${rowsHtml}
-        <tr class="total-row"><td>Total to agent</td><td class="num">$${agentNet.toLocaleString()}</td></tr>
-      </tbody>
-    </table>
-    <div class="sig-block">
-      <div class="sig">
-        <div class="sig-name">Lindsey McKenzie</div>
-        <div class="sig-role">Managing Broker · Radius Agent</div>
+  const R = '<span class="redacted-inline">— hidden —</span>';
+  const gross = "$9,900";
+  const radiusAmt = tab==="tab2" ? R : "$349.00";
+  const upnestAmt = "$2,970.00";
+  const agentAmt  = "$6,581.00";
+  const grossVal  = tab==="tab5" ? R : gross;
+  const wires = [
+    { name:"Radius Agent", sub:"", amt:radiusAmt, hide:false, wire:[
+      ["Wire To:","Agentdesks Incorporated"],
+      ["Bank:","Chase Bank"],
+      ["Account Number:","932588178"],
+      ["Routing Number:","021000021"],
+    ], memo:"PLEASE INCLUDE THE PROPERTY ADDRESS IN THE MEMO. We do not accept paper checks. To confirm wiring instructions, please call 415-649-0122" },
+    { name:"Move Sales Inc (Upnest)", sub:"", amt:upnestAmt, hide:tab==="tab4", wire:[
+      ["Wire To:","Bank of America Merrill Lynch"],
+      ["Account:","1291968437"],
+      ["Routing:","026009593"],
+    ]},
+    { name:"Listwizer Inc.", sub:"(on behalf of Nauz Magdaleno)", amt:agentAmt, hide:false, wire:[
+      ["Wire To:","Listwizer Inc., Morgan Chase"],
+      ["Account:","669958137"],
+      ["Routing:","021000021"],
+    ]},
+  ];
+  const ledger = wires.filter(w=>!w.hide).map(w => `
+    <div class="payee">
+      <div class="payee-head">
+        <div><span class="name">${w.name}</span>${w.sub?`<span class="sub">${w.sub}</span>`:""}</div>
+        <span class="amt">${w.amt}</span>
       </div>
-    </div>`;
+      <div class="wire">
+        ${w.wire.map(([k,v])=>`<div class="row"><span class="lbl">${k}</span><span>${v}</span></div>`).join("")}
+        ${w.memo?`<div class="memo">${w.memo}</div>`:""}
+      </div>
+    </div>`).join("");
+  return `
+    <div class="teal-bar"></div>
+    <div class="doc-head">
+      <div class="ra">RA</div>
+      <div><h2>Disbursement Authorization</h2></div>
+    </div>
+    <p class="doc-lead">Please disburse funds as follows:</p>
+    <div class="doc-meta">
+      <div class="full">
+        <div class="k">Property Address</div>
+        <div class="v">1801 E Katella, Apt 2133, Anaheim, California, 92805</div>
+      </div>
+      <div><div class="k">Representation</div><div class="v">Seller</div></div>
+      <div><div class="k">Agent</div><div class="v">Nauz Magdaleno</div></div>
+      <div><div class="k">Escrow Company</div><div class="v">Nextdoor Escrow - Alicia Smith</div></div>
+      <div><div class="k">Escrow Agent Email</div><div class="v">alicia@nextdoorescrow.com</div></div>
+      <div><div class="k">Sale Price</div><div class="v">$660,000</div></div>
+      <div><div class="k">Gross Commission</div><div class="v teal">${grossVal}</div></div>
+    </div>
+    <div class="ledger">${ledger}</div>
+    <div class="sig-block">
+      <div class="sig-name">Lindsey McKenzie</div>
+      <div class="sig-line"><div class="sig-role">Lindsey McKenzie · Managing Broker (CA)</div></div>
+    </div>
+    <div class="doc-foot">1160 Battery St East Suite 100, Spaces Levis Plaza, San Francisco CA 94111 · broker@radiusagent.com</div>`;
 }
 window.addEventListener("resize", closePop);
 window.addEventListener("scroll", closePop, true);

@@ -17,7 +17,18 @@ import {
   Shield,
   Landmark,
   CheckCircle2,
+  ChevronDown,
+  Check,
+  LayoutTemplate,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { CDAFlowSwitcher } from "../components/v4/finance/cda-flow-switcher";
 import { BrokerSignature } from "../components/BrokerSignature";
 import { toast } from "sonner";
@@ -35,6 +46,15 @@ export function CDATemplates() {
   const embed = params.get("embed") === "1";
   const [demoState, setDemoState] = useState(params.get("demo_state") || "CA");
   const [demoTeam, setDemoTeam] = useState(params.get("demo_team") || "");
+  const [tab, setTab] = useState(initialTab);
+  const tabOptions = [
+    { value: "tab1", label: "Full Transparency" },
+    { value: "tab2", label: "Radius Split Hidden (Partner)" },
+    { value: "tab3", label: "Radius Split Hidden (Associate)" },
+    { value: "tab4", label: "Team Split Hidden (Partner)" },
+    { value: "tab5", label: "Gross CDA" },
+  ];
+  const activeLabel = tabOptions.find(t => t.value === tab)?.label || "Layout";
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -129,16 +149,42 @@ export function CDATemplates() {
 
         {/* Main Content Area */}
         <div className={embed ? "p-6 max-w-[1024px] mx-auto w-full" : "flex-1 p-6 max-w-[1024px] mx-auto w-full"}>
-          <Tabs defaultValue={initialTab} className="w-full space-y-6">
-            <div className={embed ? "hidden" : "flex justify-center border-b pb-4"}>
-              <TabsList className="bg-background border p-1 rounded-lg flex flex-wrap gap-1 w-full justify-between">
-                <TabsTrigger value="tab1" className="text-xs flex-1 py-2">Full Transparency</TabsTrigger>
-                <TabsTrigger value="tab2" className="text-xs flex-1 py-2">Radius Split Hidden (Partner)</TabsTrigger>
-                <TabsTrigger value="tab3" className="text-xs flex-1 py-2">Radius Split Hidden (Associate)</TabsTrigger>
-                <TabsTrigger value="tab4" className="text-xs flex-1 py-2">Team Split Hidden (Partner)</TabsTrigger>
-                <TabsTrigger value="tab5" className="text-xs flex-1 py-2">Gross CDA</TabsTrigger>
-              </TabsList>
-            </div>
+          <Tabs value={tab} onValueChange={setTab} className="w-full space-y-6">
+            <TabsList className="sr-only">
+              {tabOptions.map(t => <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>)}
+            </TabsList>
+            {!embed && (
+              <div className="fixed bottom-6 right-6 z-40">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="default"
+                      className="h-11 gap-2 rounded-full shadow-lg pl-4 pr-3 text-xs font-medium"
+                    >
+                      <LayoutTemplate className="size-4" />
+                      <span className="max-w-[220px] truncate">{activeLabel}</span>
+                      <ChevronDown className="size-3.5 opacity-80" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" className="w-72">
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      CDA Layout
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {tabOptions.map(t => (
+                      <DropdownMenuItem
+                        key={t.value}
+                        onSelect={() => setTab(t.value)}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span>{t.label}</span>
+                        {tab === t.value && <Check className="size-3.5 text-primary" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
 
             {/* Tab 1: Full Transparency */}
             <TabsContent value="tab1" className="space-y-6 animate-in fade-in-50 duration-200">
