@@ -47,6 +47,22 @@ export function CDATemplates() {
   const [demoState, setDemoState] = useState(params.get("demo_state") || "CA");
   const [demoTeam, setDemoTeam] = useState(params.get("demo_team") || "");
   const [tab, setTab] = useState(initialTab);
+  const brokerOptions: { value: string; label: string }[] = [
+    { value: "CA", label: "CA → Roger" },
+    { value: "TX", label: "TX → Kathy" },
+    { value: "FL", label: "FL → Kathy" },
+    { value: "WA", label: "WA → Kathy" },
+    { value: "CO", label: "CO → Kathy" },
+    { value: "AZ", label: "AZ → Kathy" },
+    { value: "GA", label: "GA → …" },
+    { value: "NY", label: "NY → Kevin" },
+  ];
+  const brokerActive = brokerOptions.find(b => b.value === demoState)?.label || demoState;
+  const brokerLabel = demoState === "GA" && demoTeam === "indigo-road"
+    ? "GA · Indigo Road → Rhonda"
+    : demoState === "GA"
+    ? "GA · Standard → Kathy"
+    : brokerActive;
   const tabOptions = [
     { value: "tab1", label: "Full Transparency" },
     { value: "tab2", label: "Radius Split Hidden (Partner)" },
@@ -97,43 +113,8 @@ export function CDATemplates() {
                 </Button>
                 <Separator orientation="vertical" className="h-4" />
                 <h1 className="min-w-0 truncate text-sm font-semibold">CDA Document Templates</h1>
-                <Separator orientation="vertical" className="h-4 shrink-0" />
-                <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium border bg-muted/30">
-                  <FileText className="size-3 text-muted-foreground" />
-                  <span>5 Layout Options</span>
-                </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2 py-1 text-[11px]">
-                  <span className="text-muted-foreground">Broker demo:</span>
-                  <select
-                    value={demoState}
-                    onChange={(e) => {
-                      setDemoState(e.target.value);
-                      if (e.target.value !== "GA") setDemoTeam("");
-                    }}
-                    className="bg-transparent font-medium text-foreground outline-none cursor-pointer"
-                  >
-                    <option value="CA">CA → Roger</option>
-                    <option value="TX">TX → Kathy</option>
-                    <option value="FL">FL → Kathy</option>
-                    <option value="WA">WA → Kathy</option>
-                    <option value="CO">CO → Kathy</option>
-                    <option value="AZ">AZ → Kathy</option>
-                    <option value="GA">GA → …</option>
-                    <option value="NY">NY → Kevin</option>
-                  </select>
-                  {demoState === "GA" && (
-                    <select
-                      value={demoTeam}
-                      onChange={(e) => setDemoTeam(e.target.value)}
-                      className="bg-transparent font-medium text-foreground outline-none cursor-pointer border-l pl-1.5"
-                    >
-                      <option value="">Standard → Kathy</option>
-                      <option value="indigo-road">Indigo Road → Rhonda</option>
-                    </select>
-                  )}
-                </div>
                 <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 gap-1.5 rounded-lg px-3 text-xs">
                   <Printer className="size-3.5" />
                   Print / Save PDF
@@ -154,7 +135,52 @@ export function CDATemplates() {
               {tabOptions.map(t => <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>)}
             </TabsList>
             {!embed && (
-              <div className="fixed bottom-6 right-6 z-40">
+              <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-10 gap-2 rounded-full bg-background shadow-md pl-4 pr-3 text-xs font-medium"
+                    >
+                      <Building2 className="size-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Broker demo:</span>
+                      <span className="max-w-[200px] truncate">{brokerLabel}</span>
+                      <ChevronDown className="size-3.5 opacity-70" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" className="w-64">
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Broker demo
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {brokerOptions.map(b => (
+                      <DropdownMenuItem
+                        key={b.value}
+                        onSelect={() => { setDemoState(b.value); if (b.value !== "GA") setDemoTeam(""); }}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span>{b.label}</span>
+                        {demoState === b.value && <Check className="size-3.5 text-primary" />}
+                      </DropdownMenuItem>
+                    ))}
+                    {demoState === "GA" && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          GA team
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => setDemoTeam("")} className="flex items-center justify-between gap-2 text-xs">
+                          <span>Standard → Kathy</span>
+                          {demoTeam === "" && <Check className="size-3.5 text-primary" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setDemoTeam("indigo-road")} className="flex items-center justify-between gap-2 text-xs">
+                          <span>Indigo Road → Rhonda</span>
+                          {demoTeam === "indigo-road" && <Check className="size-3.5 text-primary" />}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
