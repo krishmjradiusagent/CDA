@@ -85,6 +85,15 @@ export function CDATemplates() {
 
   return (
     <div className={embed ? "bg-muted/20" : "min-h-screen bg-muted/40"}>
+      <style>{`
+        @page { size: Letter; margin: 0.35in; }
+        @media print {
+          body { background: #fff !important; }
+          .no-print, header, nav, [data-slot="dropdown-menu-trigger"], .fixed { display: none !important; }
+          .cda-print-page { box-shadow: none !important; border: 0 !important; padding: 12px !important; max-width: 100% !important; width: 100% !important; page-break-inside: avoid; break-inside: avoid; zoom: 0.88; }
+          .cda-print-page * { page-break-inside: avoid; }
+        }
+      `}</style>
       <div className={embed ? "flex flex-col" : "max-w-[1440px] mx-auto flex flex-col"}>
         {!embed && (
           <>
@@ -214,85 +223,83 @@ export function CDATemplates() {
 
             {/* Tab 1: Full Transparency */}
             <TabsContent value="tab1" className="space-y-6 animate-in fade-in-50 duration-200">
-              <Card className="shadow-lg border-border relative overflow-hidden bg-white dark:bg-card p-12 max-w-[768px] mx-auto">
+              <Card className="cda-print-page shadow-lg border-border relative overflow-hidden bg-white dark:bg-card p-8 max-w-[768px] mx-auto">
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-teal-500 to-teal-400" />
-                <div className="flex justify-between items-start mb-8">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center font-bold text-muted-foreground border">RA</div>
-                  <div className="text-right">
-                    <h2 className="text-lg font-semibold tracking-tight">Disbursement Authorization</h2>
-                  </div>
+                <div className="flex justify-between items-center mb-4">
+                  <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center font-bold text-muted-foreground border text-xs">RA</div>
+                  <h2 className="text-base font-semibold tracking-tight">Disbursement Authorization</h2>
                 </div>
 
-                <p className="text-sm font-medium text-muted-foreground mb-6">Please disburse funds as follows:</p>
+                <p className="text-xs font-medium text-muted-foreground mb-3">Please disburse funds as follows:</p>
 
-                <div className="grid grid-cols-2 gap-4 bg-muted/20 p-5 rounded-lg border text-sm mb-8">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-muted/20 p-3 rounded-md border text-xs mb-4">
                   <div className="col-span-2">
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Property Address</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Property Address</div>
                     <div className="font-medium text-foreground">1801 E Katella, Apt 2133, Anaheim, California, 92805</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Representation</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Representation</div>
                     <div className="font-medium text-foreground">Seller</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Agent</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Agent</div>
                     <div className="font-medium text-foreground">Nauz Magdaleno</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Escrow Company</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Escrow Company</div>
                     <div className="font-medium text-foreground">Nextdoor Escrow - Alicia Smith</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Escrow Agent Email</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Escrow Agent Email</div>
                     <div className="font-medium text-foreground">alicia@nextdoorescrow.com</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Sale Price</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Sale Price</div>
                     <div className="font-medium text-foreground">$660,000</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Gross Commission</div>
-                    <div className="font-bold text-teal-600 text-base">$9,900</div>
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Gross Commission</div>
+                    <div className="font-bold text-teal-600 text-sm">$9,900</div>
                   </div>
                 </div>
 
                 {/* Ledger */}
-                <div className="space-y-4 mb-8">
-                  <div className="border rounded-lg p-4 bg-muted/10 space-y-3">
+                <div className="space-y-2 mb-4">
+                  <div className="border rounded-md p-2.5 bg-muted/10 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold text-sm">Radius Agent</span>
-                      <span className="font-semibold text-sm text-teal-600">$349.00</span>
+                      <span className="font-semibold text-xs">Radius Agent</span>
+                      <span className="font-semibold text-xs text-teal-600">$349.00</span>
                     </div>
-                    <div className="bg-background border rounded p-3 text-xs space-y-1 text-muted-foreground">
+                    <div className="bg-background border rounded p-2 text-[11px] space-y-0.5 text-muted-foreground">
                       <div className="flex justify-between"><span className="font-semibold text-foreground">Wire To:</span><span>Agentdesks Incorporated</span></div>
                       <div className="flex justify-between"><span>Bank:</span><span>Chase Bank</span></div>
                       <div className="flex justify-between"><span>Account Number:</span><span>932588178</span></div>
                       <div className="flex justify-between"><span>Routing Number:</span><span>021000021</span></div>
-                      <div className="text-[10px] italic pt-1 border-t mt-1">PLEASE INCLUDE THE PROPERTY ADDRESS IN THE MEMO. We do not accept paper checks. To confirm wiring instructions, please call 415-649-0122</div>
+                      <div className="text-[9px] italic pt-1 border-t mt-1 leading-snug">PLEASE INCLUDE THE PROPERTY ADDRESS IN THE MEMO. We do not accept paper checks. Confirm wiring at 415-649-0122</div>
                     </div>
                   </div>
 
-                  <div className="border rounded-lg p-4 bg-muted/10 space-y-3">
+                  <div className="border rounded-md p-2.5 bg-muted/10 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold text-sm">Move Sales Inc (Upnest)</span>
-                      <span className="font-semibold text-sm text-teal-600">$2,970.00</span>
+                      <span className="font-semibold text-xs">Move Sales Inc (Upnest)</span>
+                      <span className="font-semibold text-xs text-teal-600">$2,970.00</span>
                     </div>
-                    <div className="bg-background border rounded p-3 text-xs space-y-1 text-muted-foreground">
+                    <div className="bg-background border rounded p-2 text-[11px] space-y-0.5 text-muted-foreground">
                       <div className="flex justify-between"><span className="font-semibold text-foreground">Wire To:</span><span>Bank of America Merrill Lynch</span></div>
                       <div className="flex justify-between"><span>Account:</span><span>1291968437</span></div>
                       <div className="flex justify-between"><span>Routing:</span><span>026009593</span></div>
                     </div>
                   </div>
 
-                  <div className="border rounded-lg p-4 bg-muted/10 space-y-3">
+                  <div className="border rounded-md p-2.5 bg-muted/10 space-y-2">
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-semibold text-sm block">Listwizer Inc.</span>
-                        <span className="text-xs text-muted-foreground">(on behalf of Nauz Magdaleno)</span>
+                        <span className="font-semibold text-xs block">Listwizer Inc.</span>
+                        <span className="text-[10px] text-muted-foreground">(on behalf of Nauz Magdaleno)</span>
                       </div>
-                      <span className="font-semibold text-sm text-teal-600">$6,581.00</span>
+                      <span className="font-semibold text-xs text-teal-600">$6,581.00</span>
                     </div>
-                    <div className="bg-background border rounded p-3 text-xs space-y-1 text-muted-foreground">
+                    <div className="bg-background border rounded p-2 text-[11px] space-y-0.5 text-muted-foreground">
                       <div className="flex justify-between"><span className="font-semibold text-foreground">Wire To:</span><span>Listwizer Inc., Morgan Chase</span></div>
                       <div className="flex justify-between"><span>Account:</span><span>669958137</span></div>
                       <div className="flex justify-between"><span>Routing:</span><span>021000021</span></div>
@@ -300,12 +307,11 @@ export function CDATemplates() {
                   </div>
                 </div>
 
-                <div className="mt-12 pt-6 border-t max-w-[320px] ml-auto">
+                <div className="mt-4 pt-3 border-t max-w-[320px] ml-auto">
                   <BrokerSignature state={demoState} team={demoTeam} />
                 </div>
 
-                <Separator className="my-8" />
-                <div className="text-[10px] text-center text-muted-foreground">
+                <div className="mt-4 pt-2 border-t text-[9px] text-center text-muted-foreground leading-snug">
                   1160 Battery St East Suite 100, Spaces Levis Plaza, San Francisco CA 94111 · broker@radiusagent.com
                 </div>
               </Card>
