@@ -2036,13 +2036,14 @@ export function CDASettings() {
   );
   const [userRole, setUserRole] = useState<"agent" | "team_lead" | "group_lead" | "radius_auditing" | "soul_auditor">("team_lead");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [planSearch, setPlanSearch] = useState<string>("");
+  const [feeSearch, setFeeSearch] = useState<string>("");
   const currentCreatorId = userRole === "team_lead" ? CURRENT_TEAM_LEAD_ID : userRole === "group_lead" ? CURRENT_GROUP_LEAD_ID : null;
   const isTeamLead = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
   const isGroupLead = userRole === "group_lead";
   function canViewOwned(item: { createdBy?: Creator }): boolean {
     if (isTeamLead) {
       if (groupFilter === "all") return true;
-      if (groupFilter === "team") return !item.createdBy || item.createdBy.role === "team_lead";
       const g = GROUPS.find((x) => x.id === groupFilter);
       return !!g && item.createdBy?.role === "group_lead" && item.createdBy.id === g.leadId;
     }
@@ -3058,7 +3059,8 @@ export function CDASettings() {
       );
     }
 
-    const visiblePlans = state.plans.filter(canViewOwned);
+    const planQuery = planSearch.trim().toLowerCase();
+    const visiblePlans = state.plans.filter(canViewOwned).filter((p) => !planQuery || p.name.toLowerCase().includes(planQuery));
     return (
       <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between">
@@ -3067,6 +3069,15 @@ export function CDASettings() {
             <p className="mt-1 text-xs text-muted-foreground">Create default split structures for agents and teams.</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={planSearch}
+                onChange={(e) => setPlanSearch(e.target.value)}
+                placeholder="Search plans"
+                className="h-8 w-[180px] pl-7 text-xs"
+              />
+            </div>
             {isTeamLead && (
               <Select value={groupFilter} onValueChange={setGroupFilter}>
                 <SelectTrigger className="h-8 w-[160px] text-xs">
@@ -3074,7 +3085,6 @@ export function CDASettings() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All groups</SelectItem>
-                  <SelectItem value="team">Team-level only</SelectItem>
                   {GROUPS.map((g) => (
                     <SelectItem key={g.id} value={g.id}>Group: {g.name}</SelectItem>
                   ))}
@@ -3426,7 +3436,8 @@ export function CDASettings() {
       );
     }
 
-    const visibleFees = state.fees.filter(canViewOwned);
+    const feeQuery = feeSearch.trim().toLowerCase();
+    const visibleFees = state.fees.filter(canViewOwned).filter((f) => !feeQuery || f.name.toLowerCase().includes(feeQuery));
     return (
       <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between">
@@ -3435,6 +3446,15 @@ export function CDASettings() {
             <p className="mt-1 text-xs text-muted-foreground">Define reusable deductions for CDA calculations.</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={feeSearch}
+                onChange={(e) => setFeeSearch(e.target.value)}
+                placeholder="Search fees"
+                className="h-8 w-[180px] pl-7 text-xs"
+              />
+            </div>
             {isTeamLead && (
               <Select value={groupFilter} onValueChange={setGroupFilter}>
                 <SelectTrigger className="h-8 w-[160px] text-xs">
@@ -3442,7 +3462,6 @@ export function CDASettings() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All groups</SelectItem>
-                  <SelectItem value="team">Team-level only</SelectItem>
                   {GROUPS.map((g) => (
                     <SelectItem key={g.id} value={g.id}>Group: {g.name}</SelectItem>
                   ))}
