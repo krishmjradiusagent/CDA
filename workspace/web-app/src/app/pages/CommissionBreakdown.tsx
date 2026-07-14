@@ -129,7 +129,19 @@ import {
 } from "../lib/wire-instructions";
 
 type SideId = "listing" | "buyer";
-type Role = "agent" | "team_lead" | "radius_auditing" | "soul_auditor";
+type Role = "agent" | "team_lead" | "group_lead" | "radius_auditing" | "soul_auditor";
+
+type Creator = {
+  role: "team_lead" | "group_lead";
+  id: string;
+  name: string;
+  groupName?: string;
+};
+
+const CURRENT_GROUP_LEAD_ID_CB = "a5";
+const CREATOR_TL_CB: Creator = { role: "team_lead", id: "a3", name: "Sarah Jenkins" };
+const CREATOR_GL_WEST_CB: Creator = { role: "group_lead", id: "a5", name: "Emma Wilson", groupName: "West" };
+const CREATOR_GL_EAST_CB: Creator = { role: "group_lead", id: "a6", name: "James Miller", groupName: "East" };
 type Agent = { id: string; name: string; role: string; payout: number; email?: string; avatarUrl?: string; external?: boolean; phone?: string; brokerageName?: string; brokerageLicenseNumber?: string; brokerageStreetAddress?: string; brokerageUnit?: string; brokerageCity?: string; brokerageState?: string; brokerageZip?: string; representing?: string };
 type PayableToType = "team" | "agent" | "external";
 type WireLinkMode = "external" | "team";
@@ -181,6 +193,7 @@ type CommissionPlanOption = {
   teamSplit: number;
   radiusFeePaidBy?: RadiusFeePaidBy;
   dealScoped?: boolean;
+  createdBy?: Creator;
 };
 
 type TierRow = {
@@ -243,10 +256,10 @@ const CONTACTS = [
 ];
 
 const COMMISSION_PLANS: CommissionPlanOption[] = [
-  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% team", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20, radiusFeePaidBy: "agent" },
-  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% team", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30, radiusFeePaidBy: "team" },
-  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0, radiusFeePaidBy: "agent" },
-  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% team", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40, radiusFeePaidBy: "agent" },
+  { id: "p1", name: "80/20 Standard", detail: "80% agent · 20% team", feeType: "flat", feeAmount: 495, capAmount: 18000, agentSplit: 80, teamSplit: 20, radiusFeePaidBy: "agent", createdBy: CREATOR_TL_CB },
+  { id: "p2", name: "70/30 Standard", detail: "70% agent · 30% team", feeType: "flat", feeAmount: 495, capAmount: 15000, agentSplit: 70, teamSplit: 30, radiusFeePaidBy: "team", createdBy: CREATOR_TL_CB },
+  { id: "p3", name: "Keystone Tiered", detail: "Tiered split plan", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 100, teamSplit: 0, radiusFeePaidBy: "agent", createdBy: CREATOR_GL_WEST_CB },
+  { id: "p4", name: "Lease Referral Plan", detail: "60% agent · 40% team", feeType: "flat", feeAmount: 0, capAmount: 0, agentSplit: 60, teamSplit: 40, radiusFeePaidBy: "agent", createdBy: CREATOR_GL_EAST_CB },
 ];
 
 const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
@@ -255,6 +268,29 @@ const DEFAULT_FEE_LIBRARY: ExistingFeeOption[] = [
   { id: "f3", name: "E&O Fee", type: "flat", amount: "125", timing: "post-split", appliesToMode: "agent", agentIds: ["a1"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
   { id: "f4", name: "Compliance Review", type: "flat", amount: "250", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split" },
 ];
+
+const FEE_CREATORS: Record<string, Creator> = {
+  f1: CREATOR_TL_CB,
+  f2: CREATOR_TL_CB,
+  f3: CREATOR_GL_WEST_CB,
+  f4: CREATOR_TL_CB,
+};
+
+function creatorLabelCB(creator: Creator | undefined, currentRole: Role): string | null {
+  if (!creator) return null;
+  const selfId =
+    currentRole === "team_lead" ? "a3" :
+    currentRole === "group_lead" ? CURRENT_GROUP_LEAD_ID_CB : null;
+  if (selfId != null && creator.id === selfId) return "Created by you";
+  if (creator.role === "team_lead") return "Created by Team Lead";
+  return `Created by Group Lead${creator.groupName ? ` (${creator.groupName})` : ""}`;
+}
+
+function canEditByCreator(creator: Creator | undefined, currentRole: Role): boolean {
+  if (currentRole === "team_lead" || currentRole === "radius_auditing" || currentRole === "soul_auditor") return true;
+  if (currentRole === "group_lead") return !creator || creator.id === CURRENT_GROUP_LEAD_ID_CB;
+  return false;
+}
 
 const RADIUS_CAP_AMOUNT = 12000;
 
@@ -2810,7 +2846,9 @@ export function CommissionBreakdown() {
                               <div className="flex w-full items-center justify-between gap-2">
                                 <div>
                                   <p className="text-sm font-medium">{plan.name}</p>
-                                  <p className="text-xs text-muted-foreground">{plan.detail}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {[creatorLabelCB(plan.createdBy, role), plan.detail].filter(Boolean).join(" · ")}
+                                  </p>
                                 </div>
                                 {plan.dealScoped && (
                                   <span className="inline-flex h-4 shrink-0 items-center rounded-full bg-muted px-1.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Deal-only</span>
@@ -2840,6 +2878,7 @@ export function CommissionBreakdown() {
                         const applied = appliedPlans[selectedAgent.agent.id];
                         const plan = applied ? dealScopedPlans.find((p) => p.id === applied) : null;
                         if (!plan) return null;
+                        if (!canEditByCreator(plan.createdBy, role)) return null;
                         return (
                           <Button
                             variant="outline"
