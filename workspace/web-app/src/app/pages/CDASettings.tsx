@@ -2405,7 +2405,15 @@ export function CDASettings() {
       if (idx >= 0) {
         nextStore.sharedRecipients[idx] = nextRecord;
       } else {
-        nextStore.sharedRecipients.push({ ...nextRecord, id: crypto.randomUUID() });
+        const c = creatorForNew();
+        nextStore.sharedRecipients.push({
+          ...nextRecord,
+          id: crypto.randomUUID(),
+          createdByRole: c.role,
+          createdById: c.id,
+          createdByName: c.name,
+          createdByGroupName: c.groupName,
+        });
       }
     } else if (state.wireType === "private_recipient") {
       const privateRecips = nextStore.privateRecipients[CURRENT_AGENT_ID] || [];
@@ -2522,59 +2530,104 @@ export function CDASettings() {
             <TabsTrigger value="private">Private</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="shared" className="flex flex-col gap-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-semibold">Shared Recipients</h3>
-              {canManageTeamAndShared && (
-                <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("shared")}>
-                  <Plus className="size-4 mr-1" /> Recipient
-                </Button>
-              )}
-            </div>
-            {sharedRecipients.length === 0 ? (
-              <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
-                <p>No shared recipients yet. Add vendors or escrow companies here.</p>
-              </div>
-            ) : (
-              <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent border-b">
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Details</TableHead>
-                      <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
-                      <TableHead className="w-[50px] pr-6"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sharedRecipients.map(r => (
-                      <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
-                        <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || "Unnamed Agent"}</TableCell>
-                        <TableCell className="text-sm max-w-[280px] truncate">{renderWireDetails(r)}</TableCell>
-                        <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
-                        <TableCell className="pr-6 text-right">
-                          {canManageTeamAndShared && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="size-8">
-                                  <MoreVertical className="size-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
-                                <DropdownMenuItem onClick={() => openWireDialog("shared", r)}>
-                                  <Edit3 className="size-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            )}
+          <TabsContent value="shared" className="flex flex-col gap-6">
+            {(() => {
+              const tlRecipients = sharedRecipients.filter((r) => !r.createdByRole || r.createdByRole === "team_lead");
+              const glRecipients = sharedRecipients.filter((r) => r.createdByRole === "group_lead");
+              const isGLView = isGroupLead;
+              const visibleGL = isGLView
+                ? glRecipients.filter((r) => r.createdById === CURRENT_GROUP_LEAD_ID)
+                : glRecipients;
+              function renderRecipientsCard(rows: WireInstructionRecord[], allowEdit: boolean) {
+                if (rows.length === 0) {
+                  return (
+                    <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-8 text-center flex flex-col items-center gap-3">
+                      <p>No recipients yet.</p>
+                    </div>
+                  );
+                }
+                return (
+                  <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent border-b">
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Name</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Details</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Status</TableHead>
+                          <TableHead className="w-[50px] pr-6"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((r) => (
+                          <TableRow key={r.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                            <TableCell className="pl-6 font-medium text-sm text-foreground">{r.accountHolderName || "Unnamed Agent"}</TableCell>
+                            <TableCell className="text-sm max-w-[280px] truncate">{renderWireDetails(r)}</TableCell>
+                            <TableCell><WireStatusBadge complete={isWireInstructionComplete(r, {requireBankDetails: false})} /></TableCell>
+                            <TableCell className="pr-6 text-right">
+                              {allowEdit && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="size-8">
+                                      <MoreVertical className="size-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                                    <DropdownMenuItem onClick={() => openWireDialog("shared", r)}>
+                                      <Edit3 className="size-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                );
+              }
+              if (isGLView) {
+                return (
+                  <>
+                    <div className="flex flex-col gap-3">
+                      <h3 className="text-sm font-semibold">Shared by Team Lead</h3>
+                      {renderRecipientsCard(tlRecipients, false)}
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-semibold">Shared by You</h3>
+                        <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("shared")}>
+                          <Plus className="size-4 mr-1" /> Recipient
+                        </Button>
+                      </div>
+                      {renderRecipientsCard(visibleGL, true)}
+                    </div>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-semibold">Shared by Team Lead</h3>
+                      {canManageTeamAndShared && (
+                        <Button variant="outline" size="sm" className="border-primary text-primary hover:text-primary" onClick={() => openWireDialog("shared")}>
+                          <Plus className="size-4 mr-1" /> Recipient
+                        </Button>
+                      )}
+                    </div>
+                    {renderRecipientsCard(tlRecipients, canManageTeamAndShared)}
+                  </div>
+                  {glRecipients.length > 0 && (
+                    <div className="flex flex-col gap-3">
+                      <h3 className="text-sm font-semibold">Shared by Group Leads</h3>
+                      {renderRecipientsCard(glRecipients, canManageTeamAndShared)}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="private" className="flex flex-col gap-6">

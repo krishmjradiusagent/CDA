@@ -27,6 +27,10 @@ export type WireInstructionRecord = {
   bankZip: string;
   specialInstructions: string;
   updatedAt: string | null;
+  createdByRole?: "team_lead" | "group_lead";
+  createdById?: string;
+  createdByName?: string;
+  createdByGroupName?: string;
 };
 
 export type WireCompletionNotification = {
@@ -134,6 +138,9 @@ export function createDefaultWireInstructionsStore(teamLeadAgentId: string, agen
       accountNumber: "411902876",
       accountType: "checking",
       updatedAt: now,
+      createdByRole: "team_lead",
+      createdById: "a3",
+      createdByName: "Sarah Jenkins",
     },
     {
       ...createEmptyWireInstruction("shared-vendor-1"),
@@ -146,6 +153,24 @@ export function createDefaultWireInstructionsStore(teamLeadAgentId: string, agen
       recipientState: "CA",
       recipientZip: "94105",
       updatedAt: now,
+      createdByRole: "team_lead",
+      createdById: "a3",
+      createdByName: "Sarah Jenkins",
+    },
+    {
+      ...createEmptyWireInstruction("shared-gl-west-1"),
+      payableName: "West Coast Photo Co.",
+      accountHolderName: "West Coast Photo Co.",
+      email: "billing@westcoastphoto.com",
+      bankName: "Chase Bank",
+      routingNumber: "021000021",
+      accountNumber: "555018233",
+      accountType: "checking",
+      updatedAt: now,
+      createdByRole: "group_lead",
+      createdById: "a5",
+      createdByName: "Emma Wilson",
+      createdByGroupName: "West",
     },
   ];
   const privateRecipients: Record<string, WireInstructionRecord[]> = {
