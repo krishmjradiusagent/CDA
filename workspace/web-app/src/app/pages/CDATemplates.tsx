@@ -86,12 +86,13 @@ export function CDATemplates() {
   return (
     <div className={embed ? "bg-muted/20" : "min-h-screen bg-muted/40"}>
       <style>{`
-        @page { size: Letter; margin: 0.35in; }
+        @page { size: Letter; margin: 0.5in 0.4in; }
         @media print {
-          body { background: #fff !important; }
+          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
           .no-print, header, nav, [data-slot="dropdown-menu-trigger"], .fixed { display: none !important; }
-          .cda-print-page { box-shadow: none !important; border: 0 !important; padding: 12px !important; max-width: 100% !important; width: 100% !important; page-break-inside: avoid; break-inside: avoid; zoom: 0.88; }
-          .cda-print-page * { page-break-inside: avoid; }
+          .cda-print-page { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; zoom: 0.88; }
+          .cda-print-page > * { break-inside: avoid; page-break-inside: avoid; }
+          .cda-print-page .wire-card, .cda-print-page [data-print-block] { break-inside: avoid; page-break-inside: avoid; margin-top: 8px; }
         }
       `}</style>
       <div className={embed ? "flex flex-col" : "max-w-[1440px] mx-auto flex flex-col"}>
