@@ -25,6 +25,7 @@ import {
 export type FeeTier = { id: string; from: string; to: string; fee: string };
 export type PercentageBase = "property-value" | "pre-split" | "post-split";
 export type DealType = "buyer" | "seller" | "referral" | "lease" | "lease-listing";
+export type FeeScopeMode = "all_members" | "all_groups" | "specific_members" | "specific_groups";
 
 export interface FeeTypeDraft {
   id: string | null;
@@ -46,6 +47,9 @@ export interface FeeTypeDraft {
   notLessThan: { enabled: boolean; amount: string };
   notToExceed: { enabled: boolean; amount: string };
   visibleOnCda?: boolean;
+  scopeMode?: FeeScopeMode;
+  scopeMemberIds?: string[];
+  scopeGroupIds?: string[];
 }
 
 export type ExistingFeeOption = FeeTypeDraft & { id: string };
@@ -102,6 +106,9 @@ function makeDraft(initial: Partial<FeeTypeDraft> | undefined, teamName: string)
     contributesToCap: initial?.contributesToCap ?? false,
     notLessThan: initial?.notLessThan ?? { enabled: false, amount: "" },
     notToExceed: initial?.notToExceed ?? { enabled: false, amount: "" },
+    scopeMode: initial?.scopeMode ?? "all_members",
+    scopeMemberIds: initial?.scopeMemberIds ?? [],
+    scopeGroupIds: initial?.scopeGroupIds ?? [],
     visibleOnCda: initial?.visibleOnCda ?? false,
   };
 }
@@ -188,6 +195,24 @@ export function FeeBuilderModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-6 px-10 py-8">
+            <div className="space-y-1.5">
+              <Label>Scope</Label>
+              <Select
+                value={draft.scopeMode ?? "all_members"}
+                onValueChange={(v) => update("scopeMode", v as FeeScopeMode)}
+              >
+                <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_members">All members</SelectItem>
+                  <SelectItem value="all_groups">All groups</SelectItem>
+                  <SelectItem value="specific_members">Specific members</SelectItem>
+                  <SelectItem value="specific_groups">Specific groups</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {existingFeeOptions.length > 0 && (
               <div className="space-y-1.5">
                 <Label>Select Fee Type</Label>
