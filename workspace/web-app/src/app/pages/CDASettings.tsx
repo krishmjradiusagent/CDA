@@ -27,6 +27,8 @@ import {
   UserCheck,
   UserMinus,
   User, Users, Shield,
+  Check,
+  Filter,
   ChevronRight,
   Library,
   type LucideIcon,
@@ -79,6 +81,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { Command, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty } from "../components/ui/command";
 import { Separator } from "../components/ui/separator";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
@@ -333,6 +337,55 @@ const ASSIGNABLE_CDA_TYPES = ["buyer", "listing", "referral", "lease", "lease-li
 function formatDealTypes(types: Record<string, boolean>) {
   const selected = Object.keys(types).filter((key) => types[key]).map((key) => getCdaTypeLabel(key));
   return selected.length ? selected.join(", ") : "No CDA types";
+}
+
+function FilterPopover({
+  search,
+  onSearch,
+  placeholder,
+  groupFilter,
+  onGroupFilter,
+  showGroups,
+}: {
+  search: string;
+  onSearch: (v: string) => void;
+  placeholder: string;
+  groupFilter: string;
+  onGroupFilter: (v: string) => void;
+  showGroups: boolean;
+}) {
+  const activeGroup = GROUPS.find((g) => g.id === groupFilter);
+  const groupLabel = groupFilter === "all" ? "All groups" : activeGroup ? `Group: ${activeGroup.name}` : "All groups";
+  const hasFilter = search.trim().length > 0 || (showGroups && groupFilter !== "all");
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-normal">
+          <Filter className={cn("size-3.5", hasFilter ? "text-primary" : "text-muted-foreground")} />
+          <span className="text-foreground">{showGroups ? groupLabel : "Search & filter"}</span>
+          {search.trim() && <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">"{search.trim()}"</Badge>}
+          <ChevronDown className="size-3.5 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[260px] p-0">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={placeholder} value={search} onValueChange={onSearch} />
+          {showGroups && (
+            <CommandList>
+              <CommandGroup heading="Filter by group">
+                {[{ id: "all", label: "All groups" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
+                  <CommandItem key={opt.id} value={opt.id} onSelect={() => onGroupFilter(opt.id)}>
+                    <span className="flex-1">{opt.label}</span>
+                    {groupFilter === opt.id && <Check className="size-3.5 text-primary" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          )}
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function CreatorChip({ creator, selfId }: { creator?: Creator; selfId: string | null }) {
@@ -3069,28 +3122,14 @@ export function CDASettings() {
             <p className="mt-1 text-xs text-muted-foreground">Create default split structures for agents and teams.</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={planSearch}
-                onChange={(e) => setPlanSearch(e.target.value)}
-                placeholder="Search plans"
-                className="h-8 w-[180px] pl-7 text-xs"
-              />
-            </div>
-            {isTeamLead && (
-              <Select value={groupFilter} onValueChange={setGroupFilter}>
-                <SelectTrigger className="h-8 w-[160px] text-xs">
-                  <SelectValue placeholder="All groups" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All groups</SelectItem>
-                  {GROUPS.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>Group: {g.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <FilterPopover
+              search={planSearch}
+              onSearch={setPlanSearch}
+              placeholder="Search plans"
+              groupFilter={groupFilter}
+              onGroupFilter={setGroupFilter}
+              showGroups={isTeamLead}
+            />
             <Button
               variant="outline"
               size="sm"
@@ -3446,28 +3485,14 @@ export function CDASettings() {
             <p className="mt-1 text-xs text-muted-foreground">Define reusable deductions for CDA calculations.</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={feeSearch}
-                onChange={(e) => setFeeSearch(e.target.value)}
-                placeholder="Search fees"
-                className="h-8 w-[180px] pl-7 text-xs"
-              />
-            </div>
-            {isTeamLead && (
-              <Select value={groupFilter} onValueChange={setGroupFilter}>
-                <SelectTrigger className="h-8 w-[160px] text-xs">
-                  <SelectValue placeholder="All groups" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All groups</SelectItem>
-                  {GROUPS.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>Group: {g.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <FilterPopover
+              search={feeSearch}
+              onSearch={setFeeSearch}
+              placeholder="Search fees"
+              groupFilter={groupFilter}
+              onGroupFilter={setGroupFilter}
+              showGroups={isTeamLead}
+            />
             <Button
               variant="outline"
               size="sm"
