@@ -1745,30 +1745,17 @@ function PlanScopePicker({
   }
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <Label className="text-sm font-medium">Scope</Label>
-          <p className="mt-0.5 text-xs text-muted-foreground">Who this plan applies to.</p>
-        </div>
-        <Select value={form.scopeMode} onValueChange={(v) => onFormChange({ scopeMode: v as PlanScopeMode })}>
-          <SelectTrigger className="h-9 w-[200px] text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {modes.map((m) => (
-              <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {form.scopeMode === "all_members" && (
-        <p className="text-xs text-muted-foreground">Applies to all {memberAgents.length} team members.</p>
-      )}
-      {form.scopeMode === "all_groups" && (
-        <p className="text-xs text-muted-foreground">
-          Applies to all {GROUPS.length} groups ({GROUPS.map((g) => g.name).join(", ")}).
-        </p>
-      )}
+      <Label className="text-sm font-medium">Scope</Label>
+      <Select value={form.scopeMode} onValueChange={(v) => onFormChange({ scopeMode: v as PlanScopeMode })}>
+        <SelectTrigger className="h-10 w-full text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {modes.map((m) => (
+            <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {form.scopeMode === "specific_members" && (
         <Popover open={memberOpen} onOpenChange={setMemberOpen}>
           <PopoverTrigger asChild>
@@ -1899,6 +1886,7 @@ function AddPlanDialog({
           </div>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+          <PlanScopePicker form={form} onFormChange={onFormChange} />
           <PlanSetupFields
             form={form}
             errors={errors}
@@ -1911,8 +1899,6 @@ function AddPlanDialog({
             onAddTier={onAddTier}
             onRemoveTier={onRemoveTier}
           />
-          <Separator />
-          <PlanScopePicker form={form} onFormChange={onFormChange} />
         </div>
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
