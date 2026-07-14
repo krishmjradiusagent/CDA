@@ -1718,11 +1718,11 @@ function PlanScopePicker({
   form: PlanForm;
   onFormChange: (patch: Partial<PlanForm>) => void;
 }) {
-  const modes: { id: PlanScopeMode; label: string; icon: LucideIcon }[] = [
-    { id: "all_members", label: "All members", icon: Users },
-    { id: "all_groups", label: "All groups", icon: Building2 },
-    { id: "specific_members", label: "Specific members", icon: User },
-    { id: "specific_groups", label: "Specific groups", icon: Briefcase },
+  const modes: { id: PlanScopeMode; label: string }[] = [
+    { id: "all_members", label: "All members" },
+    { id: "all_groups", label: "All groups" },
+    { id: "specific_members", label: "Specific members" },
+    { id: "specific_groups", label: "Specific groups" },
   ];
   const memberAgents = agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id));
   const [memberOpen, setMemberOpen] = useState(false);
@@ -1744,40 +1744,28 @@ function PlanScopePicker({
     });
   }
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <Label className="text-sm font-medium">Scope</Label>
-        <p className="mt-0.5 text-xs text-muted-foreground">Who this plan applies to.</p>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {modes.map((m) => {
-          const Icon = m.icon;
-          const active = form.scopeMode === m.id;
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => onFormChange({ scopeMode: m.id })}
-              className={cn(
-                "flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary/5 text-primary"
-                  : "border-border text-foreground hover:bg-muted/50",
-              )}
-            >
-              <Icon className={cn("size-3.5", active ? "text-primary" : "text-muted-foreground")} />
-              <span>{m.label}</span>
-            </button>
-          );
-        })}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Label className="text-sm font-medium">Scope</Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">Who this plan applies to.</p>
+        </div>
+        <Select value={form.scopeMode} onValueChange={(v) => onFormChange({ scopeMode: v as PlanScopeMode })}>
+          <SelectTrigger className="h-9 w-[200px] text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {modes.map((m) => (
+              <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {form.scopeMode === "all_members" && (
-        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          Applies to all {memberAgents.length} team members.
-        </p>
+        <p className="text-xs text-muted-foreground">Applies to all {memberAgents.length} team members.</p>
       )}
       {form.scopeMode === "all_groups" && (
-        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Applies to all {GROUPS.length} groups ({GROUPS.map((g) => g.name).join(", ")}).
         </p>
       )}
