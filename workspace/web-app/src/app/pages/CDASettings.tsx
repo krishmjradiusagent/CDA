@@ -201,6 +201,13 @@ type Creator = {
   groupName?: string;
 };
 
+type PlanScopeMode = "all_members" | "all_groups" | "specific_members" | "specific_groups";
+type PlanScope = {
+  mode: PlanScopeMode;
+  memberIds: string[];
+  groupIds: string[];
+};
+
 type CommissionPlan = {
   id: string;
   name: string;
@@ -215,6 +222,7 @@ type CommissionPlan = {
   basedOn: BasedOn;
   tiers: TierRow[];
   createdBy?: Creator;
+  scope?: PlanScope;
 };
 
 
@@ -235,6 +243,9 @@ type PlanForm = {
   defaultMode: DefaultMode;
   selectedAgentIds: string[];
   tiers: TierRow[];
+  scopeMode: PlanScopeMode;
+  scopeMemberIds: string[];
+  scopeGroupIds: string[];
 };
 
 type PlanErrors = Partial<
@@ -430,6 +441,9 @@ function getFreshPlanForm(): PlanForm {
     defaultMode: "all",
     selectedAgentIds: [],
     tiers: defaultTiers.map((tier) => ({ ...tier })),
+    scopeMode: "all_members",
+    scopeMemberIds: [],
+    scopeGroupIds: [],
   };
 }
 
@@ -1697,6 +1711,154 @@ function AssignDefaultsDialog({
   );
 }
 
+function PlanScopePicker({
+  form,
+  onFormChange,
+}: {
+  form: PlanForm;
+  onFormChange: (patch: Partial<PlanForm>) => void;
+}) {
+  const modes: { id: PlanScopeMode; label: string; icon: LucideIcon }[] = [
+    { id: "all_members", label: "All members", icon: Users },
+    { id: "all_groups", label: "All groups", icon: Building2 },
+    { id: "specific_members", label: "Specific members", icon: User },
+    { id: "specific_groups", label: "Specific groups", icon: Briefcase },
+  ];
+  const memberAgents = agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id));
+  const [memberOpen, setMemberOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const selectedMembers = memberAgents.filter((a) => form.scopeMemberIds.includes(a.id));
+  const selectedGroups = GROUPS.filter((g) => form.scopeGroupIds.includes(g.id));
+  function toggleMember(id: string) {
+    onFormChange({
+      scopeMemberIds: form.scopeMemberIds.includes(id)
+        ? form.scopeMemberIds.filter((x) => x !== id)
+        : [...form.scopeMemberIds, id],
+    });
+  }
+  function toggleGroup(id: string) {
+    onFormChange({
+      scopeGroupIds: form.scopeGroupIds.includes(id)
+        ? form.scopeGroupIds.filter((x) => x !== id)
+        : [...form.scopeGroupIds, id],
+    });
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <Label className="text-sm font-medium">Scope</Label>
+        <p className="mt-0.5 text-xs text-muted-foreground">Who this plan applies to.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {modes.map((m) => {
+          const Icon = m.icon;
+          const active = form.scopeMode === m.id;
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onFormChange({ scopeMode: m.id })}
+              className={cn(
+                "flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border text-foreground hover:bg-muted/50",
+              )}
+            >
+              <Icon className={cn("size-3.5", active ? "text-primary" : "text-muted-foreground")} />
+              <span>{m.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {form.scopeMode === "all_members" && (
+        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Applies to all {memberAgents.length} team members.
+        </p>
+      )}
+      {form.scopeMode === "all_groups" && (
+        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Applies to all {GROUPS.length} groups ({GROUPS.map((g) => g.name).join(", ")}).
+        </p>
+      )}
+      {form.scopeMode === "specific_members" && (
+        <Popover open={memberOpen} onOpenChange={setMemberOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 justify-between text-xs font-normal">
+              <span className="truncate">
+                {selectedMembers.length === 0
+                  ? "Select team members…"
+                  : selectedMembers.length <= 2
+                    ? selectedMembers.map((m) => m.name).join(", ")
+                    : `${selectedMembers.length} members selected`}
+              </span>
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[320px] p-0">
+            <Command>
+              <CommandInput placeholder="Search members" />
+              <CommandList>
+                <CommandEmpty>No members.</CommandEmpty>
+                <CommandGroup>
+                  {memberAgents.map((a) => {
+                    const checked = form.scopeMemberIds.includes(a.id);
+                    return (
+                      <CommandItem key={a.id} value={a.name} onSelect={() => toggleMember(a.id)}>
+                        <Checkbox checked={checked} className="pointer-events-none" />
+                        <Avatar className="size-5">
+                          {a.avatarUrl && <AvatarImage src={a.avatarUrl} alt={a.name} />}
+                          <AvatarFallback className="text-[9px]">{a.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1 truncate">{a.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{a.role}</span>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
+      {form.scopeMode === "specific_groups" && (
+        <Popover open={groupOpen} onOpenChange={setGroupOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 justify-between text-xs font-normal">
+              <span className="truncate">
+                {selectedGroups.length === 0
+                  ? "Select groups…"
+                  : selectedGroups.map((g) => g.name).join(", ")}
+              </span>
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[240px] p-0">
+            <Command>
+              <CommandInput placeholder="Search groups" />
+              <CommandList>
+                <CommandEmpty>No groups.</CommandEmpty>
+                <CommandGroup>
+                  {GROUPS.map((g) => {
+                    const checked = form.scopeGroupIds.includes(g.id);
+                    return (
+                      <CommandItem key={g.id} value={g.name} onSelect={() => toggleGroup(g.id)}>
+                        <Checkbox checked={checked} className="pointer-events-none" />
+                        <Building2 className="size-3.5 text-muted-foreground" />
+                        <span className="flex-1">{g.name}</span>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+}
+
 function AddPlanDialog({
   open,
   title,
@@ -1761,6 +1923,8 @@ function AddPlanDialog({
             onAddTier={onAddTier}
             onRemoveTier={onRemoveTier}
           />
+          <Separator />
+          <PlanScopePicker form={form} onFormChange={onFormChange} />
         </div>
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -2919,6 +3083,11 @@ export function CDASettings() {
       basedOn: state.form.basedOn,
       tiers: state.form.tiers.map((tier) => ({ ...tier })),
       createdBy: existing?.createdBy ?? creatorForNew(),
+      scope: {
+        mode: state.form.scopeMode,
+        memberIds: [...state.form.scopeMemberIds],
+        groupIds: [...state.form.scopeGroupIds],
+      },
     };
   }
 
@@ -2985,6 +3154,9 @@ export function CDASettings() {
         resetPeriod: plan.resetPeriod,
         basedOn: plan.basedOn,
         tiers: plan.tiers.map((tier) => ({ ...tier })),
+        scopeMode: plan.scope?.mode ?? "all_members",
+        scopeMemberIds: plan.scope?.memberIds ? [...plan.scope.memberIds] : [],
+        scopeGroupIds: plan.scope?.groupIds ? [...plan.scope.groupIds] : [],
       },
     }));
   }
