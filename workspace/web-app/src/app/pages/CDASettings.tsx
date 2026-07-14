@@ -340,48 +340,70 @@ function formatDealTypes(types: Record<string, boolean>) {
 }
 
 function FilterPopover({
-  search,
-  onSearch,
-  placeholder,
   groupFilter,
   onGroupFilter,
   showGroups,
+  memberOptions,
 }: {
-  search: string;
-  onSearch: (v: string) => void;
-  placeholder: string;
   groupFilter: string;
   onGroupFilter: (v: string) => void;
   showGroups: boolean;
+  memberOptions: { id: string; name: string; avatarUrl?: string; groupName?: string }[];
 }) {
   const activeGroup = GROUPS.find((g) => g.id === groupFilter);
-  const groupLabel = groupFilter === "all" ? "All groups" : activeGroup ? `Group: ${activeGroup.name}` : "All groups";
-  const hasFilter = search.trim().length > 0 || (showGroups && groupFilter !== "all");
+  const activeMember = groupFilter.startsWith("member:")
+    ? memberOptions.find((m) => `member:${m.id}` === groupFilter)
+    : undefined;
+  const label = activeGroup
+    ? `Group: ${activeGroup.name}`
+    : activeMember
+      ? activeMember.name
+      : "All groups & members";
+  const hasFilter = groupFilter !== "all";
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-normal">
           <Filter className={cn("size-3.5", hasFilter ? "text-primary" : "text-muted-foreground")} />
-          <span className="text-foreground">{showGroups ? groupLabel : "Search & filter"}</span>
-          {search.trim() && <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">"{search.trim()}"</Badge>}
+          <span className="text-foreground">{showGroups ? label : "Search & filter"}</span>
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[260px] p-0">
-        <Command shouldFilter={false}>
-          <CommandInput placeholder={placeholder} value={search} onValueChange={onSearch} />
-          {showGroups && (
-            <CommandList>
+      <PopoverContent align="end" className="w-[280px] p-0">
+        <Command>
+          <CommandInput placeholder="Search groups & team members" />
+          <CommandList>
+            <CommandEmpty>No matches.</CommandEmpty>
+            {showGroups && (
               <CommandGroup heading="Filter by group">
-                {[{ id: "all", label: "All groups" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
-                  <CommandItem key={opt.id} value={opt.id} onSelect={() => onGroupFilter(opt.id)}>
+                {[{ id: "all", label: "All groups & members" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
+                  <CommandItem key={opt.id} value={opt.label} onSelect={() => onGroupFilter(opt.id)}>
+                    <Users className="size-3.5 text-muted-foreground" />
                     <span className="flex-1">{opt.label}</span>
                     {groupFilter === opt.id && <Check className="size-3.5 text-primary" />}
                   </CommandItem>
                 ))}
               </CommandGroup>
-            </CommandList>
-          )}
+            )}
+            {showGroups && memberOptions.length > 0 && (
+              <CommandGroup heading="Filter by team member">
+                {memberOptions.map((m) => {
+                  const v = `member:${m.id}`;
+                  return (
+                    <CommandItem key={m.id} value={`${m.name} ${m.groupName ?? ""}`} onSelect={() => onGroupFilter(v)}>
+                      <Avatar className="size-5">
+                        {m.avatarUrl && <AvatarImage src={m.avatarUrl} alt={m.name} />}
+                        <AvatarFallback className="text-[9px]">{m.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}</AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 truncate">{m.name}</span>
+                      {m.groupName && <span className="text-[10px] text-muted-foreground">{m.groupName}</span>}
+                      {groupFilter === v && <Check className="size-3.5 text-primary" />}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
@@ -2089,14 +2111,16 @@ export function CDASettings() {
   );
   const [userRole, setUserRole] = useState<"agent" | "team_lead" | "group_lead" | "radius_auditing" | "soul_auditor">("team_lead");
   const [groupFilter, setGroupFilter] = useState<string>("all");
-  const [planSearch, setPlanSearch] = useState<string>("");
-  const [feeSearch, setFeeSearch] = useState<string>("");
   const currentCreatorId = userRole === "team_lead" ? CURRENT_TEAM_LEAD_ID : userRole === "group_lead" ? CURRENT_GROUP_LEAD_ID : null;
   const isTeamLead = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
   const isGroupLead = userRole === "group_lead";
   function canViewOwned(item: { createdBy?: Creator }): boolean {
     if (isTeamLead) {
       if (groupFilter === "all") return true;
+      if (groupFilter.startsWith("member:")) {
+        const memberId = groupFilter.slice("member:".length);
+        return item.createdBy?.id === memberId;
+      }
       const g = GROUPS.find((x) => x.id === groupFilter);
       return !!g && item.createdBy?.role === "group_lead" && item.createdBy.id === g.leadId;
     }
@@ -2112,6 +2136,22 @@ export function CDASettings() {
     if (isGroupLead) return !item.createdBy || item.createdBy.id === CURRENT_GROUP_LEAD_ID;
     return false;
   }
+  const memberOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; avatarUrl?: string; groupName?: string }>();
+    const add = (c?: Creator) => {
+      if (!c || map.has(c.id)) return;
+      const agent = agents.find((a) => a.id === c.id);
+      map.set(c.id, { id: c.id, name: c.name, avatarUrl: agent?.avatarUrl, groupName: c.groupName });
+    };
+    // Always include Team Lead + Group Leads
+    add(CREATOR_TL);
+    add(CREATOR_GL_WEST);
+    add(CREATOR_GL_EAST);
+    // Include any additional creators from data
+    // (referenced via state — safe: memoized against state.plans/fees)
+    return Array.from(map.values());
+  }, []);
+
   function creatorForNew(): Creator {
     if (isGroupLead) return { ...CREATOR_GL_WEST };
     return { ...CREATOR_TL };
@@ -3112,8 +3152,7 @@ export function CDASettings() {
       );
     }
 
-    const planQuery = planSearch.trim().toLowerCase();
-    const visiblePlans = state.plans.filter(canViewOwned).filter((p) => !planQuery || p.name.toLowerCase().includes(planQuery));
+    const visiblePlans = state.plans.filter(canViewOwned);
     return (
       <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between">
@@ -3123,12 +3162,10 @@ export function CDASettings() {
           </div>
           <div className="flex items-center gap-2">
             <FilterPopover
-              search={planSearch}
-              onSearch={setPlanSearch}
-              placeholder="Search plans"
               groupFilter={groupFilter}
               onGroupFilter={setGroupFilter}
               showGroups={isTeamLead}
+              memberOptions={memberOptions}
             />
             <Button
               variant="outline"
@@ -3475,8 +3512,7 @@ export function CDASettings() {
       );
     }
 
-    const feeQuery = feeSearch.trim().toLowerCase();
-    const visibleFees = state.fees.filter(canViewOwned).filter((f) => !feeQuery || f.name.toLowerCase().includes(feeQuery));
+    const visibleFees = state.fees.filter(canViewOwned);
     return (
       <section className="flex flex-col gap-4">
         <div className="flex items-end justify-between">
@@ -3486,12 +3522,10 @@ export function CDASettings() {
           </div>
           <div className="flex items-center gap-2">
             <FilterPopover
-              search={feeSearch}
-              onSearch={setFeeSearch}
-              placeholder="Search fees"
               groupFilter={groupFilter}
               onGroupFilter={setGroupFilter}
               showGroups={isTeamLead}
+              memberOptions={memberOptions}
             />
             <Button
               variant="outline"
