@@ -342,12 +342,10 @@ function formatDealTypes(types: Record<string, boolean>) {
 function FilterPopover({
   groupFilter,
   onGroupFilter,
-  showGroups,
   memberOptions,
 }: {
   groupFilter: string;
   onGroupFilter: (v: string) => void;
-  showGroups: boolean;
   memberOptions: { id: string; name: string; avatarUrl?: string; groupName?: string }[];
 }) {
   const activeGroup = GROUPS.find((g) => g.id === groupFilter);
@@ -365,7 +363,7 @@ function FilterPopover({
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-normal">
           <Filter className={cn("size-3.5", hasFilter ? "text-primary" : "text-muted-foreground")} />
-          <span className="text-foreground">{showGroups ? label : "Search & filter"}</span>
+          <span className="text-foreground">{label}</span>
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
@@ -374,18 +372,16 @@ function FilterPopover({
           <CommandInput placeholder="Search groups & team members" />
           <CommandList>
             <CommandEmpty>No matches.</CommandEmpty>
-            {showGroups && (
-              <CommandGroup heading="Filter by group">
-                {[{ id: "all", label: "All groups & members" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
-                  <CommandItem key={opt.id} value={opt.label} onSelect={() => onGroupFilter(opt.id)}>
-                    <Users className="size-3.5 text-muted-foreground" />
-                    <span className="flex-1">{opt.label}</span>
-                    {groupFilter === opt.id && <Check className="size-3.5 text-primary" />}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            {showGroups && memberOptions.length > 0 && (
+            <CommandGroup heading="Filter by group">
+              {[{ id: "all", label: "All groups & members" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
+                <CommandItem key={opt.id} value={opt.label} onSelect={() => onGroupFilter(opt.id)}>
+                  <Users className="size-3.5 text-muted-foreground" />
+                  <span className="flex-1">{opt.label}</span>
+                  {groupFilter === opt.id && <Check className="size-3.5 text-primary" />}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            {memberOptions.length > 0 && (
               <CommandGroup heading="Filter by team member">
                 {memberOptions.map((m) => {
                   const v = `member:${m.id}`;
@@ -3161,12 +3157,13 @@ export function CDASettings() {
             <p className="mt-1 text-xs text-muted-foreground">Create default split structures for agents and teams.</p>
           </div>
           <div className="flex items-center gap-2">
-            <FilterPopover
-              groupFilter={groupFilter}
-              onGroupFilter={setGroupFilter}
-              showGroups={isTeamLead}
-              memberOptions={memberOptions}
-            />
+            {isTeamLead && (
+              <FilterPopover
+                groupFilter={groupFilter}
+                onGroupFilter={setGroupFilter}
+                memberOptions={memberOptions}
+              />
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -3521,12 +3518,13 @@ export function CDASettings() {
             <p className="mt-1 text-xs text-muted-foreground">Define reusable deductions for CDA calculations.</p>
           </div>
           <div className="flex items-center gap-2">
-            <FilterPopover
-              groupFilter={groupFilter}
-              onGroupFilter={setGroupFilter}
-              showGroups={isTeamLead}
-              memberOptions={memberOptions}
-            />
+            {isTeamLead && (
+              <FilterPopover
+                groupFilter={groupFilter}
+                onGroupFilter={setGroupFilter}
+                memberOptions={memberOptions}
+              />
+            )}
             <Button
               variant="outline"
               size="sm"
