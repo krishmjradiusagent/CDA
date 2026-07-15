@@ -3280,6 +3280,20 @@ export function CommissionBreakdown() {
                       />
                     </div>
                   </div>
+
+                  {(role === "team_lead" || role === "group_lead") && (
+                    <>
+                      <Separator className="my-3" />
+                      <div className="flex items-center justify-between py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Group Commission</p>
+                        <div className="flex min-w-[120px] items-center justify-end gap-1 text-right">
+                          <p className="text-sm font-semibold tabular-nums text-foreground">
+                            {currency(Math.round(selectedAgent.companyDollarContribution * 0.25))}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                   <Separator className="my-3" />
 
                   {renderActivitySurface({ preview: true })}
@@ -3623,6 +3637,17 @@ export function CommissionBreakdown() {
                         )}
                       </div>
                     </div>
+                    {(role === "team_lead" || role === "group_lead") && (
+                      <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Group commission</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">Group Lead portion of the team split</p>
+                        </div>
+                        <div className="flex items-center justify-end gap-1 text-right">
+                          <p className="text-base font-bold tabular-nums text-foreground">{currency(Math.round(officeNet * 0.25))}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <Separator className="my-4" />
