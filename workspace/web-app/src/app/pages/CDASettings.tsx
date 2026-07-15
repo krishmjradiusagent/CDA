@@ -26,6 +26,7 @@ import {
   X,
   UserCheck,
   UserMinus,
+  AlertCircle,
   User, Users, Shield,
   Check,
   Filter,
@@ -217,6 +218,7 @@ type CommissionPlan = {
   name: string;
   type: PlanType;
   agentSplit: number;
+  groupSplit: number;
   teamSplit: number;
   feeType: FeeType;
   feeAmount: number;
@@ -237,6 +239,7 @@ type PlanForm = {
   planName: string;
   planType: PlanType;
   agentSplit: string;
+  groupSplit: string;
   teamSplit: string;
   resetPeriod: ResetPeriod;
   basedOn: BasedOn;
@@ -320,10 +323,10 @@ const defaultTiers: TierRow[] = [
 ];
 
 const seedPlans: CommissionPlan[] = [
-  { id: "p1", name: "80/20 Standard", type: "standard", agentSplit: 80, teamSplit: 20, feeType: "flat", feeAmount: 495, capAmount: 18000, assignedAgentsCount: 12, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
-  { id: "p2", name: "70/30 Standard", type: "standard", agentSplit: 70, teamSplit: 30, feeType: "flat", feeAmount: 495, capAmount: 15000, assignedAgentsCount: 4, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
-  { id: "p3", name: "Keystone Tiered", type: "tiered", agentSplit: 80, teamSplit: 20, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 2, resetPeriod: "yearly", basedOn: "units", tiers: defaultTiers.map((t) => ({ ...t })), createdBy: CREATOR_GL_WEST },
-  { id: "p4", name: "Lease Referral Plan", type: "standard", agentSplit: 60, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_EAST },
+  { id: "p1", name: "80/20 Standard", type: "standard", agentSplit: 80, groupSplit: 0, teamSplit: 20, feeType: "flat", feeAmount: 495, capAmount: 18000, assignedAgentsCount: 12, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
+  { id: "p2", name: "70/30 Standard", type: "standard", agentSplit: 60, groupSplit: 10, teamSplit: 30, feeType: "flat", feeAmount: 495, capAmount: 15000, assignedAgentsCount: 4, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
+  { id: "p3", name: "Keystone Tiered", type: "tiered", agentSplit: 75, groupSplit: 5, teamSplit: 20, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 2, resetPeriod: "yearly", basedOn: "units", tiers: defaultTiers.map((t) => ({ ...t })), createdBy: CREATOR_GL_WEST },
+  { id: "p4", name: "Lease Referral Plan", type: "standard", agentSplit: 50, groupSplit: 10, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_EAST },
 ];
 
 const seedFees: FeeRecord[] = [
@@ -458,6 +461,7 @@ function getFreshPlanForm(): PlanForm {
     planName: "",
     planType: "standard",
     agentSplit: "80",
+    groupSplit: "0",
     teamSplit: "20",
     resetPeriod: "yearly",
     basedOn: "units",
@@ -1224,10 +1228,12 @@ function PlanSetupFields({
   splitTotal,
   onFormChange,
   onAgentSplitChange,
+  onGroupSplitChange,
   onTeamSplitChange,
   onUpdateTier,
   onAddTier,
   onRemoveTier,
+  lockTeamSplit,
 }: {
   form: PlanForm;
   errors: PlanErrors;
@@ -1235,10 +1241,12 @@ function PlanSetupFields({
   splitTotal: number;
   onFormChange: (patch: Partial<PlanForm>) => void;
   onAgentSplitChange: (value: string) => void;
+  onGroupSplitChange: (value: string) => void;
   onTeamSplitChange: (value: string) => void;
   onUpdateTier: (tierId: string, patch: Partial<TierRow>) => void;
   onAddTier: () => void;
   onRemoveTier: (tierId: string) => void;
+  lockTeamSplit?: boolean;
 }) {
   return (
     <>
@@ -1270,7 +1278,7 @@ function PlanSetupFields({
 
       {form.planType === "standard" ? (
         <>
-          <div className="grid w-full grid-cols-2 gap-4">
+          <div className="grid w-full grid-cols-3 gap-3">
             <div className="flex w-full flex-col gap-2">
               <Label htmlFor="agent-split" className="text-sm font-medium">Agent Split %</Label>
               <Input
@@ -1283,19 +1291,34 @@ function PlanSetupFields({
               />
             </div>
             <div className="flex w-full flex-col gap-2">
-              <Label htmlFor="team-split" className="text-sm font-medium">Team Split %</Label>
+              <Label htmlFor="group-split" className="text-sm font-medium">Group Split %</Label>
+              <Input
+                id="group-split"
+                value={form.groupSplit}
+                inputMode="numeric"
+                aria-invalid={Boolean(errors.splitTotal)}
+                className="h-10 w-full box-border"
+                onChange={(event) => onGroupSplitChange(event.target.value)}
+              />
+            </div>
+            <div className="flex w-full flex-col gap-2">
+              <Label htmlFor="team-split" className="text-sm font-medium">
+                Team Split %
+                {lockTeamSplit && <span className="ml-1 text-[10px] font-normal text-muted-foreground">(set by Team Lead)</span>}
+              </Label>
               <Input
                 id="team-split"
                 value={form.teamSplit}
                 inputMode="numeric"
                 aria-invalid={Boolean(errors.splitTotal)}
+                disabled={lockTeamSplit}
                 className="h-10 w-full box-border"
                 onChange={(event) => onTeamSplitChange(event.target.value)}
               />
             </div>
           </div>
           <p className={errors.splitTotal ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
-            {errors.splitTotal ?? `Split total must equal 100%. Current: ${splitTotal}%`}
+            {errors.splitTotal ?? `Agent + Group + Team must equal 100%. Current: ${splitTotal}%`}
           </p>
         </>
       ) : (
@@ -1895,12 +1918,14 @@ function AddPlanDialog({
   errors,
   onFormChange,
   onAgentSplitChange,
+  onGroupSplitChange,
   onTeamSplitChange,
   onUpdateTier,
   onAddTier,
   onRemoveTier,
   onOpenChange,
   onSave,
+  lockTeamSplit,
 }: {
   open: boolean;
   title: string;
@@ -1908,14 +1933,17 @@ function AddPlanDialog({
   errors: PlanErrors;
   onFormChange: (patch: Partial<PlanForm>) => void;
   onAgentSplitChange: (value: string) => void;
+  onGroupSplitChange: (value: string) => void;
   onTeamSplitChange: (value: string) => void;
   onUpdateTier: (tierId: string, patch: Partial<TierRow>) => void;
   onAddTier: () => void;
   onRemoveTier: (tierId: string) => void;
   onOpenChange: (open: boolean) => void;
   onSave: () => void;
+  lockTeamSplit?: boolean;
 }) {
-  const splitTotal = numericValue(form.agentSplit) + numericValue(form.teamSplit);
+  const splitTotal =
+    numericValue(form.agentSplit) + numericValue(form.groupSplit) + numericValue(form.teamSplit);
   const feeLabel = "Fixed Fee";
 
   return (
@@ -1947,10 +1975,12 @@ function AddPlanDialog({
             splitTotal={splitTotal}
             onFormChange={onFormChange}
             onAgentSplitChange={onAgentSplitChange}
+            onGroupSplitChange={onGroupSplitChange}
             onTeamSplitChange={onTeamSplitChange}
             onUpdateTier={onUpdateTier}
             onAddTier={onAddTier}
             onRemoveTier={onRemoveTier}
+            lockTeamSplit={lockTeamSplit}
           />
         </div>
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
@@ -3045,11 +3075,21 @@ export function CDASettings() {
   }
 
   function handleAgentSplitChange(value: string) {
-    updateForm({ agentSplit: value, teamSplit: String(Math.max(0, 100 - numericValue(value))) });
+    const agent = numericValue(value);
+    const team = numericValue(state.form.teamSplit);
+    updateForm({ agentSplit: value, groupSplit: String(Math.max(0, 100 - agent - team)) });
   }
 
   function handleTeamSplitChange(value: string) {
-    updateForm({ teamSplit: value, agentSplit: String(Math.max(0, 100 - numericValue(value))) });
+    const team = numericValue(value);
+    const group = numericValue(state.form.groupSplit);
+    updateForm({ teamSplit: value, agentSplit: String(Math.max(0, 100 - team - group)) });
+  }
+
+  function handleGroupSplitChange(value: string) {
+    const group = numericValue(value);
+    const team = numericValue(state.form.teamSplit);
+    updateForm({ groupSplit: value, agentSplit: String(Math.max(0, 100 - group - team)) });
   }
 
   function updateTier(tierId: string, patch: Partial<TierRow>) {
@@ -3097,7 +3137,10 @@ export function CDASettings() {
     if (!state.form.planName.trim()) nextErrors.planName = "Plan Name required";
 
     if (state.form.planType === "standard") {
-      const splitTotal = numericValue(state.form.agentSplit) + numericValue(state.form.teamSplit);
+      const splitTotal =
+        numericValue(state.form.agentSplit) +
+        numericValue(state.form.groupSplit) +
+        numericValue(state.form.teamSplit);
       if (splitTotal !== 100) nextErrors.splitTotal = `Split total must equal 100%. Current: ${splitTotal}%`;
     }
 
@@ -3128,6 +3171,7 @@ export function CDASettings() {
       name: state.form.planName.trim(),
       type: state.form.planType,
       agentSplit: numericValue(state.form.agentSplit),
+      groupSplit: numericValue(state.form.groupSplit),
       teamSplit: numericValue(state.form.teamSplit),
       feeType: "flat",
       feeAmount: numericValue(state.form.feeAmount || "495"),
@@ -3201,6 +3245,7 @@ export function CDASettings() {
         planName: plan.name,
         planType: plan.type,
         agentSplit: String(plan.agentSplit),
+        groupSplit: String(plan.groupSplit ?? 0),
         teamSplit: String(plan.teamSplit),
         feeType: "flat",
         feeAmount: String(plan.feeAmount),
@@ -3235,6 +3280,7 @@ export function CDASettings() {
         planName: `${plan.name} Copy`,
         planType: plan.type,
         agentSplit: String(plan.agentSplit),
+        groupSplit: String(plan.groupSplit ?? 0),
         teamSplit: String(plan.teamSplit),
         feeType: "flat",
         feeAmount: String(plan.feeAmount),
@@ -3429,7 +3475,19 @@ export function CDASettings() {
                 return (
                   <TableRow key={plan.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
                     <TableCell className="pl-6 font-medium text-sm text-foreground">
-                      {plan.name}
+                      <div className="flex items-center gap-2">
+                        <span>{plan.name}</span>
+                        {isGroupLead && plan.createdBy?.role === "team_lead" && (plan.groupSplit ?? 0) === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => editPlan(plan)}
+                            className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/20"
+                          >
+                            <AlertCircle className="size-3" />
+                            Set your split
+                          </button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <PlanTypeBadge type={plan.type} />
@@ -4079,12 +4137,17 @@ export function CDASettings() {
         errors={state.errors}
         onFormChange={updateForm}
         onAgentSplitChange={handleAgentSplitChange}
+        onGroupSplitChange={handleGroupSplitChange}
         onTeamSplitChange={handleTeamSplitChange}
         onUpdateTier={updateTier}
         onAddTier={addTier}
         onRemoveTier={removeTier}
         onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "add-plan" : null }))}
         onSave={handleSavePlan}
+        lockTeamSplit={
+          isGroupLead &&
+          state.plans.find((p) => p.id === state.form.editingPlanId)?.createdBy?.role === "team_lead"
+        }
       />
 
       <FeeBuilderModal
@@ -4092,6 +4155,7 @@ export function CDASettings() {
         title={state.feeDialogMode === "edit" ? "Edit Fee Type" : "Add Fee Type"}
         initialData={state.feeDraft}
         teamName="Keystone Team"
+        groupLeadName={isGroupLead ? agents.find((a) => a.id === CURRENT_GROUP_LEAD_ID)?.name : undefined}
         onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "add-fee" : null }))}
         onSave={saveFeeType}
       />

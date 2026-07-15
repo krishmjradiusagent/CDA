@@ -35,7 +35,7 @@ export interface FeeTypeDraft {
   percentageBase: PercentageBase;
   appliesToMode: "team" | "agent" | "both";
   coAgentSplitMode?: "split-equally" | "each-agent-pays";
-  payableToType?: "radius" | "team" | "external";
+  payableToType?: "radius" | "team" | "group_lead" | "external";
   payableToName?: string;
   payableToExternalId?: string;
   dealTypes?: DealType[];
@@ -65,6 +65,7 @@ export interface FeeBuilderModalProps {
   hideSlidingScale?: boolean;
   existingFeeOptions?: ExistingFeeOption[];
   teamName?: string;
+  groupLeadName?: string;
 }
 
 const DEFAULT_TEAM_NAME = "Keystone Team";
@@ -79,9 +80,11 @@ function resolvePayableToName(
   type: FeeTypeDraft["payableToType"],
   teamName: string,
   existing?: string,
+  groupLeadName?: string,
 ): string {
   if (type === "radius") return "Radius";
   if (type === "team") return teamName;
+  if (type === "group_lead") return groupLeadName ?? "Group Lead";
   return existing ?? "";
 }
 
@@ -161,6 +164,7 @@ export function FeeBuilderModal({
   hidePostSplitBase,
   existingFeeOptions = [],
   teamName = DEFAULT_TEAM_NAME,
+  groupLeadName,
 }: FeeBuilderModalProps) {
   const [draft, setDraft] = useState<FeeTypeDraft>(() => makeDraft(initialData, teamName));
 
@@ -180,6 +184,7 @@ export function FeeBuilderModal({
         value,
         teamName,
         value === "external" ? prev.payableToName : undefined,
+        groupLeadName,
       ),
       payableToExternalId: value === "external" ? prev.payableToExternalId : undefined,
     }));
@@ -363,6 +368,7 @@ export function FeeBuilderModal({
                   <SelectContent>
                     <SelectItem value="radius">Radius</SelectItem>
                     <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="group_lead">Group Lead{groupLeadName ? ` (${groupLeadName})` : ""}</SelectItem>
                     <SelectItem value="external">External</SelectItem>
                   </SelectContent>
                 </Select>
