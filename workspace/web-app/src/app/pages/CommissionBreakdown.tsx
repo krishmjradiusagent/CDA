@@ -2336,19 +2336,19 @@ export function CommissionBreakdown() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-2 rounded-lg px-3 text-xs">
-                {role === "agent" ? <User className="size-3.5" /> : role === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
-                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : role === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}
+                {role === "agent" ? <User className="size-3.5" /> : role === "team_lead" || role === "group_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
+                {role === "agent" ? "Agent view" : role === "team_lead" ? "Team Lead view" : role === "group_lead" ? "Group Lead view" : role === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}
                 <ChevronRight className="size-3 rotate-90" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Switch role</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {(["agent", "team_lead", "radius_auditing", "soul_auditor"] as Role[]).map((r) => (
+              {(["agent", "team_lead", "group_lead", "radius_auditing", "soul_auditor"] as Role[]).map((r) => (
                 <DropdownMenuItem key={r} onClick={() => setRole(r)} className={cn(role === r && "bg-accent")}>
                   <div className="flex items-center gap-2">
-                    {r === "agent" ? <User className="size-3.5" /> : r === "team_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
-                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : r === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}</span>
+                    {r === "agent" ? <User className="size-3.5" /> : r === "team_lead" || r === "group_lead" ? <Users className="size-3.5" /> : <Shield className="size-3.5" />}
+                    <span>{r === "agent" ? "Agent view" : r === "team_lead" ? "Team Lead view" : r === "group_lead" ? "Group Lead view" : r === "soul_auditor" ? "SOUL Auditor view" : "Auditor view"}</span>
                   </div>
                 </DropdownMenuItem>
               ))}
