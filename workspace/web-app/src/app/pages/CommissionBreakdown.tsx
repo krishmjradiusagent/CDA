@@ -3597,6 +3597,15 @@ export function CommissionBreakdown() {
                         </div>
                       );
                     })}
+                    <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Net commission</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Total paid to agents on this side</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-base font-bold tabular-nums text-foreground">{currency(totalAgentPayout)}</p>
+                      </div>
+                    </div>
                     {(canEditAll || activeSideRadiusFee > 0) && (
                       <div className="rounded-xl border bg-card px-4 py-3.5">
                         <div className="flex items-center justify-between gap-4">
