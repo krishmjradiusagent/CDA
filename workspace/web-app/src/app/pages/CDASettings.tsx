@@ -136,11 +136,16 @@ type DefaultMode = "all" | "specific";
 type DialogMode = "add" | "edit";
 type DialogName = "add-plan" | "add-fee" | "assign-defaults" | null;
 
+type PlanScopeMode = "all_members" | "all_groups" | "specific_members" | "specific_groups";
+
 type AssignDefaultsForm = {
   planId: string;
   feeIds: string[];
   assignMode: "all" | "specific";
   selectedAgentIds: string[];
+  scopeMode: PlanScopeMode;
+  scopeMemberIds: string[];
+  scopeGroupIds: string[];
   dealTypes: Record<string, boolean>;
   applyToActiveDeals: boolean;
   actionType: "assign" | "unassign";
@@ -201,7 +206,6 @@ type Creator = {
   groupName?: string;
 };
 
-type PlanScopeMode = "all_members" | "all_groups" | "specific_members" | "specific_groups";
 type PlanScope = {
   mode: PlanScopeMode;
   memberIds: string[];
@@ -279,10 +283,30 @@ const CURRENT_TEAM_LEAD_ID = "a3";
 const CURRENT_AGENT_ID = "a1";
 const CURRENT_GROUP_LEAD_ID = "a5";
 
-const GROUPS: { id: string; leadId: string; name: string }[] = [
-  { id: "gr-west", leadId: "a5", name: "West" },
-  { id: "gr-east", leadId: "a6", name: "East" },
+const GROUPS: { id: string; leadId: string; name: string; memberIds: string[] }[] = [
+  { id: "gr-west", leadId: "a5", name: "West", memberIds: ["a5", "a1", "a2", "a7"] },
+  { id: "gr-east", leadId: "a6", name: "East", memberIds: ["a6", "a4", "a8", "a9"] },
 ];
+
+function groupForLead(leadId: string) {
+  return GROUPS.find((g) => g.leadId === leadId);
+}
+
+function resolveScopeAgentIds(
+  scope: { scopeMode: PlanScopeMode; scopeMemberIds: string[]; scopeGroupIds: string[] },
+  restrictToGroupId?: string,
+): string[] {
+  const group = restrictToGroupId ? GROUPS.find((g) => g.id === restrictToGroupId) : null;
+  if (scope.scopeMode === "all_members" || scope.scopeMode === "all_groups") {
+    return group ? [...group.memberIds] : agents.map((a) => a.id);
+  }
+  if (scope.scopeMode === "specific_members") {
+    return group
+      ? scope.scopeMemberIds.filter((id) => group.memberIds.includes(id))
+      : [...scope.scopeMemberIds];
+  }
+  return GROUPS.filter((g) => scope.scopeGroupIds.includes(g.id)).map((g) => g.leadId);
+}
 
 const CREATOR_TL: Creator = { role: "team_lead", id: "a3", name: "Sarah Jenkins" };
 const CREATOR_GL_WEST: Creator = { role: "group_lead", id: "a5", name: "Emma Wilson", groupName: "West" };
@@ -337,6 +361,9 @@ function getFreshAssignDefaultsForm(): AssignDefaultsForm {
     feeIds: [],
     assignMode: "specific",
     selectedAgentIds: [],
+    scopeMode: "all_members",
+    scopeMemberIds: [],
+    scopeGroupIds: [],
     dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false },
     applyToActiveDeals: false,
     actionType: "assign",
@@ -1546,6 +1573,7 @@ function AssignDefaultsDialog({
   onFormChange,
   onOpenChange,
   onSave,
+  restrictToGroupId,
 }: {
   open: boolean;
   source: AssignDefaultsSource;
@@ -1557,6 +1585,7 @@ function AssignDefaultsDialog({
   onFormChange: (patch: Partial<AssignDefaultsForm>) => void;
   onOpenChange: (open: boolean) => void;
   onSave: () => void;
+  restrictToGroupId?: string;
 }) {
   const lockedPlan = source.from === "plan" ? plans.find((p) => p.id === source.planId) : null;
   const lockedFee = source.from === "fee" ? fees.find((f) => f.id === source.feeId) : null;
@@ -1670,13 +1699,22 @@ function AssignDefaultsDialog({
           {/* Assignment controls (Cases 1, 2, 4) */}
           {showAssignTo && (
             <div className="flex flex-col gap-3">
-              <Label className="text-sm font-medium">
-                Assign To
-              </Label>
-              <AgentMultiSelect
-                selectedAgentIds={form.selectedAgentIds}
-                lockedAgentId={lockedAgentId}
-                onChange={(selectedAgentIds) => onFormChange({ selectedAgentIds })}
+              <PlanScopePicker
+                restrictToGroupId={restrictToGroupId}
+                form={{
+                  scopeMode: form.scopeMode,
+                  scopeMemberIds: form.scopeMemberIds,
+                  scopeGroupIds: form.scopeGroupIds,
+                }}
+                onFormChange={(patch) => {
+                  const next = {
+                    scopeMode: patch.scopeMode ?? form.scopeMode,
+                    scopeMemberIds: patch.scopeMemberIds ?? form.scopeMemberIds,
+                    scopeGroupIds: patch.scopeGroupIds ?? form.scopeGroupIds,
+                  };
+                  const resolved = resolveScopeAgentIds(next, restrictToGroupId);
+                  onFormChange({ ...patch, selectedAgentIds: resolved });
+                }}
               />
               {errors.selectedAgentIds && (
                 <p className="text-xs text-destructive">{errors.selectedAgentIds}</p>
@@ -1711,20 +1749,36 @@ function AssignDefaultsDialog({
   );
 }
 
+type ScopePickerValue = {
+  scopeMode: PlanScopeMode;
+  scopeMemberIds: string[];
+  scopeGroupIds: string[];
+};
+
 function PlanScopePicker({
   form,
   onFormChange,
+  restrictToGroupId,
 }: {
-  form: PlanForm;
-  onFormChange: (patch: Partial<PlanForm>) => void;
+  form: ScopePickerValue;
+  onFormChange: (patch: Partial<ScopePickerValue>) => void;
+  restrictToGroupId?: string;
 }) {
-  const modes: { id: PlanScopeMode; label: string }[] = [
-    { id: "all_members", label: "All members" },
-    { id: "all_groups", label: "All groups" },
-    { id: "specific_members", label: "Specific members" },
-    { id: "specific_groups", label: "Specific groups" },
-  ];
-  const memberAgents = agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id));
+  const restrictedGroup = restrictToGroupId ? GROUPS.find((g) => g.id === restrictToGroupId) : null;
+  const modes: { id: PlanScopeMode; label: string }[] = restrictedGroup
+    ? [
+        { id: "all_members", label: `All members (${restrictedGroup.name})` },
+        { id: "specific_members", label: "Specific members" },
+      ]
+    : [
+        { id: "all_members", label: "All members" },
+        { id: "all_groups", label: "All groups" },
+        { id: "specific_members", label: "Specific members" },
+        { id: "specific_groups", label: "Specific groups" },
+      ];
+  const memberAgents = restrictedGroup
+    ? agents.filter((a) => restrictedGroup.memberIds.includes(a.id))
+    : agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id));
   const [memberOpen, setMemberOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
   const selectedMembers = memberAgents.filter((a) => form.scopeMemberIds.includes(a.id));
@@ -1745,7 +1799,7 @@ function PlanScopePicker({
   }
   return (
     <div className="flex flex-col gap-2">
-      <Label className="text-sm font-medium">Scope</Label>
+      <Label className="text-sm font-medium">Assign To</Label>
       <Select value={form.scopeMode} onValueChange={(v) => onFormChange({ scopeMode: v as PlanScopeMode })}>
         <SelectTrigger className="h-10 w-full text-sm">
           <SelectValue />
@@ -1886,7 +1940,6 @@ function AddPlanDialog({
           </div>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
-          <PlanScopePicker form={form} onFormChange={onFormChange} />
           <PlanSetupFields
             form={form}
             errors={errors}
@@ -4054,6 +4107,7 @@ export function CDASettings() {
         onFormChange={updateAssignDefaultsForm}
         onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "assign-defaults" : null }))}
         onSave={handleSaveAssignDefaults}
+        restrictToGroupId={isGroupLead ? groupForLead(CURRENT_GROUP_LEAD_ID)?.id : undefined}
       />
 
       <AlertDialog

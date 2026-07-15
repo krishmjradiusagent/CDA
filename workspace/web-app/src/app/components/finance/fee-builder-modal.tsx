@@ -195,24 +195,6 @@ export function FeeBuilderModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-6 px-10 py-8">
-            <div className="space-y-1.5">
-              <Label>Scope</Label>
-              <Select
-                value={draft.scopeMode ?? "all_members"}
-                onValueChange={(v) => update("scopeMode", v as FeeScopeMode)}
-              >
-                <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_members">All members</SelectItem>
-                  <SelectItem value="all_groups">All groups</SelectItem>
-                  <SelectItem value="specific_members">Specific members</SelectItem>
-                  <SelectItem value="specific_groups">Specific groups</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {existingFeeOptions.length > 0 && (
               <div className="space-y-1.5">
                 <Label>Select Fee Type</Label>
