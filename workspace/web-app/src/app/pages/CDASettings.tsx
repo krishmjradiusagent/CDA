@@ -31,6 +31,7 @@ import {
   Filter,
   ChevronRight,
   Library,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -135,7 +136,19 @@ type BasedOn = "units" | "gci" | "sales-volume" | "sales-price";
 type PlanKind = "base" | "sub";
 type DefaultMode = "all" | "specific";
 type DialogMode = "add" | "edit";
-type DialogName = "add-plan" | "add-fee" | "assign-defaults" | null;
+type DialogName = "add-plan" | "add-sub-plan" | "add-fee" | "assign-defaults" | null;
+
+type PlanSource = "zillow" | "referral" | "self-gen" | "sphere" | "other";
+const PLAN_SOURCES: { id: PlanSource; label: string }[] = [
+  { id: "zillow", label: "Zillow" },
+  { id: "referral", label: "Referral" },
+  { id: "self-gen", label: "Self-generated" },
+  { id: "sphere", label: "Sphere" },
+  { id: "other", label: "Other" },
+];
+function formatPlanSource(s?: PlanSource) {
+  return PLAN_SOURCES.find((x) => x.id === s)?.label ?? "Any source";
+}
 
 type PlanScopeMode = "all_members" | "all_groups" | "specific_members" | "specific_groups";
 
@@ -220,6 +233,10 @@ type CommissionPlan = {
   name: string;
   type: PlanType;
   kind?: PlanKind;
+  basePlanId?: string;
+  agentId?: string;
+  txnType?: string;
+  source?: PlanSource;
   splitScope: PlanSplitScope;
   agentSplit: number;
   groupSplit: number;
@@ -242,6 +259,11 @@ type PlanForm = {
   editingPlanId: string | null;
   planName: string;
   planType: PlanType;
+  kind: PlanKind;
+  basePlanId: string;
+  subAgentId: string;
+  subTxnType: string;
+  subSource: PlanSource;
   splitScope: PlanSplitScope;
   agentSplit: string;
   groupSplit: string;
@@ -261,7 +283,7 @@ type PlanForm = {
 };
 
 type PlanErrors = Partial<
-  Record<"planName" | "splitTotal" | "selectedAgentIds", string>
+  Record<"planName" | "splitTotal" | "selectedAgentIds" | "basePlanId" | "subAgentId" | "subTxnType", string>
 > & {
   tiers?: Record<string, string>;
 };
@@ -338,6 +360,9 @@ const seedPlans: CommissionPlan[] = [
     { id: "t6-2", from: "500000", to: "1500000", agentSplit: "75", teamSplit: "25" },
     { id: "t6-3", from: "1500000", to: "", agentSplit: "80", teamSplit: "20" },
   ], createdBy: CREATOR_TL },
+  // Sub-plans (GL-created, under a base plan)
+  { id: "sp1", name: "Ila · Buyer · Zillow", type: "standard", kind: "sub", basePlanId: "p5", agentId: "a1", txnType: "buyer", source: "zillow", splitScope: "group", agentSplit: 50, groupSplit: 10, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
+  { id: "sp2", name: "Michael · Listing · Referral", type: "standard", kind: "sub", basePlanId: "p5", agentId: "a2", txnType: "listing", source: "referral", splitScope: "group", agentSplit: 45, groupSplit: 15, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
 ];
 
 const seedFees: FeeRecord[] = [
@@ -466,12 +491,17 @@ function CreatorChip({ creator, selfId }: { creator?: Creator; selfId: string | 
   return <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-medium border-violet-200 text-violet-700 bg-violet-50">Group: {creator.groupName ?? creator.name}</Badge>;
 }
 
-function getFreshPlanForm(scope: PlanSplitScope = "team"): PlanForm {
+function getFreshPlanForm(scope: PlanSplitScope = "team", kind: PlanKind = "base"): PlanForm {
   const isGroup = scope === "group";
   return {
     editingPlanId: null,
     planName: "",
     planType: "standard",
+    kind,
+    basePlanId: "",
+    subAgentId: "",
+    subTxnType: "",
+    subSource: "referral",
     splitScope: scope,
     agentSplit: isGroup ? "0" : "80",
     groupSplit: isGroup ? "60" : "0",
@@ -1260,6 +1290,8 @@ function PlanSetupFields({
   lockTeamSplit,
   showScopeToggle,
   onSplitScopeChange,
+  basePlans,
+  subAgentOptions,
 }: {
   form: PlanForm;
   errors: PlanErrors;
@@ -1275,10 +1307,58 @@ function PlanSetupFields({
   lockTeamSplit?: boolean;
   showScopeToggle?: boolean;
   onSplitScopeChange?: (scope: PlanSplitScope) => void;
+  basePlans?: CommissionPlan[];
+  subAgentOptions?: { id: string; name: string }[];
 }) {
   const scope = form.splitScope ?? "team";
+  const isSub = form.kind === "sub";
+  const selectedBase = basePlans?.find((p) => p.id === form.basePlanId);
+  const pool = selectedBase ? 100 - selectedBase.teamSplit : 100;
   return (
     <>
+      {isSub && (
+        <>
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Base Plan (from Team Lead)</Label>
+            <Select value={form.basePlanId} onValueChange={(v) => onFormChange({ basePlanId: v })}>
+              <SelectTrigger className="h-10 w-full" aria-invalid={Boolean(errors.basePlanId)}>
+                <SelectValue placeholder="Select a base plan" />
+              </SelectTrigger>
+              <SelectContent>
+                {(basePlans ?? []).map((bp) => (
+                  <SelectItem key={bp.id} value={bp.id}>{bp.name} · Team {bp.teamSplit}%</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.basePlanId && <p className="text-xs text-destructive">{errors.basePlanId}</p>}
+            {selectedBase && (
+              <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary/80">
+                <Lock className="size-3.5 shrink-0 text-primary" />
+                <span className="font-medium text-primary">Team Lead</span>
+                <span className="text-primary/40">·</span>
+                <span>Team Split <span className="font-semibold text-primary">{selectedBase.teamSplit}%</span></span>
+                <span className="text-primary/40">·</span>
+                <span>Group Split <span className="font-semibold text-primary">{pool}%</span></span>
+                <span className="text-primary/40">·</span>
+                <span>Flat Fee <span className="font-semibold text-primary">{formatFee(selectedBase)}</span></span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Source</Label>
+            <Select value={form.subSource} onValueChange={(v) => onFormChange({ subSource: v as PlanSource })}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PLAN_SOURCES.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
       <div className="flex flex-col gap-2">
         <Label htmlFor="plan-name" className="text-sm font-medium">Plan Name</Label>
         <Input
@@ -1305,7 +1385,38 @@ function PlanSetupFields({
         </Select>
       </div>
 
-      {form.planType === "standard" ? (
+      {isSub && form.planType === "standard" && (
+        <>
+          <div className="grid w-full grid-cols-2 gap-3">
+            <div className="flex w-full flex-col gap-2">
+              <Label htmlFor="sub-agent-split" className="text-sm font-medium">Agent Split %</Label>
+              <Input
+                id="sub-agent-split"
+                value={form.agentSplit}
+                inputMode="numeric"
+                aria-invalid={Boolean(errors.splitTotal)}
+                className="h-10 w-full box-border"
+                onChange={(event) => onAgentSplitChange(event.target.value)}
+              />
+            </div>
+            <div className="flex w-full flex-col gap-2">
+              <Label htmlFor="sub-gl-split" className="text-sm font-medium">Group Lead Split %</Label>
+              <Input
+                id="sub-gl-split"
+                value={form.groupSplit}
+                inputMode="numeric"
+                aria-invalid={Boolean(errors.splitTotal)}
+                className="h-10 w-full box-border"
+                onChange={(event) => onGroupSplitChange(event.target.value)}
+              />
+            </div>
+          </div>
+          <p className={errors.splitTotal ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+            {errors.splitTotal ?? `Agent + Group Lead must equal ${pool}% (Team ${selectedBase?.teamSplit ?? 0}% locked). Current: ${numericValue(form.agentSplit) + numericValue(form.groupSplit)}%`}
+          </p>
+        </>
+      )}
+      {!isSub && form.planType === "standard" && (
         <>
           {showScopeToggle && onSplitScopeChange && (
             <div className="flex flex-col gap-2">
@@ -1389,7 +1500,8 @@ function PlanSetupFields({
             )}
           </p>
         </>
-      ) : (
+      )}
+      {form.planType === "tiered" && (
         <div className="grid w-full grid-cols-2 gap-4">
           <div className="flex w-full flex-col gap-2">
             <Label className="text-sm font-medium">Reset Period</Label>
@@ -1997,6 +2109,8 @@ function AddPlanDialog({
   lockTeamSplit,
   showScopeToggle,
   onSplitScopeChange,
+  basePlans,
+  subAgentOptions,
 }: {
   open: boolean;
   title: string;
@@ -2014,6 +2128,8 @@ function AddPlanDialog({
   lockTeamSplit?: boolean;
   showScopeToggle?: boolean;
   onSplitScopeChange?: (scope: PlanSplitScope) => void;
+  basePlans?: CommissionPlan[];
+  subAgentOptions?: { id: string; name: string }[];
 }) {
   const scope = form.splitScope ?? "team";
   const pairA = scope === "group" ? numericValue(form.groupSplit) : numericValue(form.agentSplit);
@@ -2057,6 +2173,8 @@ function AddPlanDialog({
             lockTeamSplit={lockTeamSplit}
             showScopeToggle={showScopeToggle}
             onSplitScopeChange={onSplitScopeChange}
+            basePlans={basePlans}
+            subAgentOptions={subAgentOptions}
           />
         </div>
         <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
@@ -3147,11 +3265,31 @@ export function CDASettings() {
   }
 
   function updateForm(patch: Partial<PlanForm>) {
-    setState((current) => ({ ...current, form: { ...current.form, ...patch } }));
+    setState((current) => {
+      const nextForm = { ...current.form, ...patch };
+      // When a sub-plan picks a base plan, inherit its team split + reset split defaults across the pool
+      if (patch.basePlanId && nextForm.kind === "sub") {
+        const base = current.plans.find((p) => p.id === patch.basePlanId);
+        if (base) {
+          const pool = 100 - base.teamSplit;
+          const half = Math.round(pool / 2);
+          nextForm.teamSplit = String(base.teamSplit);
+          nextForm.agentSplit = String(pool - half);
+          nextForm.groupSplit = String(half);
+        }
+      }
+      return { ...current, form: nextForm };
+    });
   }
 
   function handleAgentSplitChange(value: string) {
     const agent = numericValue(value);
+    if (state.form.kind === "sub") {
+      const base = state.plans.find((p) => p.id === state.form.basePlanId);
+      const pool = base ? 100 - base.teamSplit : 100;
+      updateForm({ agentSplit: value, groupSplit: String(Math.max(0, pool - agent)) });
+      return;
+    }
     updateForm({ agentSplit: value, teamSplit: String(Math.max(0, 100 - agent)), groupSplit: "0" });
   }
 
@@ -3166,6 +3304,12 @@ export function CDASettings() {
 
   function handleGroupSplitChange(value: string) {
     const group = numericValue(value);
+    if (state.form.kind === "sub") {
+      const base = state.plans.find((p) => p.id === state.form.basePlanId);
+      const pool = base ? 100 - base.teamSplit : 100;
+      updateForm({ groupSplit: value, agentSplit: String(Math.max(0, pool - group)) });
+      return;
+    }
     updateForm({ groupSplit: value, teamSplit: String(Math.max(0, 100 - group)), agentSplit: "0" });
   }
 
@@ -3246,6 +3390,18 @@ export function CDASettings() {
       nextErrors.selectedAgentIds = "Select at least one agent";
     }
 
+    if (state.form.kind === "sub") {
+      if (!state.form.basePlanId) nextErrors.basePlanId = "Pick a base plan";
+      const basePlan = state.plans.find((p) => p.id === state.form.basePlanId);
+      if (basePlan && state.form.planType === "standard") {
+        const pool = 100 - basePlan.teamSplit;
+        const usedAgent = numericValue(state.form.agentSplit);
+        const usedGroup = numericValue(state.form.groupSplit);
+        const sum = usedAgent + usedGroup;
+        if (sum !== pool) nextErrors.splitTotal = `Agent + Group Lead must equal ${pool}% (100% − ${basePlan.teamSplit}% Team). Current: ${sum}%`;
+      }
+    }
+
     setState((current) => ({ ...current, errors: nextErrors }));
     return Object.keys(nextErrors).length === 0;
   }
@@ -3256,7 +3412,11 @@ export function CDASettings() {
       id: state.form.editingPlanId ?? crypto.randomUUID(),
       name: state.form.planName.trim(),
       type: state.form.planType,
-      kind: existing?.kind ?? "base",
+      kind: state.form.kind,
+      basePlanId: state.form.kind === "sub" ? state.form.basePlanId : undefined,
+      agentId: state.form.kind === "sub" ? state.form.subAgentId : undefined,
+      txnType: state.form.kind === "sub" ? state.form.subTxnType : undefined,
+      source: state.form.kind === "sub" ? state.form.subSource : undefined,
       splitScope: state.form.splitScope,
       agentSplit: state.form.splitScope === "group" ? 0 : numericValue(state.form.agentSplit),
       groupSplit: state.form.splitScope === "group" ? numericValue(state.form.groupSplit) : 0,
@@ -3332,6 +3492,11 @@ export function CDASettings() {
         editingPlanId: plan.id,
         planName: plan.name,
         planType: plan.type,
+        kind: plan.kind ?? "base",
+        basePlanId: plan.basePlanId ?? "",
+        subAgentId: plan.agentId ?? "",
+        subTxnType: plan.txnType ?? "",
+        subSource: plan.source ?? "referral",
         splitScope: plan.splitScope ?? "team",
         agentSplit: String(plan.agentSplit),
         groupSplit: String(plan.groupSplit ?? 0),
@@ -3368,6 +3533,11 @@ export function CDASettings() {
         editingPlanId: null,
         planName: `${plan.name} Copy`,
         planType: plan.type,
+        kind: plan.kind ?? "base",
+        basePlanId: plan.basePlanId ?? "",
+        subAgentId: plan.agentId ?? "",
+        subTxnType: plan.txnType ?? "",
+        subSource: plan.source ?? "referral",
         splitScope: plan.splitScope ?? "team",
         agentSplit: String(plan.agentSplit),
         groupSplit: String(plan.groupSplit ?? 0),
@@ -3502,7 +3672,7 @@ export function CDASettings() {
               ...current,
               activeDialog: "add-plan",
               planDialogMode: "add",
-              form: getFreshPlanForm(isGroupLead ? "group" : "team"),
+              form: getFreshPlanForm(isGroupLead ? "group" : "team", isGroupLead ? "sub" : "base"),
               errors: {},
             }))
           }
@@ -3535,7 +3705,7 @@ export function CDASettings() {
                   ...current,
                   activeDialog: "add-plan",
                   planDialogMode: "add",
-                  form: getFreshPlanForm(isGroupLead ? "group" : "team"),
+                  form: getFreshPlanForm(isGroupLead ? "group" : "team", isGroupLead ? "sub" : "base"),
                   errors: {},
                 }))
               }
@@ -4231,8 +4401,14 @@ export function CDASettings() {
           isGroupLead &&
           state.plans.find((p) => p.id === state.form.editingPlanId)?.createdBy?.role === "team_lead"
         }
-        showScopeToggle={userRole === "team_lead"}
+        showScopeToggle={userRole === "team_lead" && state.form.kind === "base"}
         onSplitScopeChange={handleSplitScopeChange}
+        basePlans={state.plans.filter((p) => (p.kind ?? "base") === "base")}
+        subAgentOptions={
+          isGroupLead
+            ? agents.filter((a) => groupForLead(CURRENT_GROUP_LEAD_ID)?.memberIds.includes(a.id)).map((a) => ({ id: a.id, name: a.name }))
+            : agents.map((a) => ({ id: a.id, name: a.name }))
+        }
       />
 
       <FeeBuilderModal
