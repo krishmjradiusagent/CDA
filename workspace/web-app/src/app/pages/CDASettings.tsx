@@ -134,6 +134,7 @@ type FeeType = "flat" | "percentage";
 type ResetPeriod = "yearly" | "quarterly" | "monthly";
 type BasedOn = "units" | "gci" | "sales-volume" | "sales-price";
 type PlanKind = "base" | "sub";
+type SubPlanStatus = "draft" | "gl_submitted" | "tl_approved" | "agent_acknowledged" | "active";
 type DefaultMode = "all" | "specific";
 type DialogMode = "add" | "edit";
 type DialogName = "add-plan" | "add-sub-plan" | "add-fee" | "assign-defaults" | null;
@@ -237,6 +238,7 @@ type CommissionPlan = {
   agentId?: string;
   txnType?: string;
   source?: PlanSource;
+  status?: SubPlanStatus;
   splitScope: PlanSplitScope;
   agentSplit: number;
   groupSplit: number;
@@ -361,8 +363,9 @@ const seedPlans: CommissionPlan[] = [
     { id: "t6-3", from: "1500000", to: "", agentSplit: "80", teamSplit: "20" },
   ], createdBy: CREATOR_TL },
   // Sub-plans (GL-created, under a base plan)
-  { id: "sp1", name: "Ila · Buyer · Zillow", type: "standard", kind: "sub", basePlanId: "p5", agentId: "a1", txnType: "buyer", source: "zillow", splitScope: "group", agentSplit: 50, groupSplit: 10, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
-  { id: "sp2", name: "Michael · Listing · Referral", type: "standard", kind: "sub", basePlanId: "p5", agentId: "a2", txnType: "listing", source: "referral", splitScope: "group", agentSplit: 45, groupSplit: 15, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
+  { id: "sp1", name: "Ila · Buyer · Zillow", type: "standard", kind: "sub", status: "active", basePlanId: "p5", agentId: "a1", txnType: "buyer", source: "zillow", splitScope: "group", agentSplit: 50, groupSplit: 10, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
+  { id: "sp2", name: "Michael · Listing · Referral", type: "standard", kind: "sub", status: "gl_submitted", basePlanId: "p5", agentId: "a2", txnType: "listing", source: "referral", splitScope: "group", agentSplit: 45, groupSplit: 15, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
+  { id: "sp3", name: "Sophia · Buyer · Sphere", type: "standard", kind: "sub", status: "tl_approved", basePlanId: "p5", agentId: "a9", txnType: "buyer", source: "sphere", splitScope: "group", agentSplit: 40, groupSplit: 20, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_EAST },
 ];
 
 const seedFees: FeeRecord[] = [
@@ -481,6 +484,19 @@ function FilterPopover({
       </PopoverContent>
     </Popover>
   );
+}
+
+function SubPlanStatusBadge({ status }: { status?: SubPlanStatus }) {
+  const s = status ?? "draft";
+  const map: Record<SubPlanStatus, { label: string; cls: string }> = {
+    draft:                 { label: "Draft",         cls: "border-slate-200 text-slate-600 bg-slate-50" },
+    gl_submitted:          { label: "Pending TL",    cls: "border-amber-200 text-amber-700 bg-amber-50" },
+    tl_approved:           { label: "Pending Agent", cls: "border-primary/30 text-primary bg-primary/5" },
+    agent_acknowledged:    { label: "Active",        cls: "border-emerald-200 text-emerald-700 bg-emerald-50" },
+    active:                { label: "Active",        cls: "border-emerald-200 text-emerald-700 bg-emerald-50" },
+  };
+  const info = map[s];
+  return <Badge variant="outline" className={cn("text-[10px] h-4 px-1.5 font-medium", info.cls)}>{info.label}</Badge>;
 }
 
 function CreatorChip({ creator, selfId }: { creator?: Creator; selfId: string | null }) {
@@ -3264,6 +3280,14 @@ export function CDASettings() {
     commitAssignment();
   }
 
+  function transitionSubPlanStatus(planId: string, next: SubPlanStatus, toastMsg: string) {
+    setState((current) => ({
+      ...current,
+      plans: current.plans.map((p) => (p.id === planId ? { ...p, status: next } : p)),
+    }));
+    toast(toastMsg);
+  }
+
   function updateForm(patch: Partial<PlanForm>) {
     setState((current) => {
       const nextForm = { ...current.form, ...patch };
@@ -3417,6 +3441,7 @@ export function CDASettings() {
       agentId: state.form.kind === "sub" ? state.form.subAgentId : undefined,
       txnType: state.form.kind === "sub" ? state.form.subTxnType : undefined,
       source: state.form.kind === "sub" ? state.form.subSource : undefined,
+      status: state.form.kind === "sub" ? (existing?.status ?? "draft") : undefined,
       splitScope: state.form.splitScope,
       agentSplit: state.form.splitScope === "group" ? 0 : numericValue(state.form.agentSplit),
       groupSplit: state.form.splitScope === "group" ? numericValue(state.form.groupSplit) : 0,
@@ -3680,9 +3705,52 @@ export function CDASettings() {
       );
     }
 
-    const visiblePlans = state.plans.filter(canViewOwned);
+    const visiblePlans = state.plans.filter(canViewOwned).filter((p) => {
+      // TL sees only base plans in the main table; sub-plans surface in the "Pending approvals" queue below
+      if (isTeamLead && p.kind === "sub") return false;
+      return true;
+    });
+    const pendingApprovals = isTeamLead ? state.plans.filter((p) => p.kind === "sub" && p.status === "gl_submitted") : [];
     return (
       <section className="flex flex-col gap-4">
+        {pendingApprovals.length > 0 && (
+          <Card className="rounded-lg border-amber-200 bg-amber-50/40 shadow-none">
+            <CardContent className="p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="inline-flex size-6 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">{pendingApprovals.length}</div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Pending sub-plan approvals</p>
+                  <p className="text-[11px] text-muted-foreground">Group Leads submitted sub-plans that need your approval.</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                {pendingApprovals.map((sp) => {
+                  const base = state.plans.find((b) => b.id === sp.basePlanId);
+                  const pool = base ? 100 - base.teamSplit : 100;
+                  return (
+                    <div key={sp.id} className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">{sp.name}</span>
+                          <CreatorChip creator={sp.createdBy} selfId={currentCreatorId} />
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          Base: <span className="font-medium text-foreground">{base?.name ?? "—"}</span>
+                          <span className="mx-1.5 text-muted-foreground/50">·</span>
+                          Agent {sp.agentSplit}% / GL {sp.groupSplit}% / Team {sp.teamSplit}% (pool {pool}%)
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => transitionSubPlanStatus(sp.id, "tl_approved", "Approved. Waiting for agent acknowledgement.")}>Approve</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => transitionSubPlanStatus(sp.id, "draft", "Sent back to Group Lead")}>Reject</Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <div className="flex items-end justify-between">
           <div>
             <h2 className="text-base font-medium leading-6 text-foreground">Commission Plans</h2>
@@ -3737,8 +3805,14 @@ export function CDASettings() {
                     <TableCell className="pl-6 font-medium text-sm text-foreground">
                       <div className="flex items-center gap-2">
                         <span>{plan.name}</span>
-                        {plan.splitScope === "group" && (
+                        {plan.splitScope === "group" && plan.kind !== "sub" && (
                           <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-medium border-violet-200 text-violet-700 bg-violet-50">Group</Badge>
+                        )}
+                        {plan.kind === "sub" && (
+                          <>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-medium border-violet-200 text-violet-700 bg-violet-50">Sub-plan</Badge>
+                            <SubPlanStatusBadge status={plan.status} />
+                          </>
                         )}
                       </div>
                     </TableCell>
@@ -3760,6 +3834,19 @@ export function CDASettings() {
                       />
                     </TableCell>
                     <TableCell className="pr-6 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {plan.kind === "sub" && plan.status === "draft" && userRole === "group_lead" && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => transitionSubPlanStatus(plan.id, "gl_submitted", "Submitted to Team Lead")}>Submit</Button>
+                        )}
+                        {plan.kind === "sub" && plan.status === "gl_submitted" && userRole === "team_lead" && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => transitionSubPlanStatus(plan.id, "tl_approved", "Approved. Waiting for agent acknowledgement.")}>Approve</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => transitionSubPlanStatus(plan.id, "draft", "Sent back to Group Lead")}>Reject</Button>
+                          </>
+                        )}
+                        {plan.kind === "sub" && plan.status === "tl_approved" && userRole === "agent" && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/5" onClick={() => transitionSubPlanStatus(plan.id, "active", "Sub-plan is now active")}>Accept</Button>
+                        )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" aria-label={`${plan.name} menu`} className="size-8">
@@ -3800,6 +3887,7 @@ export function CDASettings() {
                           </DropdownMenuGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
