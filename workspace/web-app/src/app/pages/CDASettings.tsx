@@ -2612,6 +2612,7 @@ export function CDASettings() {
     wireDraft: WireInstructionRecord | null;
     wireType: "team" | "shared" | "private" | "private_recipient" | null;
     wireErrors: WireValidationErrors;
+    wireDeleteTarget: { type: "team" | "shared" | "private" | "private_recipient"; id?: string; label: string } | null;
   }>({
     plans: seedPlans,
     activePlanId: null,
@@ -2641,6 +2642,7 @@ export function CDASettings() {
     wireDraft: null,
     wireType: null,
     wireErrors: {},
+    wireDeleteTarget: null,
   });
     const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
   const [searchQuery, setSearchQuery] = useState("");
@@ -2784,6 +2786,31 @@ export function CDASettings() {
     }));
   }
 
+  function requestDeleteWire(target: { type: "team" | "shared" | "private" | "private_recipient"; id?: string; label: string }) {
+    setState(current => ({ ...current, wireDeleteTarget: target }));
+  }
+
+  function confirmDeleteWire() {
+    const target = state.wireDeleteTarget;
+    if (!target) return;
+    const nextStore: WireInstructionsStore = { ...wireStore };
+    if (target.type === "team") {
+      nextStore.teamWireInstructions = createEmptyWireInstruction();
+    } else if (target.type === "shared") {
+      nextStore.sharedRecipients = (nextStore.sharedRecipients ?? []).filter(r => r.id !== target.id);
+    } else if (target.type === "private") {
+      nextStore.agentWireInstructions = { ...nextStore.agentWireInstructions };
+      nextStore.agentWireInstructions[CURRENT_AGENT_ID] = createEmptyWireInstruction();
+    } else if (target.type === "private_recipient") {
+      const list = nextStore.privateRecipients[CURRENT_AGENT_ID] ?? [];
+      nextStore.privateRecipients = { ...nextStore.privateRecipients, [CURRENT_AGENT_ID]: list.filter(r => r.id !== target.id) };
+    }
+    writeWireInstructionsStore(nextStore);
+    setWireStore(nextStore);
+    setState(current => ({ ...current, wireDeleteTarget: null }));
+    toast(`Deleted ${target.label}`);
+  }
+
   function renderWireInstructions() {
     const teamComplete = isWireInstructionComplete(wireStore.teamWireInstructions, TEAM_WIRE_COMPLETION_OPTIONS);
     const sharedRecipients = wireStore.sharedRecipients || [];
@@ -2881,6 +2908,10 @@ export function CDASettings() {
                                           <Edit3 className="size-4 mr-2" />
                                           Edit
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => requestDeleteWire({ type: "shared", id: r.id, label: r.accountHolderName || r.payableName || "shared recipient" })}>
+                                          <Trash2 className="size-4 mr-2" />
+                                          Delete
+                                        </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   )}
@@ -2936,6 +2967,10 @@ export function CDASettings() {
                                 <Edit3 className="size-4 mr-2" />
                                 Edit
                               </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => requestDeleteWire({ type: "team", label: wireStore.teamWireInstructions.accountHolderName || "team wire" })}>
+                                <Trash2 className="size-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -2981,6 +3016,10 @@ export function CDASettings() {
                             <DropdownMenuItem onClick={() => openWireDialog("private", myWire)}>
                               <Edit3 className="size-4 mr-2" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => requestDeleteWire({ type: "private", label: myWire.accountHolderName || "my wire" })}>
+                              <Trash2 className="size-4 mr-2" />
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -3045,6 +3084,10 @@ export function CDASettings() {
                                 <DropdownMenuItem onClick={() => openWireDialog("private_recipient", r)}>
                                   <Edit3 className="size-4 mr-2" />
                                   Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => requestDeleteWire({ type: "private_recipient", id: r.id, label: r.accountHolderName || r.payableName || "recipient" })}>
+                                  <Trash2 className="size-4 mr-2" />
+                                  Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -4559,6 +4602,26 @@ export function CDASettings() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => state.pendingPlan && commitPlan(state.pendingPlan, true)}>
               Replace defaults
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(state.wireDeleteTarget)}
+        onOpenChange={(open) => { if (!open) setState((current) => ({ ...current, wireDeleteTarget: null })); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete payment instruction?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove <span className="font-medium text-foreground">{state.wireDeleteTarget?.label}</span>. Deals using this instruction will need it re-entered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDeleteWire}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
