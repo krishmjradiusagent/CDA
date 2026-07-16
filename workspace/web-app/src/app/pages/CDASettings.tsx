@@ -131,7 +131,8 @@ import { COMMISSION_BREAKDOWN_TYPE_OPTIONS, getCdaTypeLabel } from "../lib/cda-t
 type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
 type ResetPeriod = "yearly" | "quarterly" | "monthly";
-type BasedOn = "units" | "gci" | "sales-volume";
+type BasedOn = "units" | "gci" | "sales-volume" | "sales-price";
+type PlanKind = "base" | "sub";
 type DefaultMode = "all" | "specific";
 type DialogMode = "add" | "edit";
 type DialogName = "add-plan" | "add-fee" | "assign-defaults" | null;
@@ -218,6 +219,7 @@ type CommissionPlan = {
   id: string;
   name: string;
   type: PlanType;
+  kind?: PlanKind;
   splitScope: PlanSplitScope;
   agentSplit: number;
   groupSplit: number;
@@ -330,7 +332,12 @@ const seedPlans: CommissionPlan[] = [
   { id: "p2", name: "70/30 Standard", type: "standard", splitScope: "team", agentSplit: 70, groupSplit: 0, teamSplit: 30, feeType: "flat", feeAmount: 495, capAmount: 15000, assignedAgentsCount: 4, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
   { id: "p3", name: "Keystone Tiered", type: "tiered", splitScope: "team", agentSplit: 80, groupSplit: 0, teamSplit: 20, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 2, resetPeriod: "yearly", basedOn: "units", tiers: defaultTiers.map((t) => ({ ...t })), createdBy: CREATOR_GL_WEST },
   { id: "p4", name: "Lease Referral Plan", type: "standard", splitScope: "team", agentSplit: 60, groupSplit: 0, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_EAST },
-  { id: "p5", name: "Group 60/40", type: "standard", splitScope: "group", agentSplit: 0, groupSplit: 60, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 12000, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
+  { id: "p5", name: "Group 60/40 (Base)", type: "standard", kind: "base", splitScope: "group", agentSplit: 0, groupSplit: 60, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 12000, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
+  { id: "p6", name: "Luxury Sales Price Base", type: "tiered", kind: "base", splitScope: "group", agentSplit: 0, groupSplit: 70, teamSplit: 30, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "sales-price", tiers: [
+    { id: "t6-1", from: "0", to: "500000", agentSplit: "70", teamSplit: "30" },
+    { id: "t6-2", from: "500000", to: "1500000", agentSplit: "75", teamSplit: "25" },
+    { id: "t6-3", from: "1500000", to: "", agentSplit: "80", teamSplit: "20" },
+  ], createdBy: CREATOR_TL },
 ];
 
 const seedFees: FeeRecord[] = [
@@ -496,6 +503,7 @@ function formatFee(plan: CommissionPlan) {
 function formatBasedOn(value: BasedOn) {
   if (value === "gci") return "GCI";
   if (value === "sales-volume") return "Sales Volume";
+  if (value === "sales-price") return "Sales Price";
   return "Units";
 }
 
@@ -1058,6 +1066,10 @@ function TierBuilder({
   onRemoveTier: (tierId: string) => void;
 }) {
   const moneyMode = form.basedOn !== "units";
+  const perTxn = form.basedOn === "sales-price";
+  const scope = form.splitScope ?? "team";
+  const primaryLabel = scope === "group" ? "Group Split %" : "Agent Split %";
+  const secondaryLabel = "Team Split %";
 
   return (
     <div className="flex flex-col gap-3">
@@ -1065,6 +1077,10 @@ function TierBuilder({
         <Label>Tier Builder</Label>
         <p className="mt-1 text-xs text-muted-foreground">
           {moneyMode ? "Currency range" : "Deal count range"}
+          {" · "}
+          {perTxn
+            ? "Tier picked per transaction from that deal's price. No accumulation."
+            : "Tier picked from year-to-date total. Deals accumulate."}
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -1130,7 +1146,7 @@ function TierBuilder({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor={`${tier.id}-agent`}>Agent Split %</Label>
+                    <Label htmlFor={`${tier.id}-agent`}>{primaryLabel}</Label>
                     <Input
                       id={`${tier.id}-agent`}
                       value={tier.agentSplit}
@@ -1147,7 +1163,7 @@ function TierBuilder({
                     />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor={`${tier.id}-team`}>Team Split %</Label>
+                    <Label htmlFor={`${tier.id}-team`}>{secondaryLabel}</Label>
                     <Input
                       id={`${tier.id}-team`}
                       value={tier.teamSplit}
@@ -1401,6 +1417,7 @@ function PlanSetupFields({
                   <SelectItem value="units">Units</SelectItem>
                   <SelectItem value="gci">Gross Commission</SelectItem>
                   <SelectItem value="sales-volume">Sales Volume</SelectItem>
+                  <SelectItem value="sales-price">Sales Price</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -3239,6 +3256,7 @@ export function CDASettings() {
       id: state.form.editingPlanId ?? crypto.randomUUID(),
       name: state.form.planName.trim(),
       type: state.form.planType,
+      kind: existing?.kind ?? "base",
       splitScope: state.form.splitScope,
       agentSplit: state.form.splitScope === "group" ? 0 : numericValue(state.form.agentSplit),
       groupSplit: state.form.splitScope === "group" ? numericValue(state.form.groupSplit) : 0,
