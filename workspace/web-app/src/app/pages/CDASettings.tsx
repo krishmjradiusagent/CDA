@@ -439,7 +439,7 @@ function FilterPopover({
     ? `Group: ${activeGroup.name}`
     : activeMember
       ? activeMember.name
-      : "All groups & members";
+      : "All groups";
   const hasFilter = groupFilter !== "all";
   return (
     <Popover>
@@ -450,13 +450,13 @@ function FilterPopover({
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[280px] p-0">
+      <PopoverContent align="end" className="w-[240px] p-0">
         <Command>
-          <CommandInput placeholder="Search groups & team members" />
+          <CommandInput placeholder="Search groups" />
           <CommandList>
             <CommandEmpty>No matches.</CommandEmpty>
             <CommandGroup heading="Filter by group">
-              {[{ id: "all", label: "All groups & members" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
+              {[{ id: "all", label: "All groups" }, ...GROUPS.map((g) => ({ id: g.id, label: `Group: ${g.name}` }))].map((opt) => (
                 <CommandItem key={opt.id} value={opt.label} onSelect={() => onGroupFilter(opt.id)}>
                   <Users className="size-3.5 text-muted-foreground" />
                   <span className="flex-1">{opt.label}</span>
@@ -464,24 +464,6 @@ function FilterPopover({
                 </CommandItem>
               ))}
             </CommandGroup>
-            {memberOptions.length > 0 && (
-              <CommandGroup heading="Filter by team member">
-                {memberOptions.map((m) => {
-                  const v = `member:${m.id}`;
-                  return (
-                    <CommandItem key={m.id} value={`${m.name} ${m.groupName ?? ""}`} onSelect={() => onGroupFilter(v)}>
-                      <Avatar className="size-5">
-                        {m.avatarUrl && <AvatarImage src={m.avatarUrl} alt={m.name} />}
-                        <AvatarFallback className="text-[9px]">{m.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <span className="flex-1 truncate">{m.name}</span>
-                      {m.groupName && <span className="text-[10px] text-muted-foreground">{m.groupName}</span>}
-                      {groupFilter === v && <Check className="size-3.5 text-primary" />}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -3447,7 +3429,7 @@ export function CDASettings() {
 
     if (!state.form.planName.trim()) nextErrors.planName = "Plan Name required";
 
-    if (state.form.planType === "standard") {
+    if (state.form.planType === "standard" && state.form.kind !== "sub") {
       const pairA = state.form.splitScope === "group"
         ? numericValue(state.form.groupSplit)
         : numericValue(state.form.agentSplit);
