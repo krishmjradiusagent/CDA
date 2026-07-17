@@ -1417,40 +1417,40 @@ function PlanSetupFields({
           </p>
         </>
       )}
+      {!isSub && showScopeToggle && onSplitScopeChange && (
+        <div className="flex flex-col gap-2">
+          <Label className="text-sm font-medium">Split between</Label>
+          <div className="inline-flex h-9 w-full items-center rounded-md bg-muted p-0.5 text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => onSplitScopeChange("team")}
+              className={cn(
+                "flex-1 h-full inline-flex items-center justify-center rounded-sm px-3 text-xs font-medium transition-colors",
+                scope === "team" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+              )}
+            >
+              Team Members
+            </button>
+            <button
+              type="button"
+              onClick={() => onSplitScopeChange("group")}
+              className={cn(
+                "flex-1 h-full inline-flex items-center justify-center rounded-sm px-3 text-xs font-medium transition-colors",
+                scope === "group" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+              )}
+            >
+              Group
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {scope === "team"
+              ? "Splits GCI between the Agent and the Team Lead."
+              : "Splits GCI between the Group and the Team Lead."}
+          </p>
+        </div>
+      )}
       {!isSub && form.planType === "standard" && (
         <>
-          {showScopeToggle && onSplitScopeChange && (
-            <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">Split between</Label>
-              <div className="inline-flex h-9 w-full items-center rounded-md bg-muted p-0.5 text-muted-foreground">
-                <button
-                  type="button"
-                  onClick={() => onSplitScopeChange("team")}
-                  className={cn(
-                    "flex-1 h-full inline-flex items-center justify-center rounded-sm px-3 text-xs font-medium transition-colors",
-                    scope === "team" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
-                  )}
-                >
-                  Team Members
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSplitScopeChange("group")}
-                  className={cn(
-                    "flex-1 h-full inline-flex items-center justify-center rounded-sm px-3 text-xs font-medium transition-colors",
-                    scope === "group" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
-                  )}
-                >
-                  Group
-                </button>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {scope === "team"
-                  ? "Splits GCI between the Agent and the Team Lead."
-                  : "Splits GCI between the Group and the Team Lead."}
-              </p>
-            </div>
-          )}
           <div className="grid w-full grid-cols-2 gap-3">
             {scope === "group" ? (
               <div className="flex w-full flex-col gap-2">
