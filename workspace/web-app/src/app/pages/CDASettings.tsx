@@ -162,6 +162,7 @@ type AssignDefaultsForm = {
   scopeMode: PlanScopeMode;
   scopeMemberIds: string[];
   scopeGroupIds: string[];
+  source: PlanSource;
   dealTypes: Record<string, boolean>;
   applyToActiveDeals: boolean;
   actionType: "assign" | "unassign";
@@ -409,6 +410,7 @@ function getFreshAssignDefaultsForm(): AssignDefaultsForm {
     scopeMode: "all_members",
     scopeMemberIds: [],
     scopeGroupIds: [],
+    source: "referral",
     dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false },
     applyToActiveDeals: false,
     actionType: "assign",
@@ -1345,19 +1347,6 @@ function PlanSetupFields({
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Source</Label>
-            <Select value={form.subSource} onValueChange={(v) => onFormChange({ subSource: v as PlanSource })}>
-              <SelectTrigger className="h-10 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PLAN_SOURCES.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </>
       )}
       <div className="flex flex-col gap-2">
@@ -1926,6 +1915,20 @@ function AssignDefaultsDialog({
               )}
             </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Source</Label>
+            <Select value={form.source} onValueChange={(v) => onFormChange({ source: v as PlanSource })}>
+              <SelectTrigger className="h-10 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PLAN_SOURCES.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium">
