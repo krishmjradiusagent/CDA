@@ -88,6 +88,7 @@ import { Command, CommandInput, CommandList, CommandGroup, CommandItem, CommandE
 import { Separator } from "../components/ui/separator";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { cn } from "../components/ui/utils";
 import {
   Table,
@@ -499,7 +500,7 @@ function SubPlanStatusBadge({ status }: { status?: SubPlanStatus }) {
   const s = status ?? "draft";
   const map: Record<SubPlanStatus, { label: string; cls: string }> = {
     draft:                 { label: "Draft",         cls: "border-slate-200 text-slate-600 bg-slate-50" },
-    gl_submitted:          { label: "Pending TL",    cls: "border-amber-200 text-amber-700 bg-amber-50" },
+    gl_submitted:          { label: "Waiting on Team Lead approval", cls: "border-amber-200 text-amber-700 bg-amber-50" },
     tl_approved:           { label: "Pending Agent", cls: "border-primary/30 text-primary bg-primary/5" },
     agent_acknowledged:    { label: "Active",        cls: "border-emerald-200 text-emerald-700 bg-emerald-50" },
     active:                { label: "Active",        cls: "border-emerald-200 text-emerald-700 bg-emerald-50" },
@@ -3928,7 +3929,16 @@ export function CDASettings() {
                     <TableCell className="pr-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {plan.kind === "sub" && plan.status === "draft" && userRole === "group_lead" && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => transitionSubPlanStatus(plan.id, "gl_submitted", plan.rejectReason ? "Resubmitted to Team Lead" : "Submitted to Team Lead")}>{plan.rejectReason ? "Resubmit" : "Submit"}</Button>
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => transitionSubPlanStatus(plan.id, "gl_submitted", plan.rejectReason ? "Resubmitted to Team Lead for approval" : "Submitted to Team Lead for approval")}>{plan.rejectReason ? "Resubmit for approval" : "Submit for approval"}</Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[220px] text-xs">
+                                Sends this sub-plan to your Team Lead. It becomes active only after they approve it.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
                         {plan.kind === "sub" && plan.status === "gl_submitted" && userRole === "team_lead" && (
                           <>
