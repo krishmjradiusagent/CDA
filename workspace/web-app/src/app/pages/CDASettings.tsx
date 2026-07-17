@@ -3901,12 +3901,12 @@ export function CDASettings() {
                         )}
                       </div>
                       {plan.kind === "sub" && plan.status === "draft" && plan.rejectReason && (
-                        <div className="mt-1.5 flex items-start gap-1.5 rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
-                          <AlertCircle className="mt-0.5 size-3 shrink-0" />
-                          <div className="flex-1">
-                            <span className="font-medium">Rejected by Team Lead:</span> {plan.rejectReason}
-                          </div>
-                        </div>
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-normal text-muted-foreground">
+                          <AlertCircle className="size-3 shrink-0 text-destructive/70" />
+                          <span className="text-destructive/80 font-medium">Sent back by Team Lead</span>
+                          <span className="text-muted-foreground/60">·</span>
+                          <span className="truncate">{plan.rejectReason}</span>
+                        </p>
                       )}
                     </TableCell>
                     <TableCell>
