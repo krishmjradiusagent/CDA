@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Library,
   Lock,
+  AlertCircle,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -252,6 +253,8 @@ type CommissionPlan = {
   tiers: TierRow[];
   createdBy?: Creator;
   scope?: PlanScope;
+  rejectReason?: string;
+  rejectedAt?: string;
 };
 
 
@@ -3323,13 +3326,25 @@ export function CDASettings() {
     commitAssignment();
   }
 
-  function transitionSubPlanStatus(planId: string, next: SubPlanStatus, toastMsg: string) {
+  function transitionSubPlanStatus(planId: string, next: SubPlanStatus, toastMsg: string, rejectReason?: string) {
     setState((current) => ({
       ...current,
-      plans: current.plans.map((p) => (p.id === planId ? { ...p, status: next } : p)),
+      plans: current.plans.map((p) =>
+        p.id === planId
+          ? {
+              ...p,
+              status: next,
+              rejectReason: next === "draft" ? rejectReason ?? p.rejectReason : undefined,
+              rejectedAt: next === "draft" && rejectReason ? new Date().toISOString() : undefined,
+            }
+          : p,
+      ),
     }));
     toast(toastMsg);
   }
+
+  const [rejectTarget, setRejectTarget] = useState<{ planId: string; planName: string } | null>(null);
+  const [rejectReasonDraft, setRejectReasonDraft] = useState("");
 
   function updateForm(patch: Partial<PlanForm>) {
     setState((current) => {
@@ -3785,7 +3800,7 @@ export function CDASettings() {
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => transitionSubPlanStatus(sp.id, "tl_approved", "Approved. Waiting for agent acknowledgement.")}>Approve</Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => transitionSubPlanStatus(sp.id, "draft", "Sent back to Group Lead")}>Reject</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => { setRejectTarget({ planId: sp.id, planName: sp.name }); setRejectReasonDraft(""); }}>Reject</Button>
                       </div>
                     </div>
                   );
@@ -3858,6 +3873,14 @@ export function CDASettings() {
                           </>
                         )}
                       </div>
+                      {plan.kind === "sub" && plan.status === "draft" && plan.rejectReason && (
+                        <div className="mt-1.5 flex items-start gap-1.5 rounded-md border border-destructive/25 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
+                          <AlertCircle className="mt-0.5 size-3 shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-medium">Rejected by Team Lead:</span> {plan.rejectReason}
+                          </div>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <PlanTypeBadge type={plan.type} />
@@ -3879,12 +3902,12 @@ export function CDASettings() {
                     <TableCell className="pr-6 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {plan.kind === "sub" && plan.status === "draft" && userRole === "group_lead" && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => transitionSubPlanStatus(plan.id, "gl_submitted", "Submitted to Team Lead")}>Submit</Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => transitionSubPlanStatus(plan.id, "gl_submitted", plan.rejectReason ? "Resubmitted to Team Lead" : "Submitted to Team Lead")}>{plan.rejectReason ? "Resubmit" : "Submit"}</Button>
                         )}
                         {plan.kind === "sub" && plan.status === "gl_submitted" && userRole === "team_lead" && (
                           <>
                             <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => transitionSubPlanStatus(plan.id, "tl_approved", "Approved. Waiting for agent acknowledgement.")}>Approve</Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => transitionSubPlanStatus(plan.id, "draft", "Sent back to Group Lead")}>Reject</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => { setRejectTarget({ planId: plan.id, planName: plan.name }); setRejectReasonDraft(""); }}>Reject</Button>
                           </>
                         )}
                         {plan.kind === "sub" && plan.status === "tl_approved" && userRole === "agent" && (
@@ -4565,6 +4588,42 @@ export function CDASettings() {
         onSave={handleSaveAssignDefaults}
         restrictToGroupId={isGroupLead ? groupForLead(CURRENT_GROUP_LEAD_ID)?.id : undefined}
       />
+
+      <Dialog open={!!rejectTarget} onOpenChange={(open) => { if (!open) setRejectTarget(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Reject sub-plan</DialogTitle>
+            <DialogDescription>
+              Tell {rejectTarget?.planName ? <span className="font-medium">the Group Lead</span> : "the Group Lead"} why "{rejectTarget?.planName}" needs changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reject-reason" className="text-sm font-medium">Reason</Label>
+            <Textarea
+              id="reject-reason"
+              value={rejectReasonDraft}
+              onChange={(e) => setRejectReasonDraft(e.target.value)}
+              placeholder="e.g. Group split too high — reduce to 15%"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={!rejectReasonDraft.trim()}
+              onClick={() => {
+                if (!rejectTarget) return;
+                transitionSubPlanStatus(rejectTarget.planId, "draft", "Sent back to Group Lead with reason", rejectReasonDraft.trim());
+                setRejectTarget(null);
+                setRejectReasonDraft("");
+              }}
+            >
+              Send back
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={state.overwriteAssignDefaults}
