@@ -328,18 +328,40 @@ function groupForLead(leadId: string) {
   return GROUPS.find((g) => g.leadId === leadId);
 }
 
+// Demo mapping: which lead sources each agent works. Agents not listed work every source.
+const AGENT_SOURCES: Record<string, PlanSource[]> = {
+  a1: ["zillow", "referral"],
+  a2: ["referral", "sphere"],
+  a3: ["zillow", "referral", "self-gen", "sphere", "other"],
+  a4: ["self-gen", "other"],
+  a5: ["zillow", "sphere"],
+  a6: ["referral", "self-gen"],
+  a7: ["zillow", "other"],
+  a8: ["sphere", "self-gen"],
+  a9: ["zillow", "referral"],
+};
+
+function agentMatchesSource(agentId: string, source?: PlanSource) {
+  if (!source) return true;
+  const sources = AGENT_SOURCES[agentId];
+  return !sources || sources.includes(source);
+}
+
 function resolveScopeAgentIds(
   scope: { scopeMode: PlanScopeMode; scopeMemberIds: string[]; scopeGroupIds: string[] },
   restrictToGroupId?: string,
+  sourceFilter?: PlanSource,
 ): string[] {
   const group = restrictToGroupId ? GROUPS.find((g) => g.id === restrictToGroupId) : null;
   if (scope.scopeMode === "all_members" || scope.scopeMode === "all_groups") {
-    return group ? [...group.memberIds] : agents.map((a) => a.id);
+    const pool = group ? [...group.memberIds] : agents.map((a) => a.id);
+    return pool.filter((id) => agentMatchesSource(id, sourceFilter));
   }
   if (scope.scopeMode === "specific_members") {
-    return group
+    const pool = group
       ? scope.scopeMemberIds.filter((id) => group.memberIds.includes(id))
       : [...scope.scopeMemberIds];
+    return pool.filter((id) => agentMatchesSource(id, sourceFilter));
   }
   return GROUPS.filter((g) => scope.scopeGroupIds.includes(g.id)).map((g) => g.leadId);
 }
@@ -1890,35 +1912,24 @@ function AssignDefaultsDialog({
             </div>
           )}
 
-          {/* Assignment controls (Cases 1, 2, 4) */}
-          {showAssignTo && (
-            <div className="flex flex-col gap-3">
-              <PlanScopePicker
-                restrictToGroupId={restrictToGroupId}
-                form={{
-                  scopeMode: form.scopeMode,
-                  scopeMemberIds: form.scopeMemberIds,
-                  scopeGroupIds: form.scopeGroupIds,
-                }}
-                onFormChange={(patch) => {
-                  const next = {
-                    scopeMode: patch.scopeMode ?? form.scopeMode,
-                    scopeMemberIds: patch.scopeMemberIds ?? form.scopeMemberIds,
-                    scopeGroupIds: patch.scopeGroupIds ?? form.scopeGroupIds,
-                  };
-                  const resolved = resolveScopeAgentIds(next, restrictToGroupId);
-                  onFormChange({ ...patch, selectedAgentIds: resolved });
-                }}
-              />
-              {errors.selectedAgentIds && (
-                <p className="text-xs text-destructive">{errors.selectedAgentIds}</p>
-              )}
-            </div>
-          )}
-
           <div className="flex flex-col gap-2">
             <Label className="text-sm font-medium">Source</Label>
-            <Select value={form.source} onValueChange={(v) => onFormChange({ source: v as PlanSource })}>
+            <Select
+              value={form.source}
+              onValueChange={(v) => {
+                const nextSource = v as PlanSource;
+                const next = {
+                  scopeMode: form.scopeMode,
+                  scopeMemberIds: form.scopeMemberIds.filter((id) => agentMatchesSource(id, nextSource)),
+                  scopeGroupIds: form.scopeGroupIds,
+                };
+                onFormChange({
+                  source: nextSource,
+                  scopeMemberIds: next.scopeMemberIds,
+                  selectedAgentIds: resolveScopeAgentIds(next, restrictToGroupId, nextSource),
+                });
+              }}
+            >
               <SelectTrigger className="h-10 w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -1939,6 +1950,33 @@ function AssignDefaultsDialog({
                 onChange={(dealTypes) => onFormChange({ dealTypes })}
               />
             </div>
+
+          {/* Assignment controls (Cases 1, 2, 4) */}
+          {showAssignTo && (
+            <div className="flex flex-col gap-3">
+              <PlanScopePicker
+                restrictToGroupId={restrictToGroupId}
+                sourceFilter={form.source}
+                form={{
+                  scopeMode: form.scopeMode,
+                  scopeMemberIds: form.scopeMemberIds,
+                  scopeGroupIds: form.scopeGroupIds,
+                }}
+                onFormChange={(patch) => {
+                  const next = {
+                    scopeMode: patch.scopeMode ?? form.scopeMode,
+                    scopeMemberIds: patch.scopeMemberIds ?? form.scopeMemberIds,
+                    scopeGroupIds: patch.scopeGroupIds ?? form.scopeGroupIds,
+                  };
+                  const resolved = resolveScopeAgentIds(next, restrictToGroupId, form.source);
+                  onFormChange({ ...patch, selectedAgentIds: resolved });
+                }}
+              />
+              {errors.selectedAgentIds && (
+                <p className="text-xs text-destructive">{errors.selectedAgentIds}</p>
+              )}
+            </div>
+          )}
 
         </div>
 
@@ -1967,10 +2005,12 @@ function PlanScopePicker({
   form,
   onFormChange,
   restrictToGroupId,
+  sourceFilter,
 }: {
   form: ScopePickerValue;
   onFormChange: (patch: Partial<ScopePickerValue>) => void;
   restrictToGroupId?: string;
+  sourceFilter?: PlanSource;
 }) {
   const restrictedGroup = restrictToGroupId ? GROUPS.find((g) => g.id === restrictToGroupId) : null;
   const modes: { id: PlanScopeMode; label: string }[] = restrictedGroup
@@ -1984,9 +2024,10 @@ function PlanScopePicker({
         { id: "specific_members", label: "Specific members" },
         { id: "specific_groups", label: "Specific groups" },
       ];
-  const memberAgents = restrictedGroup
+  const memberAgents = (restrictedGroup
     ? agents.filter((a) => restrictedGroup.memberIds.includes(a.id))
-    : agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id));
+    : agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id))
+  ).filter((a) => agentMatchesSource(a.id, sourceFilter));
   const [memberOpen, setMemberOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
   const selectedMembers = memberAgents.filter((a) => form.scopeMemberIds.includes(a.id));
