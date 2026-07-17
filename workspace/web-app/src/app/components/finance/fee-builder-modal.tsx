@@ -35,9 +35,10 @@ export interface FeeTypeDraft {
   percentageBase: PercentageBase;
   appliesToMode: "team" | "agent" | "both";
   coAgentSplitMode?: "split-equally" | "each-agent-pays";
-  payableToType?: "radius" | "team" | "group_lead" | "external";
+  payableToType?: "radius" | "team" | "group" | "group_lead" | "external";
   payableToName?: string;
   payableToExternalId?: string;
+  payableToGroupId?: string;
   dealTypes?: DealType[];
   agentIds: string[];
   timing: "pre-split" | "post-split";
@@ -66,6 +67,7 @@ export interface FeeBuilderModalProps {
   existingFeeOptions?: ExistingFeeOption[];
   teamName?: string;
   groupLeadName?: string;
+  groupOptions?: { id: string; name: string }[];
 }
 
 const DEFAULT_TEAM_NAME = "Keystone Team";
@@ -165,6 +167,7 @@ export function FeeBuilderModal({
   existingFeeOptions = [],
   teamName = DEFAULT_TEAM_NAME,
   groupLeadName,
+  groupOptions = [],
 }: FeeBuilderModalProps) {
   const [draft, setDraft] = useState<FeeTypeDraft>(() => makeDraft(initialData, teamName));
 
@@ -177,18 +180,40 @@ export function FeeBuilderModal({
   }
 
   function handlePayableToType(value: FeeTypeDraft["payableToType"]) {
+    setDraft((prev) => {
+      const keptGroupId = value === "group" ? prev.payableToGroupId : undefined;
+      const groupName = keptGroupId ? groupOptions.find((g) => g.id === keptGroupId)?.name : undefined;
+      return {
+        ...prev,
+        payableToType: value,
+        payableToName:
+          value === "group"
+            ? groupName ?? ""
+            : resolvePayableToName(
+                value,
+                teamName,
+                value === "external" ? prev.payableToName : undefined,
+                groupLeadName,
+              ),
+        payableToExternalId: value === "external" ? prev.payableToExternalId : undefined,
+        payableToGroupId: keptGroupId,
+      };
+    });
+  }
+
+  function handlePayableGroup(groupId: string) {
+    const group = groupOptions.find((g) => g.id === groupId);
     setDraft((prev) => ({
       ...prev,
-      payableToType: value,
-      payableToName: resolvePayableToName(
-        value,
-        teamName,
-        value === "external" ? prev.payableToName : undefined,
-        groupLeadName,
-      ),
-      payableToExternalId: value === "external" ? prev.payableToExternalId : undefined,
+      payableToGroupId: groupId,
+      payableToName: group ? `Group: ${group.name}` : "",
     }));
   }
+
+  const payableGroupChoices =
+    draft.scopeMode === "specific_groups" && (draft.scopeGroupIds?.length ?? 0) > 0
+      ? groupOptions.filter((g) => draft.scopeGroupIds!.includes(g.id))
+      : groupOptions;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -368,6 +393,7 @@ export function FeeBuilderModal({
                   <SelectContent>
                     <SelectItem value="radius">Radius</SelectItem>
                     <SelectItem value="team">Team</SelectItem>
+                    {groupOptions.length > 0 && <SelectItem value="group">Group</SelectItem>}
                     <SelectItem value="group_lead">Group Lead{groupLeadName ? ` (${groupLeadName})` : ""}</SelectItem>
                     <SelectItem value="external">External</SelectItem>
                   </SelectContent>
@@ -375,23 +401,42 @@ export function FeeBuilderModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="payable-to-name">Payable Name</Label>
-                {draft.payableToType === "external" ? (
-                  <Input
-                    id="payable-to-name"
-                    className={FEE_MODAL_FIELD}
-                    value={draft.payableToName ?? ""}
-                    placeholder="Enter payable name"
-                    onChange={(e) => update("payableToName", e.target.value)}
-                  />
+                {draft.payableToType === "group" ? (
+                  <>
+                    <Label>Select Group</Label>
+                    <Select value={draft.payableToGroupId ?? ""} onValueChange={handlePayableGroup}>
+                      <SelectTrigger className={FEE_MODAL_SELECT_TRIGGER}>
+                        <SelectValue placeholder="Select a group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {payableGroupChoices.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                ) : draft.payableToType === "external" ? (
+                  <>
+                    <Label htmlFor="payable-to-name">Payable Name</Label>
+                    <Input
+                      id="payable-to-name"
+                      className={FEE_MODAL_FIELD}
+                      value={draft.payableToName ?? ""}
+                      placeholder="Enter payable name"
+                      onChange={(e) => update("payableToName", e.target.value)}
+                    />
+                  </>
                 ) : (
-                  <div
-                    id="payable-to-name"
-                    aria-readonly="true"
-                    className={`${FORM_FIELD_SHELL} text-foreground opacity-50`}
-                  >
-                    {draft.payableToName}
-                  </div>
+                  <>
+                    <Label htmlFor="payable-to-name">Payable Name</Label>
+                    <div
+                      id="payable-to-name"
+                      aria-readonly="true"
+                      className={`${FORM_FIELD_SHELL} text-foreground opacity-50`}
+                    >
+                      {draft.payableToName}
+                    </div>
+                  </>
                 )}
               </div>
             </div>

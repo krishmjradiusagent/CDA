@@ -4602,6 +4602,7 @@ export function CDASettings() {
         initialData={state.feeDraft}
         teamName="Keystone Team"
         groupLeadName={isGroupLead ? agents.find((a) => a.id === CURRENT_GROUP_LEAD_ID)?.name : undefined}
+        groupOptions={GROUPS.map((g) => ({ id: g.id, name: g.name }))}
         onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "add-fee" : null }))}
         onSave={saveFeeType}
       />
