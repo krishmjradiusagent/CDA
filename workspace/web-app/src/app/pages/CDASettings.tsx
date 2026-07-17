@@ -4539,7 +4539,12 @@ export function CDASettings() {
         }
         showScopeToggle={userRole === "team_lead" && state.form.kind === "base"}
         onSplitScopeChange={handleSplitScopeChange}
-        basePlans={state.plans.filter((p) => (p.kind ?? "base") === "base")}
+        basePlans={state.plans.filter(
+          (p) =>
+            (p.kind ?? "base") === "base" &&
+            p.splitScope === "group" &&
+            p.createdBy?.role === "team_lead",
+        )}
         subAgentOptions={
           isGroupLead
             ? agents.filter((a) => groupForLead(CURRENT_GROUP_LEAD_ID)?.memberIds.includes(a.id)).map((a) => ({ id: a.id, name: a.name }))
