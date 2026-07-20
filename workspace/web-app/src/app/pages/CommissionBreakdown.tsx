@@ -397,7 +397,7 @@ const defaultTiers: TierRow[] = [
 
 const DEAL_SALE_PRICE = 4_950_000;
 const DEAL_TOTAL_COMMISSION_RATE = 0.02;
-const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v4";
+const COMMISSION_BREAKDOWN_STORAGE_KEY = "cda-commission-breakdown-v5";
 
 const DEFAULT_POST_SPLIT_DEDUCTIONS: Record<string, AgentDeduction[]> = {
   a1: [
@@ -503,6 +503,21 @@ function roundCurrency(value: number) {
 
 function clampCurrency(value: number) {
   return Math.max(value, 0);
+}
+
+
+function mergeSeededSides(persisted: Side[] | undefined | null): Side[] {
+  if (!persisted?.length) return initialSides;
+  return persisted.map((side) => {
+    const seed = initialSides.find((s) => s.id === side.id);
+    if (!seed) return side;
+    // Keep user edits, but re-apply prototype seed fields that older localStorage
+    // snapshots never had (e.g. groupLead tree under Listing Side).
+    return {
+      ...side,
+      groupLead: side.groupLead ?? seed.groupLead,
+    };
+  });
 }
 
 function getDefaultAgentAllocationPercentages() {
@@ -1426,7 +1441,7 @@ export function CommissionBreakdown() {
 
   // mutable sides so delete works
   const [sidesData, setSidesData] = useState<Side[]>(
-    persistedState?.sidesData ?? initialSides
+    mergeSeededSides(persistedState?.sidesData)
   );
   const wireStore = useMemo(
     () =>
