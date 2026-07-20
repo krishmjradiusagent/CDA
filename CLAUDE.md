@@ -6,7 +6,13 @@ updated: 2026-07-05
 
 # CLAUDE.md — Commission Breakdown
 
-**Connected to:** [[README.md|Readme]], [[workspace/CDA_SETTINGS_BACKEND_REFERENCE.md|CDA Settings Backend Reference]], [[/Vault/CLAUDE.md|Vault Root]], [[/Radius UI 3.0/DESIGN.md|Design System]]
+**Connected to:** [[README.md|Readme]], [[workspace/CDA_SETTINGS_BACKEND_REFERENCE.md|CDA Settings Backend Reference]], [[/Vault/CLAUDE.md|Vault Root]], [[/Radius UI 3.0/DESIGN.md|Design System]], [[/Vault/SKILLS/DESIGN SYSTEM LOCK.md|Design System Lock]]
+
+### Design system lock (hard law)
+Full procedure: `/Users/radius/Desktop/Design OS/Vault/SKILLS/DESIGN SYSTEM LOCK.md`
+- Canonical DS: `/Users/radius/Desktop/Design OS/Radius UI 3.0/` — reference only; do not fork into this project.
+- Before UI: COMPONENT MAP → compose only from closed set → **STOP on gaps** → label exact | adapted | new.
+- New single-file HTML prototypes: link DS CSS; no freestyle primitives; §16 before done.
 
 CDA / commission breakdown design prototypes.
 

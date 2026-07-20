@@ -1,29 +1,50 @@
-# Dev Prompt — CDA Full Transparency: Single-Page PDF Fit
+# Dev Prompt — CDA Template: Fit One PDF Page (Cursor / Claude Code)
 
-Paste this into Cursor / Claude Code as the task brief. All context needed is here; the file paths are relative to the CDA repo.
+Paste this into Cursor or Claude Code as the task. Scope is intentionally narrow.
 
 ---
 
 ## Goal
 
-The **Full Transparency** CDA template (the one served at `/cda/templates` → tab1) must render as **a single Letter-size page** when the user clicks **Print / Save PDF**. Today it spills onto page 2 because paddings/margins built for a web canvas were also being sent to the print pipeline.
+The **CDA document itself** — the printable card with the teal top border, "Disbursement Authorization" header, property meta, wire cards, MB signature, and address footer — must fit on **one Letter page** when the user prints it or saves as PDF.
 
-Nothing else about the layout should change — same components, same content, same visual hierarchy. Only spacing tightens and print CSS forces a one-page fit.
+**Scope is the document only.** Ignore surrounding app UI (header, nav, floating layout / broker-demo pills, breadcrumbs). Those are already hidden from print and are not part of this ticket.
 
-## Scope
+## What the document is
 
-Two files:
+The single React block inside the tab that starts with the teal gradient bar and ends at the address footer. All content between:
 
-- `workspace/web-app/src/app/pages/CDATemplates.tsx` — tab1 `<Card>` content + print stylesheet.
-- `workspace/web-app/src/app/components/BrokerSignature.tsx` — signature block density.
+- Teal top border (`h-[3px] bg-gradient-to-r from-teal-500 to-teal-400`).
+- Header row: RA badge (left) + "Disbursement Authorization" (right).
+- "Please disburse funds as follows:" lead.
+- Property meta grid (property address, representation, agent, escrow company, escrow email, sale price, gross commission).
+- Ledger stack: one card per payee (Radius Agent, Move Sales Inc, Listwizer). Each card has a payee name + amount header and a wire block below (Wire To, Bank/Account/Routing, optional memo).
+- Managing Broker signature block (label, sig line, name · title · date).
+- Address footer.
 
-Other tabs (tab2 / tab3 / tab4 / tab5) are not covered by this ticket. Only tab1.
+Everything above lives inside a single `<Card>` in the tab. **That card is the entire print target.** Nothing else goes on the page.
 
-## What changed and why
+## Approach
 
-### 1. Print stylesheet (added once, top of the page component)
+Two pieces to land: (1) tightened density inside the card, and (2) a print stylesheet that pins the card to one page.
 
-Inject a `<style>` block right inside the returned root wrapper of `CDATemplates.tsx`:
+### 1. Density inside the card
+
+Match these tokens. The goal is a compact-but-legible enterprise document — not the airy web view we ship for on-screen preview.
+
+- Card padding: `p-8` (not `p-12`).
+- Header row: `mb-4`; RA badge `w-9 h-9 text-xs`; title `text-base font-semibold`.
+- Lead sentence: `text-xs mb-2`.
+- Property meta box: `bg-muted/20 border rounded-md p-2.5 text-xs mb-2`, grid `grid-cols-2 gap-x-4 gap-y-1`. Field label `text-[9px] font-bold uppercase tracking-wider mb-0.5`. Gross Commission value `text-sm font-bold text-teal-600`. Rest of values `font-medium text-foreground`.
+- Ledger wrapper: `space-y-1.5 mb-2`.
+- Each payee card: `border rounded-md p-2.5 bg-muted/10 space-y-2`. Payee row `text-xs`. Wire block `bg-background border rounded p-2 text-[11px] space-y-0.5 text-muted-foreground`. Memo `text-[9px] italic leading-snug pt-1 border-t mt-1`.
+- Signature wrapper: `mt-4 pt-3 border-t max-w-[320px] ml-auto`.
+- Signature block (inside `BrokerSignature`): outer `space-y-1`; label `text-[9px] uppercase tracking-wider`; sig line `h-9 border-b`; fallback cursive `18px`; sig image `max-h-8 max-w-[160px]`; meta row `flex justify-between items-baseline gap-2 text-[11px] whitespace-nowrap` on the date span (prevents the "Managing BrokerJuly 13, 2026" collision).
+- Address footer: `mt-4 pt-2 border-t text-[9px] text-center leading-snug`.
+
+### 2. Print stylesheet
+
+Inject once at the top of the page component. Only the document card should print. Do not modify anything outside `.cda-print-page`.
 
 ```tsx
 <style>{`
@@ -46,52 +67,31 @@ Inject a `<style>` block right inside the returned root wrapper of `CDATemplates
 `}</style>
 ```
 
-- `@page Letter, 0.35in` → the target medium.
-- `zoom: 0.88` on the print-only class → an easy final safety scale (~88%). Prefer this over CSS `transform: scale()` because `zoom` reflows correctly for print in Chromium.
-- Hide the fixed floating layout / broker-demo pills, the header, and any nav so only the doc prints.
-- `page-break-inside: avoid` on the card and its children stops the browser from splitting the doc between wire cards.
+Add the class `cda-print-page` to the outer `<Card>` of the document.
 
-### 2. Tab1 `<Card>` — add `cda-print-page` class and tighten spacing
-
-The Card wrapper needs the new class **and** tighter tokens:
-
-- `p-12` → `p-8`
-- Header row `mb-8` → `mb-4`, RA badge `w-10 h-10` → `w-9 h-9`, title `text-lg` → `text-base`.
-- "Please disburse funds as follows" `text-sm mb-6` → `text-xs mb-2`.
-- Property meta grid: `gap-4 p-5 text-sm mb-8` → `gap-x-4 gap-y-1 p-2.5 text-xs mb-2`. Field labels `text-[10px] mb-1` → `text-[9px] mb-0.5`. Gross Commission value `text-base` → `text-sm`.
-- Ledger wrapper `space-y-4 mb-8` → `space-y-1.5 mb-2`.
-- Each payee card: `p-4 space-y-3` → `p-2.5 space-y-2`; payee name/amount `text-sm` → `text-xs`; wire block `p-3 text-xs space-y-1` → `p-2 text-[11px] space-y-0.5`; memo `text-[10px]` → `text-[9px] leading-snug`.
-- Signature block wrapper: `mt-12 pt-6 border-t` → `mt-4 pt-3 border-t`.
-- Footer: replaced the `<Separator className="my-8" />` + `text-[10px]` block with `mt-4 pt-2 border-t text-[9px] text-center leading-snug`.
-
-All wire card / meta card border-radius shifted from `rounded-lg` to `rounded-md` to match the tighter scale.
-
-### 3. `BrokerSignature.tsx` — density + date wrap fix
-
-- Outer `space-y-2` → `space-y-1`.
-- Label `text-[10px]` → `text-[9px]`.
-- Sig line `h-12` → `h-9`; fallback cursive `22px` → `18px`; image `max-h-10 max-w-[180px]` → `max-h-8 max-w-[160px]`.
-- Meta row: `text-xs` → `text-[11px]`; add `gap-2` + `whitespace-nowrap` on the date span so the "Managing BrokerJuly 13, 2026" collision is impossible at narrow widths.
+- `@page Letter, 0.35in margin` locks the paper size and physical margins.
+- `zoom: 0.88` gives ~12% headroom so the tightened density above always lands on one page, even with the longest signature name and longest property address.
+- `page-break-inside: avoid` on both the card and every descendant stops the browser from slicing between wire cards or between the signature and its label.
+- Hiding `.fixed`, `header`, `nav`, and dropdown triggers removes app chrome from the print output. Nothing else about that chrome is your concern.
 
 ## Acceptance
 
-- Loading `/cda/templates` with tab1 selected and hitting **Print / Save PDF** produces a PDF whose Full Transparency doc is contained on **one Letter page** with default Chrome print settings (Letter, default margins, no scaling).
-- Floating layout pill and broker-demo pill do not appear in the print output.
-- Web view (non-print) still looks legible and unbroken — no clipped rows, no overlap in the signature row at 1280px viewport.
-- BrokerSignature name + title + date all fit on one line at the 320px sig column without wrapping or colliding.
+- Print / Save PDF on the CDA document → **one Letter page**, no overflow onto page 2.
+- Signature name + title + date fit on one line inside the 320px signature column — no wrap, no collision.
+- On-screen the document still reads clean at a 1280px viewport: no clipped rows, no overlapping text.
+- Nothing outside the document card appears in the printed output.
 
 ## Non-goals
 
-- Don't touch tab2 / tab3 / tab4 / tab5 layouts — they still print as before.
-- Don't change any of the auto-broker resolver logic (`lib/broker.ts`) or the signature image list.
-- No new dependencies. `zoom` + `@page` are enough; do not pull in a PDF library.
+- App chrome (header, nav, floating pills) — already handled, don't touch.
+- Other tabs / other CDA layouts — this ticket is one document only.
+- Broker resolver logic, signature asset list, tab routing — untouched.
+- No new dependencies. `@page` + `zoom` are the whole print engine.
 
-## Ref implementation
+## Reference
 
-The changes above are already on `main` at `krishmjradiusagent/CDA` — commits:
+Reference diff on `main` at `krishmjradiusagent/CDA`:
 
-- `94bfb44` — tighten Full Transparency card + print CSS (`CDATemplates.tsx`).
-- `f170e61` — tighten BrokerSignature block + date wrap.
-- Latest — property meta / ledger gap further condensed (`gap-y-1`, `mb-2`, `space-y-1.5`).
-
-Use those as the reference diff if you want to cherry-pick or match exactly.
+- `94bfb44` — card + print CSS.
+- `f170e61` — signature density + date wrap.
+- `5759a9a` — meta grid / ledger gap final pass.

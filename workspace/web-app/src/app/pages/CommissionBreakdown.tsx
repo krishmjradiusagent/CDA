@@ -27,6 +27,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  CornerDownRight,
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -174,11 +175,14 @@ type Side = {
   gross: number;
   agents: Agent[];
   active: boolean;
+  // Teams that want group behavior without full group-lead plan access: the
+  // group leader is shown as a labeled node above the agents (not a co-agent).
+  groupLead?: { id: string; name: string };
 };
 
 type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
-type ResetPeriod = "yearly" | "quarterly" | "monthly";
+type ResetPeriod = "yearly" | "quarterly" | "monthly" | "never";
 type BasedOn = "units" | "gci" | "sales-volume";
 type RadiusFeePaidBy = "agent" | "team";
 
@@ -323,6 +327,7 @@ const initialSides: Side[] = [
     subline: "Circle Real Estate",
     award: 1,
     gross: 49500,
+    groupLead: { id: "gl1", name: "Andy Martin" },
     agents: [
       { id: "a1", name: "Mark Perez", role: "Primary agent", payout: 29451 },
     ],
@@ -2735,19 +2740,32 @@ export function CommissionBreakdown() {
                             </div>
                           </div>
                         </div>
-                        <div className="px-5 pb-4">
+                        <div className="px-5 pb-5">
+                          {side.groupLead && side.agents.filter((agent) => !isAgent || agent.id === CURRENT_AGENT_ID).length > 0 && (
+                            <div className="mb-2.5 mt-2 flex items-center gap-1.5 pl-2">
+                              <CornerDownRight className="size-4 shrink-0 text-[#5A5FF2]" />
+                              <span className="text-sm font-semibold text-foreground">{side.groupLead.name}</span>
+                              <Badge variant="outline" className="ml-1 h-5 rounded-full border-[#5A5FF2]/40 bg-[#5A5FF2]/5 px-2 text-[10px] font-medium text-[#5A5FF2]">Group Lead</Badge>
+                            </div>
+                          )}
                           <div className="mt-1 space-y-2">
                             {side.agents.filter((agent) => !isAgent || agent.id === CURRENT_AGENT_ID).map((agent) => {
                               const agentSummary = sideSummary?.agents.find((entry) => entry.agent.id === agent.id);
                               return (
+                              <div key={agent.id} className={cn(side.groupLead ? "flex items-stretch gap-3" : "")}>
+                                {side.groupLead && (
+                                  <div className="relative w-3 shrink-0">
+                                    <span aria-hidden className="pointer-events-none absolute left-[11px] top-1 bottom-0 w-px bg-[#5A5FF2]/35" />
+                                  </div>
+                                )}
                               <div
                                 data-connector-anchor={`agent-${agent.id}`}
-                                key={agent.id}
                                 role="button" tabIndex={0}
                                 onClick={(e) => { e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); }}
                                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSelectedSide(side.id); setSelectedAgentId(agent.id); } }}
                                 className={cn(
                                   "flex cursor-pointer items-center justify-between gap-4 px-4 py-3 min-h-[64px] rounded-lg outline-none transition-colors",
+                                  side.groupLead && "min-w-0 flex-1",
                                   selectedAgentId === agent.id ? "bg-muted ring-1 ring-border shadow-sm" : "bg-muted/50 hover:bg-muted/80"
                                 )}
                               >
@@ -2767,6 +2785,7 @@ export function CommissionBreakdown() {
                                   </div>
                                   <ChevronRight className="size-4 text-muted-foreground/50" />
                                 </div>
+                              </div>
                               </div>
                             )})}
                           </div>
@@ -5234,6 +5253,7 @@ function PlanSetupFields({
                 <SelectItem value="yearly">Yearly</SelectItem>
                 <SelectItem value="quarterly">Quarterly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="never">Never</SelectItem>
               </SelectContent>
             </Select>
           </div>

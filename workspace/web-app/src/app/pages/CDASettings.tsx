@@ -133,8 +133,9 @@ import { COMMISSION_BREAKDOWN_TYPE_OPTIONS, getCdaTypeLabel } from "../lib/cda-t
 
 type PlanType = "standard" | "tiered";
 type FeeType = "flat" | "percentage";
-type ResetPeriod = "yearly" | "quarterly" | "monthly";
-type BasedOn = "units" | "gci" | "sales-volume" | "sales-price";
+type ResetPeriod = "yearly" | "quarterly" | "monthly" | "never";
+type BasedOn = "units" | "gci" | "sales-volume" | "sales-price" | "specific-date";
+type CommissionBase = "gross" | "gross-post-deduction";
 type PlanKind = "base" | "sub";
 type SubPlanStatus = "draft" | "gl_submitted" | "tl_approved" | "agent_acknowledged" | "active";
 type DefaultMode = "all" | "specific";
@@ -252,6 +253,8 @@ type CommissionPlan = {
   assignedAgentsCount: number;
   resetPeriod: ResetPeriod;
   basedOn: BasedOn;
+  /** What amount the split is calculated against. */
+  commissionBase?: CommissionBase;
   tiers: TierRow[];
   createdBy?: Creator;
   scope?: PlanScope;
@@ -277,6 +280,7 @@ type PlanForm = {
   teamSplit: string;
   resetPeriod: ResetPeriod;
   basedOn: BasedOn;
+  commissionBase: CommissionBase;
   feeType: FeeType;
   feeAmount: string;
   capAmount: string;
@@ -534,6 +538,7 @@ function getFreshPlanForm(scope: PlanSplitScope = "team", kind: PlanKind = "base
     teamSplit: isGroup ? "40" : "20",
     resetPeriod: "yearly",
     basedOn: "units",
+    commissionBase: "gross",
     feeType: "flat",
     feeAmount: "",
     capAmount: "18000",
@@ -559,7 +564,8 @@ function formatFee(plan: CommissionPlan) {
 function formatBasedOn(value: BasedOn) {
   if (value === "gci") return "GCI";
   if (value === "sales-volume") return "Sales Volume";
-  if (value === "sales-price") return "Sales Price";
+  if (value === "sales-price") return "Transaction sales price";
+  if (value === "specific-date") return "Specific date";
   return "Units";
 }
 
@@ -630,8 +636,8 @@ function EmptySection({
   description: string;
   emptyDescription: string;
   icon: LucideIcon;
-  action: string;
-  onAction: () => void;
+  action?: string;
+  onAction?: () => void;
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -652,10 +658,12 @@ function EmptySection({
                 : "No defaults assigned yet"}
           </h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">{emptyDescription}</p>
-          <Button variant="outline" size="sm" className="mt-4 border-primary text-primary hover:text-primary" onClick={onAction}>
-            <Plus className="size-4" />
-            {action}
-          </Button>
+          {action && onAction && (
+            <Button variant="outline" size="sm" className="mt-4 border-primary text-primary hover:text-primary" onClick={onAction}>
+              <Plus className="size-4" />
+              {action}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </section>
@@ -1121,7 +1129,8 @@ function TierBuilder({
   onAddTier: () => void;
   onRemoveTier: (tierId: string) => void;
 }) {
-  const moneyMode = form.basedOn !== "units";
+  const dateMode = form.basedOn === "specific-date";
+  const moneyMode = form.basedOn !== "units" && !dateMode;
   const perTxn = form.basedOn === "sales-price";
   const scope = form.splitScope ?? "team";
   const primaryLabel = scope === "group" ? "Group Split %" : "Agent Split %";
@@ -1132,11 +1141,13 @@ function TierBuilder({
       <div>
         <Label>Tier Builder</Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          {moneyMode ? "Currency range" : "Deal count range"}
+          {dateMode ? "Date range" : moneyMode ? "Currency range" : "Deal count range"}
           {" · "}
-          {perTxn
-            ? "Tier picked per transaction from that deal's price. No accumulation."
-            : "Tier picked from year-to-date total. Deals accumulate."}
+          {dateMode
+            ? "Tier picked by the deal's closing date. Time-based, not cumulative."
+            : perTxn
+              ? "Tier picked per transaction from that deal's price. No accumulation."
+              : "Tier picked from year-to-date total. Deals accumulate."}
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -1158,8 +1169,17 @@ function TierBuilder({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor={`${tier.id}-from`}>From</Label>
-                    {moneyMode ? (
+                    <Label htmlFor={`${tier.id}-from`}>{dateMode ? "Start date" : "From"}</Label>
+                    {dateMode ? (
+                      <Input
+                        id={`${tier.id}-from`}
+                        type="date"
+                        value={tier.from}
+                        aria-invalid={Boolean(tierError)}
+                        className="h-10"
+                        onChange={(event) => onUpdateTier(tier.id, { from: event.target.value })}
+                      />
+                    ) : moneyMode ? (
                       <AdornedInput
                         id={`${tier.id}-from`}
                         value={tier.from}
@@ -1179,8 +1199,17 @@ function TierBuilder({
                     )}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor={`${tier.id}-to`}>To</Label>
-                    {moneyMode ? (
+                    <Label htmlFor={`${tier.id}-to`}>{dateMode ? "End date" : "To"}</Label>
+                    {dateMode ? (
+                      <Input
+                        id={`${tier.id}-to`}
+                        type="date"
+                        value={tier.to}
+                        aria-invalid={Boolean(tierError)}
+                        className="h-10"
+                        onChange={(event) => onUpdateTier(tier.id, { to: event.target.value })}
+                      />
+                    ) : moneyMode ? (
                       <AdornedInput
                         id={`${tier.id}-to`}
                         value={tier.to}
@@ -1200,6 +1229,9 @@ function TierBuilder({
                     )}
                   </div>
                 </div>
+                {dateMode && index === form.tiers.length - 1 && (
+                  <p className="-mt-1 text-[11px] text-muted-foreground">Leave the end date blank — this split applies to every deal closing after the earlier tiers.</p>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
                     <Label htmlFor={`${tier.id}-agent`}>{primaryLabel}</Label>
@@ -1398,6 +1430,22 @@ function PlanSetupFields({
         </Select>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm font-medium">Commission Base</Label>
+        <Select
+          value={form.commissionBase}
+          onValueChange={(value) => onFormChange({ commissionBase: value as CommissionBase })}
+        >
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="gross">Gross Commission</SelectItem>
+            <SelectItem value="gross-post-deduction">Gross Commission Post Deduction</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {isSub && form.planType === "standard" && (
         <>
           <div className="grid w-full grid-cols-2 gap-3">
@@ -1527,6 +1575,7 @@ function PlanSetupFields({
                   <SelectItem value="yearly">Yearly</SelectItem>
                   <SelectItem value="quarterly">Quarterly</SelectItem>
                   <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="never">Never</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -1542,7 +1591,8 @@ function PlanSetupFields({
                   <SelectItem value="units">Units</SelectItem>
                   <SelectItem value="gci">Gross Commission</SelectItem>
                   <SelectItem value="sales-volume">Sales Volume</SelectItem>
-                  <SelectItem value="sales-price">Sales Price</SelectItem>
+                  <SelectItem value="sales-price">Transaction sales price</SelectItem>
+                  <SelectItem value="specific-date">Specific date</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -2571,6 +2621,12 @@ export function CDASettings() {
   const currentCreatorId = userRole === "team_lead" ? CURRENT_TEAM_LEAD_ID : userRole === "group_lead" ? CURRENT_GROUP_LEAD_ID : null;
   const isTeamLead = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
   const isGroupLead = userRole === "group_lead";
+  // Team Lead controls, per Group Lead, whether that GL may create plans.
+  // Keyed by group-lead agent id. Gate starts closed: until the TL turns a
+  // Group Lead on, that GL sees no "Add Plan" CTA at all.
+  const [planCreationByLead, setPlanCreationByLead] = useState<Record<string, boolean>>({});
+  // Only Group Leads are gated; every other role keeps its existing behavior.
+  const canAddPlan = isGroupLead ? !!planCreationByLead[CURRENT_GROUP_LEAD_ID] : true;
   function canViewOwned(item: { createdBy?: Creator }): boolean {
     if (isTeamLead) {
       if (groupFilter === "all") return true;
@@ -3484,12 +3540,14 @@ export function CDASettings() {
     }
 
     if (state.form.planType === "tiered") {
+      const dateMode = state.form.basedOn === "specific-date";
       const tierErrors: Record<string, string> = {};
       state.form.tiers.forEach((tier, index) => {
         const splitTotal = numericValue(tier.agentSplit) + numericValue(tier.teamSplit);
         const finalRow = index === state.form.tiers.length - 1;
-        if (!tier.from) tierErrors[tier.id] = "From required";
-        else if (!finalRow && !tier.to) tierErrors[tier.id] = "To required except final row";
+        // Date tiers have an implied start (the prior tier's end), so "From" is optional.
+        if (!dateMode && !tier.from) tierErrors[tier.id] = "From required";
+        else if (!finalRow && !tier.to) tierErrors[tier.id] = dateMode ? "End date required except final row" : "To required except final row";
         else if (splitTotal !== 100) tierErrors[tier.id] = `Split total must equal 100%. Current: ${splitTotal}%`;
       });
       if (Object.keys(tierErrors).length > 0) nextErrors.tiers = tierErrors;
@@ -3537,6 +3595,7 @@ export function CDASettings() {
       assignedAgentsCount: state.form.applyAsDefault ? selectedDefaultAgents.length : 0,
       resetPeriod: state.form.resetPeriod,
       basedOn: state.form.basedOn,
+      commissionBase: state.form.commissionBase,
       tiers: state.form.tiers.map((tier) => ({ ...tier })),
       createdBy: existing?.createdBy ?? creatorForNew(),
       scope: {
@@ -3616,6 +3675,7 @@ export function CDASettings() {
         capAmount: String(plan.capAmount),
         resetPeriod: plan.resetPeriod,
         basedOn: plan.basedOn,
+        commissionBase: plan.commissionBase ?? "gross",
         tiers: plan.tiers.map((tier) => ({ ...tier })),
         scopeMode: plan.scope?.mode ?? "all_members",
         scopeMemberIds: plan.scope?.memberIds ? [...plan.scope.memberIds] : [],
@@ -3657,6 +3717,7 @@ export function CDASettings() {
         capAmount: String(plan.capAmount),
         resetPeriod: plan.resetPeriod,
         basedOn: plan.basedOn,
+        commissionBase: plan.commissionBase ?? "gross",
         tiers: plan.tiers.map((tier) => ({ ...tier })),
       },
     }));
@@ -3776,15 +3837,18 @@ export function CDASettings() {
           description="Create default split structures for agents and teams."
           emptyDescription="Create plans like 80/20 Standard or tiered plans for agents."
           icon={FileText}
-          action="Add Plan"
-          onAction={() =>
-            setState((current) => ({
-              ...current,
-              activeDialog: "add-plan",
-              planDialogMode: "add",
-              form: getFreshPlanForm(isGroupLead ? "group" : "team", isGroupLead ? "sub" : "base"),
-              errors: {},
-            }))
+          action={canAddPlan ? "Add Plan" : undefined}
+          onAction={
+            canAddPlan
+              ? () =>
+                  setState((current) => ({
+                    ...current,
+                    activeDialog: "add-plan",
+                    planDialogMode: "add",
+                    form: getFreshPlanForm(isGroupLead ? "group" : "team", isGroupLead ? "sub" : "base"),
+                    errors: {},
+                  }))
+              : undefined
           }
         />
       );
@@ -3796,8 +3860,53 @@ export function CDASettings() {
       return true;
     });
     const pendingApprovals = isTeamLead ? state.plans.filter((p) => p.kind === "sub" && p.status === "gl_submitted") : [];
+    const groupLeads = GROUPS.map((g) => {
+      const lead = agents.find((a) => a.id === g.leadId);
+      return { id: g.leadId, name: lead?.name ?? g.leadId, avatarUrl: lead?.avatarUrl, groupName: g.name };
+    });
     return (
       <section className="flex flex-col gap-4">
+        {userRole === "team_lead" && groupLeads.length > 0 && (
+          <Card className="rounded-lg border-border shadow-none">
+            <CardContent className="p-4">
+              <div className="mb-3">
+                <p className="text-sm font-medium text-foreground">Group Lead plan creation</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Choose which Group Leads can create commission plans. When off, the Group Lead has no “Add Plan” option.
+                </p>
+              </div>
+              <div className="flex flex-col divide-y divide-border rounded-md border">
+                {groupLeads.map((gl) => {
+                  const enabled = !!planCreationByLead[gl.id];
+                  return (
+                    <div key={gl.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar className="size-7">
+                          <AvatarImage src={gl.avatarUrl} alt={gl.name} />
+                          <AvatarFallback className="text-[10px]">{gl.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{gl.name}</p>
+                          <p className="text-[11px] text-muted-foreground">Group: {gl.groupName}</p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <span className={cn("text-[11px] font-medium", enabled ? "text-primary" : "text-muted-foreground")}>
+                          {enabled ? "Can create plans" : "No access"}
+                        </span>
+                        <Switch
+                          checked={enabled}
+                          onCheckedChange={(v) => setPlanCreationByLead((prev) => ({ ...prev, [gl.id]: v }))}
+                          aria-label={`Allow ${gl.name} to create plans`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {pendingApprovals.length > 0 && (
           <Card className="rounded-lg border-amber-200 bg-amber-50/40 shadow-none">
             <CardContent className="p-4">
@@ -3849,23 +3958,25 @@ export function CDASettings() {
                 memberOptions={memberOptions}
               />
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary text-primary hover:text-primary"
-              onClick={() =>
-                setState((current) => ({
-                  ...current,
-                  activeDialog: "add-plan",
-                  planDialogMode: "add",
-                  form: getFreshPlanForm(isGroupLead ? "group" : "team", isGroupLead ? "sub" : "base"),
-                  errors: {},
-                }))
-              }
-            >
-              <Plus className="size-4" />
-              Add Plan
-            </Button>
+            {canAddPlan && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary text-primary hover:text-primary"
+                onClick={() =>
+                  setState((current) => ({
+                    ...current,
+                    activeDialog: "add-plan",
+                    planDialogMode: "add",
+                    form: getFreshPlanForm(isGroupLead ? "group" : "team", isGroupLead ? "sub" : "base"),
+                    errors: {},
+                  }))
+                }
+              >
+                <Plus className="size-4" />
+                Add Plan
+              </Button>
+            )}
           </div>
         </div>
         <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
