@@ -944,15 +944,17 @@ function AgentCapCard({
   dealContribution: number;
   status: CapDisplayStatus;
   note?: string;
-  postCapFee?: { feeType: "fixed" | "percentage"; feeAmount: number; basis: "gross" | "gross-post-deduction" };
+  postCapFee?: { feeType: "fixed" | "percentage" | "both"; feeAmount: number; fixedAmount?: number; basis: "gross" | "gross-post-deduction" };
 }) {
   const progressValue = capAmount > 0 ? Math.min(100, (capUsed / capAmount) * 100) : 0;
   const CapIcon = variant === "radius" ? Radar : Building2;
   const isReached = status === "reached";
   const feeText = postCapFee
-    ? postCapFee.feeType === "percentage"
-      ? `${postCapFee.feeAmount}% ${postCapFee.basis === "gross" ? "of gross" : "of gross post-ded."}`
-      : `${currency(postCapFee.feeAmount)} flat`
+    ? postCapFee.feeType === "both"
+      ? `${postCapFee.feeAmount}% ${postCapFee.basis === "gross" ? "of gross" : "of gross post-ded."} + ${currency(postCapFee.fixedAmount ?? 0)} flat`
+      : postCapFee.feeType === "percentage"
+        ? `${postCapFee.feeAmount}% ${postCapFee.basis === "gross" ? "of gross" : "of gross post-ded."}`
+        : `${currency(postCapFee.feeAmount)} flat`
     : null;
 
   return (
@@ -1060,12 +1062,13 @@ function AgentCapCard({
 type PostCapDisplay = {
   scope: "agent" | "team";
   label: string;
-  feeType: "fixed" | "percentage";
+  feeType: "fixed" | "percentage" | "both";
   feeAmount: number;
+  fixedAmount?: number;
   basis: "gross" | "gross-post-deduction";
 };
 const MOCK_POST_CAP: PostCapDisplay[] = [
-  { scope: "agent", label: "Radius Post-Cap Fee", feeType: "percentage", feeAmount: 5, basis: "gross" },
+  { scope: "agent", label: "Radius Post-Cap Fee", feeType: "both", feeAmount: 5, fixedAmount: 495, basis: "gross" },
   { scope: "team", label: "Team Post-Cap Fee", feeType: "fixed", feeAmount: 250, basis: "gross" },
 ];
 

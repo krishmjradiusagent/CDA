@@ -265,7 +265,7 @@ type CommissionPlan = {
 
 type FeeRecord = FeeTypeDraft & { id: string; createdBy?: Creator };
 
-type PostCapFeeType = "fixed" | "percentage";
+type PostCapFeeType = "fixed" | "percentage" | "both";
 type PostCapScope = "agent" | "team";
 type PostCapPercentBasis = "gross" | "gross-post-deduction";
 type PostCapAssign = "buyer" | "listing" | "both";
@@ -274,6 +274,7 @@ type PostCapPlan = {
   name: string;
   feeType: PostCapFeeType;
   feeAmount: number;
+  fixedAmount?: number;
   percentBasis: PostCapPercentBasis;
   scope: PostCapScope;
   assign: PostCapAssign;
@@ -287,6 +288,7 @@ type PostCapForm = {
   scope: PostCapScope;
   feeType: PostCapFeeType;
   feeAmount: string;
+  fixedAmount: string;
   percentBasis: PostCapPercentBasis;
   assign: PostCapAssign;
 };
@@ -446,6 +448,7 @@ function getFreshPostCapForm(scope: PostCapScope = "agent"): PostCapForm {
     scope,
     feeType: "fixed",
     feeAmount: "",
+    fixedAmount: "",
     percentBasis: "gross",
     assign: "both",
   };
@@ -4609,6 +4612,7 @@ export function CDASettings() {
         scope: plan.scope,
         feeType: plan.feeType,
         feeAmount: String(plan.feeAmount),
+        fixedAmount: plan.fixedAmount != null ? String(plan.fixedAmount) : "",
         percentBasis: plan.percentBasis,
         assign: plan.assign,
       },
@@ -4633,8 +4637,13 @@ export function CDASettings() {
     const f = state.postCapForm;
     const name = f.name.trim() || (f.scope === "team" ? "Team Post-Cap Fee" : "Radius Post-Cap Fee");
     const amount = Number(f.feeAmount || 0);
+    const fixedAmount = f.feeType === "both" ? Number(f.fixedAmount || 0) : undefined;
     if (!(amount > 0)) {
-      toast.error("Enter a fee amount");
+      toast.error(f.feeType === "fixed" ? "Enter a fee amount" : "Enter a percentage");
+      return;
+    }
+    if (f.feeType === "both" && !(fixedAmount! > 0)) {
+      toast.error("Enter a fixed fee amount");
       return;
     }
     if (f.editingId) {
@@ -4642,7 +4651,7 @@ export function CDASettings() {
         ...current,
         postCapPlans: current.postCapPlans.map((p) =>
           p.id === f.editingId
-            ? { ...p, name, scope: f.scope, feeType: f.feeType, feeAmount: amount, percentBasis: f.percentBasis, assign: f.assign }
+            ? { ...p, name, scope: f.scope, feeType: f.feeType, feeAmount: amount, fixedAmount, percentBasis: f.percentBasis, assign: f.assign }
             : p,
         ),
         activeDialog: null,
@@ -4654,6 +4663,7 @@ export function CDASettings() {
         name,
         feeType: f.feeType,
         feeAmount: amount,
+        fixedAmount,
         percentBasis: f.percentBasis,
         scope: f.scope,
         assign: f.assign,
@@ -4762,16 +4772,28 @@ export function CDASettings() {
                   <TableRow key={plan.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
                     <TableCell className="pl-6 font-medium text-sm text-foreground">{plan.name}</TableCell>
                     <TableCell className="text-sm">
-                      {plan.feeType === "percentage" ? (
-                        <span className="font-medium text-foreground">{plan.feeAmount}%</span>
+                      {plan.feeType === "both" ? (
+                        <>
+                          <span className="font-medium text-foreground">{plan.feeAmount}%</span>
+                          <span className="mx-1 text-muted-foreground/60">+</span>
+                          <span className="font-medium text-foreground">${plan.fixedAmount}</span>
+                          <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                            {plan.percentBasis === "gross" ? "of gross + flat" : "of gross post-ded. + flat"}
+                          </span>
+                        </>
+                      ) : plan.feeType === "percentage" ? (
+                        <>
+                          <span className="font-medium text-foreground">{plan.feeAmount}%</span>
+                          <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                            {plan.percentBasis === "gross" ? "of gross" : "of gross post-ded."}
+                          </span>
+                        </>
                       ) : (
-                        <span className="font-medium text-foreground">${plan.feeAmount}</span>
+                        <>
+                          <span className="font-medium text-foreground">${plan.feeAmount}</span>
+                          <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/70">flat</span>
+                        </>
                       )}
-                      <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/70">
-                        {plan.feeType === "percentage"
-                          ? plan.percentBasis === "gross" ? "of gross" : "of gross post-ded."
-                          : "flat"}
-                      </span>
                     </TableCell>
                     <TableCell>
                       <AgentAvatarStack
@@ -5051,43 +5073,93 @@ export function CDASettings() {
                 onChange={(e) => updatePostCapForm({ name: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Fee Type</Label>
+              <Select value={state.postCapForm.feeType} onValueChange={(v: PostCapFeeType) => updatePostCapForm({ feeType: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed Fee</SelectItem>
+                  <SelectItem value="percentage">Percentage</SelectItem>
+                  <SelectItem value="both">Fixed Fee + Percentage</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {state.postCapForm.feeType === "fixed" && (
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium">Fee Type</Label>
-                <Select value={state.postCapForm.feeType} onValueChange={(v: PostCapFeeType) => updatePostCapForm({ feeType: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">Fixed Fee</SelectItem>
-                    <SelectItem value="percentage">Percentage</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="postcap-amount" className="text-xs font-medium">
-                  {state.postCapForm.feeType === "percentage" ? "Percentage (%)" : "Amount ($)"}
-                </Label>
+                <Label htmlFor="postcap-amount-flat" className="text-xs font-medium">Amount ($)</Label>
                 <Input
-                  id="postcap-amount"
+                  id="postcap-amount-flat"
                   type="number"
                   min={0}
-                  placeholder={state.postCapForm.feeType === "percentage" ? "5" : "250"}
+                  placeholder="250"
                   value={state.postCapForm.feeAmount}
                   onChange={(e) => updatePostCapForm({ feeAmount: e.target.value })}
                 />
               </div>
-            </div>
+            )}
             {state.postCapForm.feeType === "percentage" && (
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium">Percentage Basis</Label>
-                <Select value={state.postCapForm.percentBasis} onValueChange={(v: PostCapPercentBasis) => updatePostCapForm({ percentBasis: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gross">Gross</SelectItem>
-                    <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">Same logic as commission plans — pick the base the percentage is calculated on.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="postcap-amount-pct" className="text-xs font-medium">Percentage (%)</Label>
+                  <Input
+                    id="postcap-amount-pct"
+                    type="number"
+                    min={0}
+                    placeholder="5"
+                    value={state.postCapForm.feeAmount}
+                    onChange={(e) => updatePostCapForm({ feeAmount: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium">Percentage Basis</Label>
+                  <Select value={state.postCapForm.percentBasis} onValueChange={(v: PostCapPercentBasis) => updatePostCapForm({ percentBasis: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gross">Gross</SelectItem>
+                      <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+            )}
+            {state.postCapForm.feeType === "both" && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="postcap-both-pct" className="text-xs font-medium">Percentage (%)</Label>
+                    <Input
+                      id="postcap-both-pct"
+                      type="number"
+                      min={0}
+                      placeholder="5"
+                      value={state.postCapForm.feeAmount}
+                      onChange={(e) => updatePostCapForm({ feeAmount: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="postcap-both-flat" className="text-xs font-medium">Fixed Fee ($)</Label>
+                    <Input
+                      id="postcap-both-flat"
+                      type="number"
+                      min={0}
+                      placeholder="250"
+                      value={state.postCapForm.fixedAmount}
+                      onChange={(e) => updatePostCapForm({ fixedAmount: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium">Percentage Basis</Label>
+                  <Select value={state.postCapForm.percentBasis} onValueChange={(v: PostCapPercentBasis) => updatePostCapForm({ percentBasis: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gross">Gross</SelectItem>
+                      <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Both the percentage and the fixed fee apply once cap is reached.</p>
+                </div>
+              </>
             )}
           </div>
           <DialogFooter className="px-6 py-4 border-t bg-muted/20">
