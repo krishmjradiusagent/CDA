@@ -299,7 +299,7 @@ function canEditByCreator(creator: Creator | undefined, currentRole: Role): bool
 const RADIUS_CAP_AMOUNT = 12000;
 
 const AGENT_CAP_PROGRESS: Record<string, number> = {
-  a1: 17420,
+  a1: 18000,
   a2: 13250,
   a3: 18000,
   a4: 9600,
@@ -310,7 +310,7 @@ const AGENT_CAP_PROGRESS: Record<string, number> = {
 };
 
 const AGENT_RADIUS_CAP_PROGRESS: Record<string, number> = {
-  a1: 11205,
+  a1: 12000,
   a2: 9400,
   a3: 12000,
   a4: 4950,
@@ -934,6 +934,7 @@ function AgentCapCard({
   dealContribution,
   status,
   note,
+  postCapFee,
 }: {
   variant: "radius" | "team";
   label: string;
@@ -943,15 +944,22 @@ function AgentCapCard({
   dealContribution: number;
   status: CapDisplayStatus;
   note?: string;
+  postCapFee?: { feeType: "fixed" | "percentage"; feeAmount: number; basis: "gross" | "gross-post-deduction" };
 }) {
   const progressValue = capAmount > 0 ? Math.min(100, (capUsed / capAmount) * 100) : 0;
   const CapIcon = variant === "radius" ? Radar : Building2;
+  const isReached = status === "reached";
+  const feeText = postCapFee
+    ? postCapFee.feeType === "percentage"
+      ? `${postCapFee.feeAmount}% ${postCapFee.basis === "gross" ? "of gross" : "of gross post-ded."}`
+      : `${currency(postCapFee.feeAmount)} flat`
+    : null;
 
   return (
     <div
       className={cn(
         "rounded-xl border px-3.5 py-3 shadow-sm",
-        status === "reached"
+        isReached
           ? "border-amber-200/70 bg-gradient-to-br from-amber-50/70 via-white to-[#5A5FF2]/[0.04]"
           : status === "near"
             ? "border-[#5A5FF2]/20 bg-gradient-to-br from-[#5A5FF2]/[0.06] via-white to-amber-50/50"
@@ -972,7 +980,7 @@ function AgentCapCard({
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">{label}</p>
         </div>
-        {status === "reached" ? (
+        {isReached ? (
           <Badge variant="outline" className="h-5 shrink-0 rounded-md border-amber-300/80 bg-amber-50 px-1.5 text-[10px] text-amber-700">
             Capped
           </Badge>
@@ -984,30 +992,62 @@ function AgentCapCard({
       </div>
       {capAmount > 0 ? (
         <>
-          <div className="mb-2 flex items-baseline justify-between gap-2">
-            <span className="text-sm font-semibold tabular-nums text-foreground">{currency(capUsed)}</span>
-            <span className="text-[11px] text-muted-foreground">of {currency(capAmount)}</span>
-          </div>
-          <div
-            className="relative h-2 overflow-hidden rounded-full bg-[#5A5FF2]/10"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={capAmount}
-            aria-valuenow={capUsed}
-            aria-label={`${label}: ${currency(capUsed)} of ${currency(capAmount)}`}
-          >
+          {isReached ? (
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="text-sm font-semibold tabular-nums text-foreground">{currency(capAmount)}</span>
+              <span className="text-[11px] text-muted-foreground">reached</span>
+            </div>
+          ) : (
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="text-sm font-semibold tabular-nums text-foreground">{currency(capUsed)}</span>
+              <span className="text-[11px] text-muted-foreground">of {currency(capAmount)}</span>
+            </div>
+          )}
+          {isReached ? (
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-[#5A5FF2] transition-all"
-              style={{ width: `${progressValue}%` }}
-            />
-          </div>
-          <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-            {status === "reached"
-              ? `${currency(capUsed)} used. ${currency(capRemaining)} remaining.`
-              : status === "near"
+              className="flex h-2 gap-0.5"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={capAmount}
+              aria-valuenow={capUsed}
+              aria-label={`${label}: capped, post-cap active`}
+            >
+              <div className="h-full flex-[0.8] overflow-hidden rounded-l-full bg-amber-400/80" />
+              <div
+                className="h-full flex-[0.2] overflow-hidden rounded-r-full"
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(45deg, rgb(251 191 36 / 0.85) 0 3px, rgb(251 191 36 / 0.25) 3px 6px)",
+                }}
+                aria-label="Post-cap zone"
+              />
+            </div>
+          ) : (
+            <div
+              className="relative h-2 overflow-hidden rounded-full bg-[#5A5FF2]/10"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={capAmount}
+              aria-valuenow={capUsed}
+              aria-label={`${label}: ${currency(capUsed)} of ${currency(capAmount)}`}
+            >
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-[#5A5FF2] transition-all"
+                style={{ width: `${progressValue}%` }}
+              />
+            </div>
+          )}
+          {isReached && feeText ? (
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+              Post-cap fee <span className="font-medium text-foreground">{feeText}</span>
+            </p>
+          ) : (
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+              {status === "near"
                 ? `This deal adds ${currency(dealContribution)}. ${currency(capRemaining)} left.`
                 : `${currency(capRemaining)} remaining · +${currency(dealContribution)} this deal`}
-          </p>
+            </p>
+          )}
         </>
       ) : (
         <p className="text-[11px] text-muted-foreground">No cap configured</p>
@@ -1016,6 +1056,18 @@ function AgentCapCard({
     </div>
   );
 }
+
+type PostCapDisplay = {
+  scope: "agent" | "team";
+  label: string;
+  feeType: "fixed" | "percentage";
+  feeAmount: number;
+  basis: "gross" | "gross-post-deduction";
+};
+const MOCK_POST_CAP: PostCapDisplay[] = [
+  { scope: "agent", label: "Radius Post-Cap Fee", feeType: "percentage", feeAmount: 5, basis: "gross" },
+  { scope: "team", label: "Team Post-Cap Fee", feeType: "fixed", feeAmount: 250, basis: "gross" },
+];
 
 export function CommissionBreakdown() {
   const [agentComment, setAgentComment] = useState("");
@@ -3017,6 +3069,7 @@ export function CommissionBreakdown() {
                         dealContribution={selectedRadiusCapApplied}
                         status={selectedRadiusCapStatus}
                         note={radiusFeePaidByTeam && role === "agent" ? "Radius fee paid by team — folded into team commission." : undefined}
+                        postCapFee={MOCK_POST_CAP.find((pc) => pc.scope === "agent")}
                       />
                       <AgentCapCard
                         variant="team"
@@ -3026,6 +3079,7 @@ export function CommissionBreakdown() {
                         capRemaining={selectedCapRemaining}
                         dealContribution={selectedAgent.capApplied}
                         status={selectedTeamCapStatus}
+                        postCapFee={MOCK_POST_CAP.find((pc) => pc.scope === "team")}
                       />
                     </div>
                   )}

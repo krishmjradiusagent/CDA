@@ -140,7 +140,7 @@ type PlanKind = "base" | "sub";
 type SubPlanStatus = "draft" | "gl_submitted" | "tl_approved" | "agent_acknowledged" | "active";
 type DefaultMode = "all" | "specific";
 type DialogMode = "add" | "edit";
-type DialogName = "add-plan" | "add-sub-plan" | "add-fee" | "assign-defaults" | null;
+type DialogName = "add-plan" | "add-sub-plan" | "add-fee" | "add-postcap" | "assign-postcap" | "assign-defaults" | null;
 
 type PlanSource = "zillow" | "referral" | "self-gen" | "sphere" | "other";
 const PLAN_SOURCES: { id: PlanSource; label: string }[] = [
@@ -264,6 +264,32 @@ type CommissionPlan = {
 
 
 type FeeRecord = FeeTypeDraft & { id: string; createdBy?: Creator };
+
+type PostCapFeeType = "fixed" | "percentage";
+type PostCapScope = "agent" | "team";
+type PostCapPercentBasis = "gross" | "gross-post-deduction";
+type PostCapAssign = "buyer" | "listing" | "both";
+type PostCapPlan = {
+  id: string;
+  name: string;
+  feeType: PostCapFeeType;
+  feeAmount: number;
+  percentBasis: PostCapPercentBasis;
+  scope: PostCapScope;
+  assign: PostCapAssign;
+  assignedAgentsCount: number;
+  agentIds: string[];
+  createdBy?: Creator;
+};
+type PostCapForm = {
+  editingId: string | null;
+  name: string;
+  scope: PostCapScope;
+  feeType: PostCapFeeType;
+  feeAmount: string;
+  percentBasis: PostCapPercentBasis;
+  assign: PostCapAssign;
+};
 
 type PlanForm = {
   editingPlanId: string | null;
@@ -407,6 +433,23 @@ const seedFees: FeeRecord[] = [
   { id: "f5", name: "Marketing Fee", type: "percentage", amount: "1.5", timing: "post-split", appliesToMode: "agent", agentIds: ["a1", "a2"], slidingScale: false, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, createdBy: CREATOR_GL_EAST },
   { id: "f6", name: "Tiered Brokerage Fee", type: "percentage", amount: "0", timing: "pre-split", appliesToMode: "both", agentIds: [], slidingScale: true, contributesToCap: false, tiers: [], percentageBase: "pre-split", visibleOnCda: true, createdBy: CREATOR_GL_WEST },
 ];
+
+const seedPostCapPlans: PostCapPlan[] = [
+  { id: "pc1", name: "Radius Post-Cap Fee (Agent)", feeType: "percentage", feeAmount: 5, percentBasis: "gross", scope: "agent", assign: "both", assignedAgentsCount: 5, agentIds: ["a1", "a2", "a3", "a4", "a5"], createdBy: CREATOR_TL },
+  { id: "pc2", name: "Team Post-Cap Fee (Flat)", feeType: "fixed", feeAmount: 250, percentBasis: "gross", scope: "team", assign: "both", assignedAgentsCount: 3, agentIds: ["a1", "a2", "a6"], createdBy: CREATOR_TL },
+];
+
+function getFreshPostCapForm(scope: PostCapScope = "agent"): PostCapForm {
+  return {
+    editingId: null,
+    name: "",
+    scope,
+    feeType: "fixed",
+    feeAmount: "",
+    percentBasis: "gross",
+    assign: "both",
+  };
+}
 
 export const seedAssignments: AgentAssignment[] = [
   { id: "as1", agentId: "a1", planId: "p1", feeIds: ["f1", "f2"], dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false }, applyToActiveDeals: true },
@@ -2699,6 +2742,17 @@ export function CDASettings() {
     wireType: "team" | "shared" | "private" | "private_recipient" | null;
     wireErrors: WireValidationErrors;
     wireDeleteTarget: { type: "team" | "shared" | "private" | "private_recipient"; id?: string; label: string } | null;
+    postCapPlans: PostCapPlan[];
+    postCapForm: PostCapForm;
+    postCapDialogMode: DialogMode;
+    postCapArchiveTarget: { id: string; name: string } | null;
+    postCapAssignTarget: PostCapPlan | null;
+    postCapAssignForm: {
+      dealTypes: Record<string, boolean>;
+      scopeMode: PlanScopeMode;
+      scopeMemberIds: string[];
+      scopeGroupIds: string[];
+    };
   }>({
     plans: seedPlans,
     activePlanId: null,
@@ -2729,6 +2783,17 @@ export function CDASettings() {
     wireType: null,
     wireErrors: {},
     wireDeleteTarget: null,
+    postCapPlans: seedPostCapPlans,
+    postCapForm: getFreshPostCapForm(),
+    postCapDialogMode: "add",
+    postCapArchiveTarget: null,
+    postCapAssignTarget: null,
+    postCapAssignForm: {
+      dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false },
+      scopeMode: "all_members",
+      scopeMemberIds: [],
+      scopeGroupIds: [],
+    },
   });
     const [wireStore, setWireStore] = useState<WireInstructionsStore>(() => readWireInstructionsStore(defaultWireStore));
   const [searchQuery, setSearchQuery] = useState("");
@@ -4525,6 +4590,253 @@ export function CDASettings() {
     );
   }
 
+  function openPostCapAdd() {
+    setState((current) => ({
+      ...current,
+      activeDialog: "add-postcap",
+      postCapDialogMode: "add",
+      postCapForm: getFreshPostCapForm(),
+    }));
+  }
+  function editPostCap(plan: PostCapPlan) {
+    setState((current) => ({
+      ...current,
+      activeDialog: "add-postcap",
+      postCapDialogMode: "edit",
+      postCapForm: {
+        editingId: plan.id,
+        name: plan.name,
+        scope: plan.scope,
+        feeType: plan.feeType,
+        feeAmount: String(plan.feeAmount),
+        percentBasis: plan.percentBasis,
+        assign: plan.assign,
+      },
+    }));
+  }
+  function duplicatePostCap(plan: PostCapPlan) {
+    const copy: PostCapPlan = {
+      ...plan,
+      id: crypto.randomUUID(),
+      name: `${plan.name} (Copy)`,
+      assignedAgentsCount: 0,
+      agentIds: [],
+      createdBy: creatorForNew(),
+    };
+    setState((current) => ({ ...current, postCapPlans: [...current.postCapPlans, copy] }));
+    toast.success(`Duplicated ${plan.name}`);
+  }
+  function updatePostCapForm(patch: Partial<PostCapForm>) {
+    setState((current) => ({ ...current, postCapForm: { ...current.postCapForm, ...patch } }));
+  }
+  function savePostCap() {
+    const f = state.postCapForm;
+    const name = f.name.trim() || (f.scope === "team" ? "Team Post-Cap Fee" : "Radius Post-Cap Fee");
+    const amount = Number(f.feeAmount || 0);
+    if (!(amount > 0)) {
+      toast.error("Enter a fee amount");
+      return;
+    }
+    if (f.editingId) {
+      setState((current) => ({
+        ...current,
+        postCapPlans: current.postCapPlans.map((p) =>
+          p.id === f.editingId
+            ? { ...p, name, scope: f.scope, feeType: f.feeType, feeAmount: amount, percentBasis: f.percentBasis, assign: f.assign }
+            : p,
+        ),
+        activeDialog: null,
+      }));
+      toast.success("Post-cap plan updated");
+    } else {
+      const plan: PostCapPlan = {
+        id: crypto.randomUUID(),
+        name,
+        feeType: f.feeType,
+        feeAmount: amount,
+        percentBasis: f.percentBasis,
+        scope: f.scope,
+        assign: f.assign,
+        assignedAgentsCount: 0,
+        agentIds: [],
+        createdBy: creatorForNew(),
+      };
+      setState((current) => ({ ...current, postCapPlans: [...current.postCapPlans, plan], activeDialog: null }));
+      toast.success("Post-cap plan created");
+    }
+  }
+  function archivePostCap(plan: PostCapPlan) {
+    setState((current) => ({ ...current, postCapPlans: current.postCapPlans.filter((p) => p.id !== plan.id) }));
+    toast.success(`Archived ${plan.name}`);
+  }
+  function openPostCapAssign(plan: PostCapPlan) {
+    setState((current) => ({
+      ...current,
+      activeDialog: "assign-postcap",
+      postCapAssignTarget: plan,
+      postCapAssignForm: {
+        dealTypes: { buyer: true, listing: true, referral: false, lease: false, "lease-listing": false },
+        scopeMode: "all_members",
+        scopeMemberIds: [],
+        scopeGroupIds: [],
+      },
+    }));
+  }
+  function updatePostCapAssignForm(patch: Partial<typeof state.postCapAssignForm>) {
+    setState((current) => ({ ...current, postCapAssignForm: { ...current.postCapAssignForm, ...patch } }));
+  }
+  function savePostCapAssign() {
+    const target = state.postCapAssignTarget;
+    if (!target) return;
+    const resolved = resolveScopeAgentIds(
+      { scopeMode: state.postCapAssignForm.scopeMode, scopeMemberIds: state.postCapAssignForm.scopeMemberIds, scopeGroupIds: state.postCapAssignForm.scopeGroupIds },
+      undefined,
+      undefined,
+    );
+    setState((current) => ({
+      ...current,
+      postCapPlans: current.postCapPlans.map((p) =>
+        p.id === target.id ? { ...p, assignedAgentsCount: resolved.length, agentIds: resolved } : p,
+      ),
+      activeDialog: null,
+      postCapAssignTarget: null,
+    }));
+    toast.success(`Assigned ${target.name} to ${resolved.length} agent${resolved.length === 1 ? "" : "s"}`);
+  }
+
+  function renderPostCapPlans() {
+    const visible = state.postCapPlans.filter(canViewOwned);
+    return (
+      <section className="flex flex-col gap-4">
+        <div className="flex items-end justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-medium leading-6 text-foreground">Post-Cap Plans</h2>
+              <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-medium border-amber-200 text-amber-700 bg-amber-50">Applies after cap</Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Fees that kick in once an agent hits their cap. Independent of the primary commission plan.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {canAddPlan && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary text-primary hover:text-primary"
+                onClick={openPostCapAdd}
+              >
+                <Plus className="size-4" />
+                Add Post-Cap Plan
+              </Button>
+            )}
+          </div>
+        </div>
+        {visible.length === 0 ? (
+          <Card className="rounded-[14px] border-dashed border-border shadow-none">
+            <CardContent className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+              <div className="rounded-full bg-muted p-2"><Lock className="size-4 text-muted-foreground" /></div>
+              <p className="text-sm font-medium">No post-cap plans yet</p>
+              <p className="max-w-sm text-xs text-muted-foreground">Add a Radius fee or team fee that applies once agents cap out.</p>
+              {canAddPlan && (
+                <Button variant="outline" size="sm" className="mt-2 border-primary text-primary" onClick={openPostCapAdd}>
+                  <Plus className="size-4" />
+                  Add Post-Cap Plan
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="rounded-[14px] border-border shadow-none overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-b">
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60 pl-6">Plan Name</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Fee</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">Agents Associated</TableHead>
+                  <TableHead className="w-[50px] pr-6"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((plan) => {
+                  const assignedAgents = agents.filter((a) => (plan.agentIds ?? []).includes(a.id));
+                  return (
+                  <TableRow key={plan.id} className="group h-12 hover:bg-muted/30 transition-colors border-b last:border-0">
+                    <TableCell className="pl-6 font-medium text-sm text-foreground">{plan.name}</TableCell>
+                    <TableCell className="text-sm">
+                      {plan.feeType === "percentage" ? (
+                        <span className="font-medium text-foreground">{plan.feeAmount}%</span>
+                      ) : (
+                        <span className="font-medium text-foreground">${plan.feeAmount}</span>
+                      )}
+                      <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                        {plan.feeType === "percentage"
+                          ? plan.percentBasis === "gross" ? "of gross" : "of gross post-ded."
+                          : "flat"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <AgentAvatarStack
+                        agents={assignedAgents.map((a) => ({ id: a.id, name: a.name, avatarUrl: a.avatarUrl }))}
+                        max={5}
+                        size="sm"
+                        emptyActionLabel="Assign"
+                        onEmptyAction={() => openPostCapAssign(plan)}
+                        onViewAssociations={() => openPostCapAssign(plan)}
+                        onUnassignDefaults={() => {
+                          setState((current) => ({
+                            ...current,
+                            postCapPlans: current.postCapPlans.map((p) => p.id === plan.id ? { ...p, agentIds: [], assignedAgentsCount: 0 } : p),
+                          }));
+                          toast.success(`Unassigned ${plan.name}`);
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-8">
+                            <MoreVertical className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" sideOffset={8} className="w-[170px]">
+                          <DropdownMenuGroup>
+                            {canEditOwned(plan) && (
+                              <DropdownMenuItem onClick={() => editPostCap(plan)}>
+                                <Edit3 className="size-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => openPostCapAssign(plan)}>
+                              <UserCheck className="size-4" />
+                              Assign
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => duplicatePostCap(plan)}>
+                              <Copy className="size-4" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            {canEditOwned(plan) && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem variant="destructive" onClick={() => setState((c) => ({ ...c, postCapArchiveTarget: { id: plan.id, name: plan.name } }))}>
+                                  <Archive className="size-4" />
+                                  Archive
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+      </section>
+    );
+  }
+
   const tabs = [
     "Accounts",
     "Billing",
@@ -4644,6 +4956,7 @@ export function CDASettings() {
         <div className="flex flex-col gap-8 px-4 py-9">
           {renderCommissionPlans()}
           {renderFeeTypes()}
+          {renderPostCapPlans()}
           {renderWireInstructions()}
           {/* {renderPaymentRouting()} */}
           {/* 
@@ -4716,6 +5029,156 @@ export function CDASettings() {
             : agents.map((a) => ({ id: a.id, name: a.name }))
         }
       />
+
+      <Dialog
+        open={state.activeDialog === "add-postcap"}
+        onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "add-postcap" : null }))}
+      >
+        <DialogContent className="sm:max-w-[520px] p-0 gap-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b">
+            <DialogTitle className="text-base font-medium">{state.postCapDialogMode === "edit" ? "Edit Post-Cap Plan" : "Add Post-Cap Plan"}</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Fees that trigger once an agent's cap is reached. No tiers, no splits — a single fee.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-5 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="postcap-name" className="text-xs font-medium">Plan Name</Label>
+              <Input
+                id="postcap-name"
+                placeholder={state.postCapForm.scope === "team" ? "Team Post-Cap Fee" : "Radius Post-Cap Fee"}
+                value={state.postCapForm.name}
+                onChange={(e) => updatePostCapForm({ name: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Fee Type</Label>
+                <Select value={state.postCapForm.feeType} onValueChange={(v: PostCapFeeType) => updatePostCapForm({ feeType: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixed Fee</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="postcap-amount" className="text-xs font-medium">
+                  {state.postCapForm.feeType === "percentage" ? "Percentage (%)" : "Amount ($)"}
+                </Label>
+                <Input
+                  id="postcap-amount"
+                  type="number"
+                  min={0}
+                  placeholder={state.postCapForm.feeType === "percentage" ? "5" : "250"}
+                  value={state.postCapForm.feeAmount}
+                  onChange={(e) => updatePostCapForm({ feeAmount: e.target.value })}
+                />
+              </div>
+            </div>
+            {state.postCapForm.feeType === "percentage" && (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium">Percentage Basis</Label>
+                <Select value={state.postCapForm.percentBasis} onValueChange={(v: PostCapPercentBasis) => updatePostCapForm({ percentBasis: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gross">Gross</SelectItem>
+                    <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">Same logic as commission plans — pick the base the percentage is calculated on.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t bg-muted/20">
+            <Button variant="ghost" size="sm" onClick={() => setState((c) => ({ ...c, activeDialog: null }))}>Cancel</Button>
+            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={savePostCap}>
+              {state.postCapDialogMode === "edit" ? "Save Changes" : "Save Plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={state.activeDialog === "assign-postcap"}
+        onOpenChange={(open) => setState((current) => ({ ...current, activeDialog: open ? "assign-postcap" : null, postCapAssignTarget: open ? current.postCapAssignTarget : null }))}
+      >
+        <DialogContent className="!flex !h-auto !max-h-[82vh] !w-[560px] !max-w-[calc(100vw-48px)] !flex-col !gap-0 !overflow-hidden !rounded-[12px] !p-0 sm:!max-w-[560px] [&>button[data-slot=dialog-close]]:hidden">
+          <DialogHeader className="border-b px-6 pt-6 pb-4 !text-left">
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle className="text-base font-semibold leading-5">Assign Post-Cap Plan</DialogTitle>
+                <DialogDescription className="mt-1 text-xs text-muted-foreground">
+                  Pick which breakdown types + agents this post-cap plan applies to.
+                </DialogDescription>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setState((c) => ({ ...c, activeDialog: null, postCapAssignTarget: null }))}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium">
+                Apply To Commission Breakdown Types <span className="text-destructive">*</span>
+              </Label>
+              <DealTypeMultiSelect
+                selectedTypes={state.postCapAssignForm.dealTypes}
+                onChange={(dealTypes) => updatePostCapAssignForm({ dealTypes })}
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <PlanScopePicker
+                form={{
+                  scopeMode: state.postCapAssignForm.scopeMode,
+                  scopeMemberIds: state.postCapAssignForm.scopeMemberIds,
+                  scopeGroupIds: state.postCapAssignForm.scopeGroupIds,
+                }}
+                onFormChange={(patch) => updatePostCapAssignForm(patch)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="!flex !flex-row !items-center !justify-end !gap-3 shrink-0 border-t bg-background px-6 py-4">
+            <Button variant="outline" onClick={() => setState((c) => ({ ...c, activeDialog: null, postCapAssignTarget: null }))}>Cancel</Button>
+            <Button onClick={savePostCapAssign} variant="default">Assign Defaults</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!state.postCapArchiveTarget}
+        onOpenChange={(open) => { if (!open) setState((c) => ({ ...c, postCapArchiveTarget: null })); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive post-cap plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {state.postCapArchiveTarget?.name} will be removed. Agents already at cap keep their existing fee on active deals.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const t = state.postCapArchiveTarget;
+                if (t) {
+                  const plan = state.postCapPlans.find((p) => p.id === t.id);
+                  if (plan) archivePostCap(plan);
+                }
+                setState((c) => ({ ...c, postCapArchiveTarget: null }));
+              }}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <FeeBuilderModal
         open={state.activeDialog === "add-fee"}
