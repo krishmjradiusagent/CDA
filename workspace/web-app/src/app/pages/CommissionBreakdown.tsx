@@ -935,6 +935,9 @@ function AgentCapCard({
   status,
   note,
   postCapFee,
+  postCapPlanName,
+  postCapOptions,
+  onSelectPostCap,
 }: {
   variant: "radius" | "team";
   label: string;
@@ -945,10 +948,15 @@ function AgentCapCard({
   status: CapDisplayStatus;
   note?: string;
   postCapFee?: { feeType: "fixed" | "percentage" | "both"; feeAmount: number; fixedAmount?: number; basis: "gross" | "gross-post-deduction" };
+  postCapPlanName?: string;
+  postCapOptions?: PostCapDisplay[];
+  onSelectPostCap?: (id: string | null) => void;
 }) {
   const progressValue = capAmount > 0 ? Math.min(100, (capUsed / capAmount) * 100) : 0;
   const CapIcon = variant === "radius" ? Radar : Building2;
   const isReached = status === "reached";
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
   const feeText = postCapFee
     ? postCapFee.feeType === "both"
       ? `${postCapFee.feeAmount}% ${postCapFee.basis === "gross" ? "of gross" : "of gross post-ded."} + ${currency(postCapFee.fixedAmount ?? 0)} flat`
@@ -956,6 +964,9 @@ function AgentCapCard({
         ? `${postCapFee.feeAmount}% ${postCapFee.basis === "gross" ? "of gross" : "of gross post-ded."}`
         : `${currency(postCapFee.feeAmount)} flat`
     : null;
+  const filteredOptions = (postCapOptions ?? []).filter((o) =>
+    !pickerSearch.trim() ? true : o.label.toLowerCase().includes(pickerSearch.trim().toLowerCase()),
+  );
 
   return (
     <div
@@ -1040,9 +1051,82 @@ function AgentCapCard({
             </div>
           )}
           {isReached && feeText ? (
-            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-              Post-cap fee <span className="font-medium text-foreground">{feeText}</span>
-            </p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <CircleDollarSign className="size-3.5 shrink-0 text-amber-600/80" strokeWidth={2.25} aria-label="Post-cap fee" />
+                      <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                        <span className="font-medium text-foreground">{feeText}</span>
+                      </p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px] text-[11px]">
+                    {postCapPlanName ? `Post-cap fee · ${postCapPlanName}` : "Post-cap fee"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {postCapOptions && postCapOptions.length > 0 && onSelectPostCap && (
+                <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="shrink-0 text-[10px] font-medium text-primary hover:underline"
+                    >
+                      Change
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[280px] p-0">
+                    <div className="border-b p-2">
+                      <Input
+                        autoFocus
+                        placeholder="Search post-cap plans…"
+                        value={pickerSearch}
+                        onChange={(e) => setPickerSearch(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="max-h-[240px] overflow-y-auto">
+                      {filteredOptions.length === 0 ? (
+                        <p className="px-3 py-4 text-center text-[11px] text-muted-foreground">No plans found</p>
+                      ) : (
+                        filteredOptions.map((opt) => {
+                          const optFeeText =
+                            opt.feeType === "both"
+                              ? `${opt.feeAmount}% ${opt.basis === "gross" ? "of gross" : "of gross post-ded."} + ${currency(opt.fixedAmount ?? 0)}`
+                              : opt.feeType === "percentage"
+                                ? `${opt.feeAmount}% ${opt.basis === "gross" ? "of gross" : "of gross post-ded."}`
+                                : `${currency(opt.feeAmount)} flat`;
+                          const active = postCapPlanName === opt.label;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                onSelectPostCap(opt.id);
+                                setPickerOpen(false);
+                                setPickerSearch("");
+                              }}
+                              className={cn(
+                                "flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-muted/50",
+                                active && "bg-muted/40",
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-medium text-foreground">{opt.label}</p>
+                                <p className="truncate text-[10px] text-muted-foreground">{optFeeText}</p>
+                              </div>
+                              {active && <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
           ) : (
             <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
               {status === "near"
@@ -1060,6 +1144,7 @@ function AgentCapCard({
 }
 
 type PostCapDisplay = {
+  id: string;
   scope: "agent" | "team";
   label: string;
   feeType: "fixed" | "percentage" | "both";
@@ -1067,10 +1152,14 @@ type PostCapDisplay = {
   fixedAmount?: number;
   basis: "gross" | "gross-post-deduction";
 };
-const MOCK_POST_CAP: PostCapDisplay[] = [
-  { scope: "agent", label: "Radius Post-Cap Fee", feeType: "both", feeAmount: 5, fixedAmount: 495, basis: "gross" },
-  { scope: "team", label: "Team Post-Cap Fee", feeType: "fixed", feeAmount: 250, basis: "gross" },
+const POSTCAP_PLAN_OPTIONS: PostCapDisplay[] = [
+  { id: "pc-agent-default", scope: "agent", label: "Radius Post-Cap Fee", feeType: "both", feeAmount: 5, fixedAmount: 495, basis: "gross" },
+  { id: "pc-agent-flat", scope: "agent", label: "Radius Post-Cap Flat", feeType: "fixed", feeAmount: 750, basis: "gross" },
+  { id: "pc-agent-percent-low", scope: "agent", label: "Radius Post-Cap 3%", feeType: "percentage", feeAmount: 3, basis: "gross" },
+  { id: "pc-team-default", scope: "team", label: "Team Post-Cap Fee", feeType: "fixed", feeAmount: 250, basis: "gross" },
+  { id: "pc-team-percent", scope: "team", label: "Team Post-Cap 2%", feeType: "percentage", feeAmount: 2, basis: "gross" },
 ];
+const MOCK_POST_CAP = POSTCAP_PLAN_OPTIONS.filter((p) => p.id === "pc-agent-default" || p.id === "pc-team-default");
 
 export function CommissionBreakdown() {
   const [agentComment, setAgentComment] = useState("");
@@ -1905,6 +1994,7 @@ export function CommissionBreakdown() {
   const [planForm, setPlanForm] = useState<PlanForm>(getFreshPlanForm());
   const [planErrors, setPlanErrors] = useState<PlanErrors>({});
   const [dealScopedPlans, setDealScopedPlans] = useState<CommissionPlanOption[]>([]);
+  const [appliedPostCapPlans, setAppliedPostCapPlans] = useState<Record<string, { agent?: string; team?: string }>>({});
   const [planFormDirty, setPlanFormDirty] = useState(false);
   const [showDiscardPlanConfirm, setShowDiscardPlanConfirm] = useState(false);
 
@@ -3061,31 +3151,70 @@ export function CommissionBreakdown() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  {!selectedAgentIsExternal && appliedPlans[selectedAgent.agent.id] && (
-                    <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                      <AgentCapCard
-                        variant="radius"
-                        label="Radius Cap"
-                        capAmount={selectedRadiusCapAmount}
-                        capUsed={selectedRadiusCapUsed}
-                        capRemaining={selectedRadiusCapRemaining}
-                        dealContribution={selectedRadiusCapApplied}
-                        status={selectedRadiusCapStatus}
-                        note={radiusFeePaidByTeam && role === "agent" ? "Radius fee paid by team — folded into team commission." : undefined}
-                        postCapFee={MOCK_POST_CAP.find((pc) => pc.scope === "agent")}
-                      />
-                      <AgentCapCard
-                        variant="team"
-                        label="Team Cap"
-                        capAmount={selectedCapAmount}
-                        capUsed={selectedCapUsed}
-                        capRemaining={selectedCapRemaining}
-                        dealContribution={selectedAgent.capApplied}
-                        status={selectedTeamCapStatus}
-                        postCapFee={MOCK_POST_CAP.find((pc) => pc.scope === "team")}
-                      />
-                    </div>
-                  )}
+                  {!selectedAgentIsExternal && appliedPlans[selectedAgent.agent.id] && (() => {
+                    const agentPicked = appliedPostCapPlans[selectedAgent.agent.id];
+                    const agentScopeSelection = agentPicked?.agent
+                      ? POSTCAP_PLAN_OPTIONS.find((p) => p.id === agentPicked.agent && p.scope === "agent")
+                      : undefined;
+                    const teamScopeSelection = agentPicked?.team
+                      ? POSTCAP_PLAN_OPTIONS.find((p) => p.id === agentPicked.team && p.scope === "team")
+                      : undefined;
+                    const radiusFee = agentScopeSelection ?? POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "agent" && p.id === "pc-agent-default");
+                    const teamFee = teamScopeSelection ?? POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "team" && p.id === "pc-team-default");
+                    return (
+                      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                        <AgentCapCard
+                          variant="radius"
+                          label="Radius Cap"
+                          capAmount={selectedRadiusCapAmount}
+                          capUsed={selectedRadiusCapUsed}
+                          capRemaining={selectedRadiusCapRemaining}
+                          dealContribution={selectedRadiusCapApplied}
+                          status={selectedRadiusCapStatus}
+                          note={radiusFeePaidByTeam && role === "agent" ? "Radius fee paid by team — folded into team commission." : undefined}
+                          postCapFee={radiusFee}
+                          postCapPlanName={radiusFee?.label}
+                          postCapOptions={POSTCAP_PLAN_OPTIONS.filter((p) => p.scope === "agent")}
+                          onSelectPostCap={(id) => {
+                            setAppliedPostCapPlans((prev) => ({
+                              ...prev,
+                              [selectedAgent.agent.id]: { ...prev[selectedAgent.agent.id], agent: id ?? undefined },
+                            }));
+                            if (id) {
+                              const plan = POSTCAP_PLAN_OPTIONS.find((p) => p.id === id);
+                              toast.success(`"${plan?.label}" applied to ${selectedAgent.agent.name}`);
+                            } else {
+                              toast.success(`Radius post-cap reset to default`);
+                            }
+                          }}
+                        />
+                        <AgentCapCard
+                          variant="team"
+                          label="Team Cap"
+                          capAmount={selectedCapAmount}
+                          capUsed={selectedCapUsed}
+                          capRemaining={selectedCapRemaining}
+                          dealContribution={selectedAgent.capApplied}
+                          status={selectedTeamCapStatus}
+                          postCapFee={teamFee}
+                          postCapPlanName={teamFee?.label}
+                          postCapOptions={POSTCAP_PLAN_OPTIONS.filter((p) => p.scope === "team")}
+                          onSelectPostCap={(id) => {
+                            setAppliedPostCapPlans((prev) => ({
+                              ...prev,
+                              [selectedAgent.agent.id]: { ...prev[selectedAgent.agent.id], team: id ?? undefined },
+                            }));
+                            if (id) {
+                              const plan = POSTCAP_PLAN_OPTIONS.find((p) => p.id === id);
+                              toast.success(`"${plan?.label}" applied to ${selectedAgent.agent.name}`);
+                            } else {
+                              toast.success(`Team post-cap reset to default`);
+                            }
+                          }}
+                        />
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center justify-between py-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Basis</p>
                     <div className="min-w-[120px] text-right">
