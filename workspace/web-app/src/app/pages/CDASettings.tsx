@@ -2103,11 +2103,13 @@ function PlanScopePicker({
   onFormChange,
   restrictToGroupId,
   sourceFilter,
+  membersOnly,
 }: {
   form: ScopePickerValue;
   onFormChange: (patch: Partial<ScopePickerValue>) => void;
   restrictToGroupId?: string;
   sourceFilter?: PlanSource;
+  membersOnly?: boolean;
 }) {
   const restrictedGroup = restrictToGroupId ? GROUPS.find((g) => g.id === restrictToGroupId) : null;
   const modes: { id: PlanScopeMode; label: string }[] = restrictedGroup
@@ -2115,12 +2117,17 @@ function PlanScopePicker({
         { id: "all_members", label: `All members (${restrictedGroup.name})` },
         { id: "specific_members", label: "Specific members" },
       ]
-    : [
-        { id: "all_members", label: "All members" },
-        { id: "all_groups", label: "All groups" },
-        { id: "specific_members", label: "Specific members" },
-        { id: "specific_groups", label: "Specific groups" },
-      ];
+    : membersOnly
+      ? [
+          { id: "all_members", label: "All members" },
+          { id: "specific_members", label: "Specific members" },
+        ]
+      : [
+          { id: "all_members", label: "All members" },
+          { id: "all_groups", label: "All groups" },
+          { id: "specific_members", label: "Specific members" },
+          { id: "specific_groups", label: "Specific groups" },
+        ];
   const memberAgents = (restrictedGroup
     ? agents.filter((a) => restrictedGroup.memberIds.includes(a.id))
     : agents.filter((a) => ["a1","a2","a3","a4","a5","a6","a7","a8","a9"].includes(a.id))
@@ -5207,6 +5214,7 @@ export function CDASettings() {
 
             <div className="flex flex-col gap-3">
               <PlanScopePicker
+                membersOnly
                 form={{
                   scopeMode: state.postCapAssignForm.scopeMode,
                   scopeMemberIds: state.postCapAssignForm.scopeMemberIds,
