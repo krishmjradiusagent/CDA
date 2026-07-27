@@ -471,6 +471,14 @@ type DerivedAgentSummary = {
   radiusCapWarning: boolean;
   radiusCapReached: boolean;
   radiusFeePaidBy: RadiusFeePaidBy;
+  postCapFee: number;
+  postCapFeeApplies: boolean;
+  postCapPlanName: string | null;
+  postCapPlanTypeText: string | null;
+  teamPostCapFee: number;
+  teamPostCapFeeApplies: boolean;
+  teamPostCapPlanName: string | null;
+  teamPostCapPlanTypeText: string | null;
 };
 
 type DerivedSideSummary = {
@@ -615,6 +623,7 @@ function deriveCommissionBreakdown(params: {
   agentRadiusFees: Record<string, number>;
   agentAllocationPercentages: Record<string, number>;
   commissionPlans: CommissionPlanOption[];
+  appliedPostCapPlans: Record<string, { agent?: string; team?: string }>;
 }) {
   const normalizedAwards = normalizeSideAwards(params.awardValues);
   const baseGrossCommission = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
@@ -659,8 +668,28 @@ function deriveCommissionBreakdown(params: {
       const radiusCapApplied = radiusCapAmount > 0 ? Math.min(radiusFee, radiusCapRemaining) : radiusFee;
       const postSplitAgentCommission = clampCurrency(afterPreSplit - split);
       const postSplitDeductionsTotal = (params.postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
-      const netCommission = clampCurrency(postSplitAgentCommission - postSplitDeductionsTotal);
-      const companyDollarContribution = split - radiusFee;
+      const capReached = capAmount > 0 && capRemaining <= 0;
+      const pickedPostCap = params.appliedPostCapPlans[agent.id] ?? {};
+      const agentScopePlan = POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "agent" && p.id === (pickedPostCap.agent ?? "pc-agent-default"));
+      const teamScopePlan = POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "team" && p.id === (pickedPostCap.team ?? "pc-team-default"));
+      function computePostCapFee(pcPlan: PostCapDisplay | undefined) {
+        if (!pcPlan) return 0;
+        const base = pcPlan.basis === "gross" ? grossCommissionAfterDeductions : postSplitAgentCommission;
+        if (pcPlan.feeType === "fixed") return pcPlan.feeAmount;
+        if (pcPlan.feeType === "percentage") return base * (pcPlan.feeAmount / 100);
+        return base * (pcPlan.feeAmount / 100) + (pcPlan.fixedAmount ?? 0);
+      }
+      function planTypeText(pcPlan: PostCapDisplay | undefined) {
+        if (!pcPlan) return null;
+        const basisText = pcPlan.basis === "gross" ? "of gross" : "of gross post-ded.";
+        if (pcPlan.feeType === "fixed") return `${currency(pcPlan.feeAmount)} flat`;
+        if (pcPlan.feeType === "percentage") return `${pcPlan.feeAmount}% ${basisText}`;
+        return `${pcPlan.feeAmount}% ${basisText} + ${currency(pcPlan.fixedAmount ?? 0)} flat`;
+      }
+      const postCapFee = capReached ? computePostCapFee(agentScopePlan) : 0;
+      const teamPostCapFee = capReached ? computePostCapFee(teamScopePlan) : 0;
+      const netCommission = clampCurrency(postSplitAgentCommission - postSplitDeductionsTotal - postCapFee);
+      const companyDollarContribution = split - radiusFee - teamPostCapFee;
 
       return {
         agent,
@@ -682,7 +711,15 @@ function deriveCommissionBreakdown(params: {
         capRemaining,
         capApplied: split,
         capWarning: capAmount > 0 && capRemaining > 0 && capRemaining < rawSplit,
-        capReached: capAmount > 0 && capRemaining <= 0,
+        capReached,
+        postCapFee,
+        postCapFeeApplies: capReached && !!agentScopePlan && postCapFee > 0,
+        postCapPlanName: agentScopePlan?.label ?? null,
+        postCapPlanTypeText: planTypeText(agentScopePlan),
+        teamPostCapFee,
+        teamPostCapFeeApplies: capReached && !!teamScopePlan && teamPostCapFee > 0,
+        teamPostCapPlanName: teamScopePlan?.label ?? null,
+        teamPostCapPlanTypeText: planTypeText(teamScopePlan),
         radiusCapAmount,
         radiusCapUsed,
         radiusCapRemaining,
@@ -694,7 +731,8 @@ function deriveCommissionBreakdown(params: {
     });
 
     const toAgents = agents.reduce((sum, agent) => sum + agent.netCommission, 0);
-    const officeIncome = grossCommissionAfterDeductions - agents.reduce((sum, agent) => sum + agent.postSplitAgentCommission, 0);
+    const teamPostCapFeeTotal = agents.reduce((sum, agent) => sum + agent.teamPostCapFee, 0);
+    const officeIncome = grossCommissionAfterDeductions - agents.reduce((sum, agent) => sum + agent.postSplitAgentCommission, 0) - teamPostCapFeeTotal;
     const radiusFee = agents.reduce((sum, agent) => sum + agent.radiusFee, 0);
 
     return {
@@ -1766,6 +1804,7 @@ export function CommissionBreakdown() {
   );
 
   const activeSide = sides.find((s) => s.id === selectedSide) ?? sides[0];
+  const [appliedPostCapPlans, setAppliedPostCapPlans] = useState<Record<string, { agent?: string; team?: string }>>({});
   const derivedBreakdown = useMemo(
     () =>
       deriveCommissionBreakdown({
@@ -1779,6 +1818,7 @@ export function CommissionBreakdown() {
         agentRadiusFees,
         agentAllocationPercentages,
         commissionPlans,
+        appliedPostCapPlans,
       }),
     [
       sides,
@@ -1791,6 +1831,7 @@ export function CommissionBreakdown() {
       agentRadiusFees,
       agentAllocationPercentages,
       commissionPlans,
+      appliedPostCapPlans,
     ]
   );
 
@@ -1994,7 +2035,6 @@ export function CommissionBreakdown() {
   const [planForm, setPlanForm] = useState<PlanForm>(getFreshPlanForm());
   const [planErrors, setPlanErrors] = useState<PlanErrors>({});
   const [dealScopedPlans, setDealScopedPlans] = useState<CommissionPlanOption[]>([]);
-  const [appliedPostCapPlans, setAppliedPostCapPlans] = useState<Record<string, { agent?: string; team?: string }>>({});
   const [planFormDirty, setPlanFormDirty] = useState(false);
   const [showDiscardPlanConfirm, setShowDiscardPlanConfirm] = useState(false);
 
@@ -3289,6 +3329,17 @@ export function CommissionBreakdown() {
                       <EditableValue value={selectedAgent.split} onChange={() => undefined} readOnly />
                     </div>
                   </div>
+                  {selectedAgent.teamPostCapFeeApplies && (
+                    <div className="-mt-1 flex items-center justify-between pb-2 pl-3 text-[11px] text-muted-foreground">
+                      <span>
+                        Team post-cap fee
+                        {selectedAgent.teamPostCapPlanTypeText && (
+                          <span className="ml-1 text-muted-foreground/70">· {selectedAgent.teamPostCapPlanTypeText}</span>
+                        )}
+                      </span>
+                      <span className="tabular-nums">−{currency(selectedAgent.teamPostCapFee)}</span>
+                    </div>
+                  )}
                   {showRadiusFeeToViewer && (
                     <>
                       <div className="flex items-center justify-between py-3">
@@ -3312,6 +3363,29 @@ export function CommissionBreakdown() {
                               logActivity(`Updated Radius Fee for ${selectedAgent.agent.name} to ${currency(value)}.`);
                             }}
                           />
+                        </div>
+                      </div>
+                      <Separator className="my-3" />
+                    </>
+                  )}
+
+                  {selectedAgent.postCapFeeApplies && (
+                    <>
+                      <div className="flex items-center justify-between py-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Post-cap fee</p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedAgent.postCapPlanName}
+                            {selectedAgent.postCapPlanTypeText && (
+                              <>
+                                <span className="mx-1.5 text-muted-foreground/50">·</span>
+                                {selectedAgent.postCapPlanTypeText}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <div className="min-w-[120px] text-right">
+                          <EditableValue value={selectedAgent.postCapFee} onChange={() => undefined} readOnly />
                         </div>
                       </div>
                       <Separator className="my-3" />
