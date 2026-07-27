@@ -624,6 +624,7 @@ function deriveCommissionBreakdown(params: {
   agentAllocationPercentages: Record<string, number>;
   commissionPlans: CommissionPlanOption[];
   appliedPostCapPlans: Record<string, { agent?: string; team?: string }>;
+  postCapOverrides: Record<string, PostCapDisplay>;
 }) {
   const normalizedAwards = normalizeSideAwards(params.awardValues);
   const baseGrossCommission = DEAL_SALE_PRICE * DEAL_TOTAL_COMMISSION_RATE;
@@ -670,8 +671,10 @@ function deriveCommissionBreakdown(params: {
       const postSplitDeductionsTotal = (params.postSplitDeductions[agent.id] ?? []).reduce((sum, deduction) => sum + deduction.amount, 0);
       const capReached = capAmount > 0 && capRemaining <= 0;
       const pickedPostCap = params.appliedPostCapPlans[agent.id] ?? {};
-      const agentScopePlan = POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "agent" && p.id === (pickedPostCap.agent ?? "pc-agent-default"));
-      const teamScopePlan = POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "team" && p.id === (pickedPostCap.team ?? "pc-team-default"));
+      const overrideAgent = params.postCapOverrides[`${agent.id}::agent`];
+      const overrideTeam = params.postCapOverrides[`${agent.id}::team`];
+      const agentScopePlan = overrideAgent ?? POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "agent" && p.id === (pickedPostCap.agent ?? "pc-agent-default"));
+      const teamScopePlan = overrideTeam ?? POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "team" && p.id === (pickedPostCap.team ?? "pc-team-default"));
       function computePostCapFee(pcPlan: PostCapDisplay | undefined) {
         if (!pcPlan) return 0;
         const base = pcPlan.basis === "gross" ? grossCommissionAfterDeductions : postSplitAgentCommission;
@@ -1805,6 +1808,14 @@ export function CommissionBreakdown() {
 
   const activeSide = sides.find((s) => s.id === selectedSide) ?? sides[0];
   const [appliedPostCapPlans, setAppliedPostCapPlans] = useState<Record<string, { agent?: string; team?: string }>>({});
+  const [postCapOverrides, setPostCapOverrides] = useState<Record<string, PostCapDisplay>>({});
+  const [postCapEditor, setPostCapEditor] = useState<{ agentId: string; scope: "agent" | "team" } | null>(null);
+  const [postCapDraft, setPostCapDraft] = useState<{ feeType: "fixed" | "percentage" | "both"; feeAmount: string; fixedAmount: string; basis: "gross" | "gross-post-deduction" }>({
+    feeType: "fixed",
+    feeAmount: "",
+    fixedAmount: "",
+    basis: "gross",
+  });
   const derivedBreakdown = useMemo(
     () =>
       deriveCommissionBreakdown({
@@ -1819,6 +1830,7 @@ export function CommissionBreakdown() {
         agentAllocationPercentages,
         commissionPlans,
         appliedPostCapPlans,
+        postCapOverrides,
       }),
     [
       sides,
@@ -1832,6 +1844,7 @@ export function CommissionBreakdown() {
       agentAllocationPercentages,
       commissionPlans,
       appliedPostCapPlans,
+      postCapOverrides,
     ]
   );
 
@@ -3330,7 +3343,21 @@ export function CommissionBreakdown() {
                     </div>
                   </div>
                   {selectedAgent.teamPostCapFeeApplies && (
-                    <div className="-mt-1 flex items-center justify-between pb-2 pl-3 text-[11px] text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const override = postCapOverrides[`${selectedAgent.agent.id}::team`];
+                        const src = override ?? POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "team" && p.id === (appliedPostCapPlans[selectedAgent.agent.id]?.team ?? "pc-team-default"));
+                        setPostCapDraft({
+                          feeType: src?.feeType ?? "fixed",
+                          feeAmount: src ? String(src.feeAmount) : "",
+                          fixedAmount: src?.fixedAmount != null ? String(src.fixedAmount) : "",
+                          basis: src?.basis ?? "gross",
+                        });
+                        setPostCapEditor({ agentId: selectedAgent.agent.id, scope: "team" });
+                      }}
+                      className="-mt-1 flex w-full items-center justify-between pb-2 pl-3 text-left text-[11px] text-muted-foreground hover:text-foreground"
+                    >
                       <span>
                         Team post-cap fee
                         {selectedAgent.teamPostCapPlanTypeText && (
@@ -3338,7 +3365,7 @@ export function CommissionBreakdown() {
                         )}
                       </span>
                       <span className="tabular-nums">−{currency(selectedAgent.teamPostCapFee)}</span>
-                    </div>
+                    </button>
                   )}
                   {showRadiusFeeToViewer && (
                     <>
@@ -3371,7 +3398,21 @@ export function CommissionBreakdown() {
 
                   {selectedAgent.postCapFeeApplies && (
                     <>
-                      <div className="flex items-center justify-between py-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const override = postCapOverrides[`${selectedAgent.agent.id}::agent`];
+                          const src = override ?? POSTCAP_PLAN_OPTIONS.find((p) => p.scope === "agent" && p.id === (appliedPostCapPlans[selectedAgent.agent.id]?.agent ?? "pc-agent-default"));
+                          setPostCapDraft({
+                            feeType: src?.feeType ?? "fixed",
+                            feeAmount: src ? String(src.feeAmount) : "",
+                            fixedAmount: src?.fixedAmount != null ? String(src.fixedAmount) : "",
+                            basis: src?.basis ?? "gross",
+                          });
+                          setPostCapEditor({ agentId: selectedAgent.agent.id, scope: "agent" });
+                        }}
+                        className="group flex w-full items-center justify-between py-3 text-left hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors"
+                      >
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Post-cap fee</p>
                           <p className="text-xs text-muted-foreground">
@@ -3384,10 +3425,13 @@ export function CommissionBreakdown() {
                             )}
                           </p>
                         </div>
-                        <div className="min-w-[120px] text-right">
-                          <EditableValue value={selectedAgent.postCapFee} onChange={() => undefined} readOnly />
+                        <div className="flex items-center gap-2">
+                          <Pencil className="size-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="min-w-[120px] text-right">
+                            <EditableValue value={selectedAgent.postCapFee} onChange={() => undefined} readOnly />
+                          </div>
                         </div>
-                      </div>
+                      </button>
                       <Separator className="my-3" />
                     </>
                   )}
@@ -5310,6 +5354,136 @@ export function CommissionBreakdown() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!postCapEditor}
+        onOpenChange={(open) => { if (!open) setPostCapEditor(null); }}
+      >
+        <DialogContent className="sm:max-w-[520px] p-0 gap-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b">
+            <DialogTitle className="text-base font-medium">
+              Edit {postCapEditor?.scope === "team" ? "team" : "agent"} post-cap fee
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Overrides the post-cap plan for this deal only.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 px-6 py-5">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Fee Type</Label>
+              <Select value={postCapDraft.feeType} onValueChange={(v: "fixed" | "percentage" | "both") => setPostCapDraft((d) => ({ ...d, feeType: v }))}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed Fee</SelectItem>
+                  <SelectItem value="percentage">Percentage</SelectItem>
+                  <SelectItem value="both">Fixed Fee + Percentage</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {postCapDraft.feeType === "fixed" && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="pc-flat" className="text-xs font-medium">Amount ($)</Label>
+                <Input id="pc-flat" type="number" min={0} placeholder="250" value={postCapDraft.feeAmount} onChange={(e) => setPostCapDraft((d) => ({ ...d, feeAmount: e.target.value }))} />
+              </div>
+            )}
+            {postCapDraft.feeType === "percentage" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pc-pct" className="text-xs font-medium">Percentage (%)</Label>
+                  <Input id="pc-pct" type="number" min={0} placeholder="5" value={postCapDraft.feeAmount} onChange={(e) => setPostCapDraft((d) => ({ ...d, feeAmount: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium">Percentage Basis</Label>
+                  <Select value={postCapDraft.basis} onValueChange={(v: "gross" | "gross-post-deduction") => setPostCapDraft((d) => ({ ...d, basis: v }))}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gross">Gross</SelectItem>
+                      <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            {postCapDraft.feeType === "both" && (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pc-both-pct" className="text-xs font-medium">Percentage (%)</Label>
+                  <Input id="pc-both-pct" type="number" min={0} placeholder="5" value={postCapDraft.feeAmount} onChange={(e) => setPostCapDraft((d) => ({ ...d, feeAmount: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pc-both-flat" className="text-xs font-medium">Fixed Fee ($)</Label>
+                  <Input id="pc-both-flat" type="number" min={0} placeholder="250" value={postCapDraft.fixedAmount} onChange={(e) => setPostCapDraft((d) => ({ ...d, fixedAmount: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs font-medium">Percentage Basis</Label>
+                  <Select value={postCapDraft.basis} onValueChange={(v: "gross" | "gross-post-deduction") => setPostCapDraft((d) => ({ ...d, basis: v }))}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gross">Gross</SelectItem>
+                      <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t bg-muted/20 flex items-center justify-between !gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (!postCapEditor) return;
+                const key = `${postCapEditor.agentId}::${postCapEditor.scope}`;
+                setPostCapOverrides((prev) => {
+                  const next = { ...prev };
+                  delete next[key];
+                  return next;
+                });
+                setPostCapEditor(null);
+                toast.success("Reset to default post-cap plan");
+              }}
+              disabled={!postCapEditor || !postCapOverrides[`${postCapEditor.agentId}::${postCapEditor.scope}`]}
+            >
+              Reset
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setPostCapEditor(null)}>Cancel</Button>
+              <Button
+                size="sm"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => {
+                  if (!postCapEditor) return;
+                  const amount = Number(postCapDraft.feeAmount || 0);
+                  const fixedAmount = postCapDraft.feeType === "both" ? Number(postCapDraft.fixedAmount || 0) : undefined;
+                  if (!(amount > 0)) {
+                    toast.error(postCapDraft.feeType === "fixed" ? "Enter a fee amount" : "Enter a percentage");
+                    return;
+                  }
+                  if (postCapDraft.feeType === "both" && !(fixedAmount! > 0)) {
+                    toast.error("Enter a fixed fee amount");
+                    return;
+                  }
+                  const key = `${postCapEditor.agentId}::${postCapEditor.scope}`;
+                  const override: PostCapDisplay = {
+                    id: `override::${key}`,
+                    scope: postCapEditor.scope,
+                    label: postCapEditor.scope === "team" ? "Team Post-Cap Fee (edited)" : "Radius Post-Cap Fee (edited)",
+                    feeType: postCapDraft.feeType,
+                    feeAmount: amount,
+                    fixedAmount,
+                    basis: postCapDraft.basis,
+                  };
+                  setPostCapOverrides((prev) => ({ ...prev, [key]: override }));
+                  setPostCapEditor(null);
+                  toast.success("Post-cap fee updated");
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       </div>
     </TooltipProvider>

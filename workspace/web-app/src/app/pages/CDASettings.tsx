@@ -210,12 +210,16 @@ type Agent = {
   avatarUrl?: string;
 };
 
+type CapPhase = "pre-cap" | "post-cap";
+
 type TierRow = {
   id: string;
   from: string;
   to: string;
   agentSplit: string;
   teamSplit: string;
+  /** Whether this tier applies before or after the agent hits cap. */
+  capPhase?: CapPhase;
 };
 
 type Creator = {
@@ -404,10 +408,10 @@ const CREATOR_GL_WEST: Creator = { role: "group_lead", id: "a5", name: "Emma Wil
 const CREATOR_GL_EAST: Creator = { role: "group_lead", id: "a6", name: "James Miller", groupName: "East" };
 
 const defaultTiers: TierRow[] = [
-  { id: "tier-1", from: "1", to: "5", agentSplit: "80", teamSplit: "20" },
-  { id: "tier-2", from: "6", to: "10", agentSplit: "85", teamSplit: "15" },
-  { id: "tier-3", from: "11", to: "25", agentSplit: "90", teamSplit: "10" },
-  { id: "tier-4", from: "26", to: "", agentSplit: "95", teamSplit: "5" },
+  { id: "tier-1", from: "1", to: "5", agentSplit: "80", teamSplit: "20", capPhase: "pre-cap" },
+  { id: "tier-2", from: "6", to: "10", agentSplit: "85", teamSplit: "15", capPhase: "pre-cap" },
+  { id: "tier-3", from: "11", to: "25", agentSplit: "90", teamSplit: "10", capPhase: "pre-cap" },
+  { id: "tier-4", from: "26", to: "", agentSplit: "95", teamSplit: "5", capPhase: "post-cap" },
 ];
 
 const seedPlans: CommissionPlan[] = [
@@ -417,9 +421,9 @@ const seedPlans: CommissionPlan[] = [
   { id: "p4", name: "Lease Referral Plan", type: "standard", splitScope: "team", agentSplit: 60, groupSplit: 0, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_EAST },
   { id: "p5", name: "Group 60/40 (Base)", type: "standard", kind: "base", splitScope: "group", agentSplit: 0, groupSplit: 60, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 12000, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_TL },
   { id: "p6", name: "Luxury Sales Price Base", type: "tiered", kind: "base", splitScope: "group", agentSplit: 0, groupSplit: 70, teamSplit: 30, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 0, resetPeriod: "yearly", basedOn: "sales-price", tiers: [
-    { id: "t6-1", from: "0", to: "500000", agentSplit: "70", teamSplit: "30" },
-    { id: "t6-2", from: "500000", to: "1500000", agentSplit: "75", teamSplit: "25" },
-    { id: "t6-3", from: "1500000", to: "", agentSplit: "80", teamSplit: "20" },
+    { id: "t6-1", from: "0", to: "500000", agentSplit: "70", teamSplit: "30", capPhase: "pre-cap" },
+    { id: "t6-2", from: "500000", to: "1500000", agentSplit: "75", teamSplit: "25", capPhase: "pre-cap" },
+    { id: "t6-3", from: "1500000", to: "", agentSplit: "80", teamSplit: "20", capPhase: "post-cap" },
   ], createdBy: CREATOR_TL },
   // Sub-plans (GL-created, under a base plan)
   { id: "sp1", name: "Ila · Buyer · Zillow", type: "standard", kind: "sub", status: "active", basePlanId: "p5", agentId: "a1", txnType: "buyer", source: "zillow", splitScope: "group", agentSplit: 50, groupSplit: 10, teamSplit: 40, feeType: "flat", feeAmount: 0, capAmount: 0, assignedAgentsCount: 1, resetPeriod: "yearly", basedOn: "units", tiers: [], createdBy: CREATOR_GL_WEST },
@@ -1212,6 +1216,28 @@ function TierBuilder({
                   >
                     Remove
                   </Button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`${tier.id}-cap-phase`}>Cap phase</Label>
+                  <Select
+                    value={tier.capPhase ?? "pre-cap"}
+                    onValueChange={(value) =>
+                      onUpdateTier(tier.id, { capPhase: value as CapPhase })
+                    }
+                  >
+                    <SelectTrigger id={`${tier.id}-cap-phase`} className="h-10 w-full">
+                      <SelectValue placeholder="Select cap phase" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pre-cap">Pre-cap</SelectItem>
+                      <SelectItem value="post-cap">Post-cap</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    {(tier.capPhase ?? "pre-cap") === "post-cap"
+                      ? "Applies after the agent hits cap."
+                      : "Applies before the agent hits cap."}
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
@@ -3584,6 +3610,7 @@ export function CDASettings() {
             to: "",
             agentSplit: "80",
             teamSplit: "20",
+            capPhase: "pre-cap",
           },
         ],
       },
@@ -5130,30 +5157,28 @@ export function CDASettings() {
               </div>
             )}
             {state.postCapForm.feeType === "both" && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="postcap-both-pct" className="text-xs font-medium">Percentage (%)</Label>
-                    <Input
-                      id="postcap-both-pct"
-                      type="number"
-                      min={0}
-                      placeholder="5"
-                      value={state.postCapForm.feeAmount}
-                      onChange={(e) => updatePostCapForm({ feeAmount: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="postcap-both-flat" className="text-xs font-medium">Fixed Fee ($)</Label>
-                    <Input
-                      id="postcap-both-flat"
-                      type="number"
-                      min={0}
-                      placeholder="250"
-                      value={state.postCapForm.fixedAmount}
-                      onChange={(e) => updatePostCapForm({ fixedAmount: e.target.value })}
-                    />
-                  </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="postcap-both-pct" className="text-xs font-medium">Percentage (%)</Label>
+                  <Input
+                    id="postcap-both-pct"
+                    type="number"
+                    min={0}
+                    placeholder="5"
+                    value={state.postCapForm.feeAmount}
+                    onChange={(e) => updatePostCapForm({ feeAmount: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="postcap-both-flat" className="text-xs font-medium">Fixed Fee ($)</Label>
+                  <Input
+                    id="postcap-both-flat"
+                    type="number"
+                    min={0}
+                    placeholder="250"
+                    value={state.postCapForm.fixedAmount}
+                    onChange={(e) => updatePostCapForm({ fixedAmount: e.target.value })}
+                  />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-xs font-medium">Percentage Basis</Label>
@@ -5164,9 +5189,8 @@ export function CDASettings() {
                       <SelectItem value="gross-post-deduction">Gross Post Deduction</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">Both the percentage and the fixed fee apply once cap is reached.</p>
                 </div>
-              </>
+              </div>
             )}
           </div>
           <DialogFooter className="px-6 py-4 border-t bg-muted/20">
