@@ -273,6 +273,8 @@ type PostCapFeeType = "fixed" | "percentage" | "both";
 type PostCapScope = "agent" | "team";
 type PostCapPercentBasis = "gross" | "gross-post-deduction";
 type PostCapAssign = "buyer" | "listing" | "both";
+type PostCapTriggerSource = "radius-cap" | "team-cap";
+type PostCapCappingDealBehavior = "remaining-balance" | "full-fee" | "higher";
 type PostCapPlan = {
   id: string;
   name: string;
@@ -285,6 +287,8 @@ type PostCapPlan = {
   assignedAgentsCount: number;
   agentIds: string[];
   createdBy?: Creator;
+  triggerSource?: PostCapTriggerSource;
+  cappingDealBehavior?: PostCapCappingDealBehavior;
 };
 type PostCapForm = {
   editingId: string | null;
@@ -295,6 +299,8 @@ type PostCapForm = {
   fixedAmount: string;
   percentBasis: PostCapPercentBasis;
   assign: PostCapAssign;
+  triggerSource: PostCapTriggerSource;
+  cappingDealBehavior: PostCapCappingDealBehavior;
 };
 
 type PlanForm = {
@@ -455,6 +461,8 @@ function getFreshPostCapForm(scope: PostCapScope = "agent"): PostCapForm {
     fixedAmount: "",
     percentBasis: "gross",
     assign: "both",
+    triggerSource: "radius-cap",
+    cappingDealBehavior: "remaining-balance",
   };
 }
 
@@ -4649,6 +4657,8 @@ export function CDASettings() {
         fixedAmount: plan.fixedAmount != null ? String(plan.fixedAmount) : "",
         percentBasis: plan.percentBasis,
         assign: plan.assign,
+        triggerSource: plan.triggerSource ?? "radius-cap",
+        cappingDealBehavior: plan.cappingDealBehavior ?? "remaining-balance",
       },
     }));
   }
@@ -4685,7 +4695,7 @@ export function CDASettings() {
         ...current,
         postCapPlans: current.postCapPlans.map((p) =>
           p.id === f.editingId
-            ? { ...p, name, scope: f.scope, feeType: f.feeType, feeAmount: amount, fixedAmount, percentBasis: f.percentBasis, assign: f.assign }
+            ? { ...p, name, scope: f.scope, feeType: f.feeType, feeAmount: amount, fixedAmount, percentBasis: f.percentBasis, assign: f.assign, triggerSource: f.triggerSource, cappingDealBehavior: f.cappingDealBehavior }
             : p,
         ),
         activeDialog: null,
@@ -4704,6 +4714,8 @@ export function CDASettings() {
         assignedAgentsCount: 0,
         agentIds: [],
         createdBy: creatorForNew(),
+        triggerSource: f.triggerSource,
+        cappingDealBehavior: f.cappingDealBehavior,
       };
       setState((current) => ({ ...current, postCapPlans: [...current.postCapPlans, plan], activeDialog: null }));
       toast.success("Post-cap plan created");
@@ -5106,6 +5118,30 @@ export function CDASettings() {
                 value={state.postCapForm.name}
                 onChange={(e) => updatePostCapForm({ name: e.target.value })}
               />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-medium">When deal caps the agent</Label>
+              <Select
+                value={state.postCapForm.cappingDealBehavior}
+                onValueChange={(v: PostCapCappingDealBehavior) => updatePostCapForm({ cappingDealBehavior: v })}
+              >
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="remaining-balance">Collect remaining cap balance only</SelectItem>
+                  <SelectItem value="full-fee">Always collect full post-cap fee</SelectItem>
+                  <SelectItem value="higher">Whichever is higher</SelectItem>
+                </SelectContent>
+              </Select>
+              {state.postCapForm.scope === "agent" && (
+                <label htmlFor="postcap-team-trigger" className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
+                  <Checkbox
+                    id="postcap-team-trigger"
+                    checked={state.postCapForm.triggerSource === "team-cap"}
+                    onCheckedChange={(checked) => updatePostCapForm({ triggerSource: checked ? "team-cap" : "radius-cap" })}
+                  />
+                  <span className="text-xs font-medium text-foreground">Set as team cap</span>
+                </label>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Fee Type</Label>

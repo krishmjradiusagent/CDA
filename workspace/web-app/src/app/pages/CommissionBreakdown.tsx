@@ -1184,6 +1184,8 @@ function AgentCapCard({
   );
 }
 
+type PostCapTriggerSource = "radius-cap" | "team-cap";
+type PostCapCappingDealBehavior = "remaining-balance" | "full-fee" | "higher";
 type PostCapDisplay = {
   id: string;
   scope: "agent" | "team";
@@ -1192,6 +1194,8 @@ type PostCapDisplay = {
   feeAmount: number;
   fixedAmount?: number;
   basis: "gross" | "gross-post-deduction";
+  triggerSource?: PostCapTriggerSource;
+  cappingDealBehavior?: PostCapCappingDealBehavior;
 };
 const POSTCAP_PLAN_OPTIONS: PostCapDisplay[] = [
   { id: "pc-agent-default", scope: "agent", label: "Radius Post-Cap Fee", feeType: "both", feeAmount: 5, fixedAmount: 495, basis: "gross" },
@@ -1810,11 +1814,13 @@ export function CommissionBreakdown() {
   const [appliedPostCapPlans, setAppliedPostCapPlans] = useState<Record<string, { agent?: string; team?: string }>>({});
   const [postCapOverrides, setPostCapOverrides] = useState<Record<string, PostCapDisplay>>({});
   const [postCapEditor, setPostCapEditor] = useState<{ agentId: string; scope: "agent" | "team" } | null>(null);
-  const [postCapDraft, setPostCapDraft] = useState<{ feeType: "fixed" | "percentage" | "both"; feeAmount: string; fixedAmount: string; basis: "gross" | "gross-post-deduction" }>({
+  const [postCapDraft, setPostCapDraft] = useState<{ feeType: "fixed" | "percentage" | "both"; feeAmount: string; fixedAmount: string; basis: "gross" | "gross-post-deduction"; triggerSource: PostCapTriggerSource; cappingDealBehavior: PostCapCappingDealBehavior }>({
     feeType: "fixed",
     feeAmount: "",
     fixedAmount: "",
     basis: "gross",
+    triggerSource: "radius-cap",
+    cappingDealBehavior: "remaining-balance",
   });
   const derivedBreakdown = useMemo(
     () =>
@@ -3353,6 +3359,8 @@ export function CommissionBreakdown() {
                           feeAmount: src ? String(src.feeAmount) : "",
                           fixedAmount: src?.fixedAmount != null ? String(src.fixedAmount) : "",
                           basis: src?.basis ?? "gross",
+                          triggerSource: src?.triggerSource ?? "radius-cap",
+                          cappingDealBehavior: src?.cappingDealBehavior ?? "remaining-balance",
                         });
                         setPostCapEditor({ agentId: selectedAgent.agent.id, scope: "team" });
                       }}
@@ -3408,6 +3416,8 @@ export function CommissionBreakdown() {
                             feeAmount: src ? String(src.feeAmount) : "",
                             fixedAmount: src?.fixedAmount != null ? String(src.fixedAmount) : "",
                             basis: src?.basis ?? "gross",
+                            triggerSource: src?.triggerSource ?? "radius-cap",
+                            cappingDealBehavior: src?.cappingDealBehavior ?? "remaining-balance",
                           });
                           setPostCapEditor({ agentId: selectedAgent.agent.id, scope: "agent" });
                         }}
@@ -5369,6 +5379,30 @@ export function CommissionBreakdown() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 px-6 py-5">
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-medium">When deal caps the agent</Label>
+              <Select
+                value={postCapDraft.cappingDealBehavior}
+                onValueChange={(v: PostCapCappingDealBehavior) => setPostCapDraft((d) => ({ ...d, cappingDealBehavior: v }))}
+              >
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="remaining-balance">Collect remaining cap balance only</SelectItem>
+                  <SelectItem value="full-fee">Always collect full post-cap fee</SelectItem>
+                  <SelectItem value="higher">Whichever is higher</SelectItem>
+                </SelectContent>
+              </Select>
+              {postCapEditor?.scope === "agent" && (
+                <label htmlFor="pc-team-trigger" className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
+                  <Checkbox
+                    id="pc-team-trigger"
+                    checked={postCapDraft.triggerSource === "team-cap"}
+                    onCheckedChange={(checked) => setPostCapDraft((d) => ({ ...d, triggerSource: checked ? "team-cap" : "radius-cap" }))}
+                  />
+                  <span className="text-xs font-medium text-foreground">Set as team cap</span>
+                </label>
+              )}
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Fee Type</Label>
               <Select value={postCapDraft.feeType} onValueChange={(v: "fixed" | "percentage" | "both") => setPostCapDraft((d) => ({ ...d, feeType: v }))}>
@@ -5472,6 +5506,8 @@ export function CommissionBreakdown() {
                     feeAmount: amount,
                     fixedAmount,
                     basis: postCapDraft.basis,
+                    triggerSource: postCapDraft.triggerSource,
+                    cappingDealBehavior: postCapDraft.cappingDealBehavior,
                   };
                   setPostCapOverrides((prev) => ({ ...prev, [key]: override }));
                   setPostCapEditor(null);
