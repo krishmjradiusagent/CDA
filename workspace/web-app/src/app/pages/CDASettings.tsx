@@ -5132,16 +5132,6 @@ export function CDASettings() {
                   <SelectItem value="higher">Whichever is higher</SelectItem>
                 </SelectContent>
               </Select>
-              {state.postCapForm.scope === "agent" && (
-                <label htmlFor="postcap-team-trigger" className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
-                  <Checkbox
-                    id="postcap-team-trigger"
-                    checked={state.postCapForm.triggerSource === "team-cap"}
-                    onCheckedChange={(checked) => updatePostCapForm({ triggerSource: checked ? "team-cap" : "radius-cap" })}
-                  />
-                  <span className="text-xs font-medium text-foreground">Set as team cap</span>
-                </label>
-              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Fee Type</Label>

@@ -5392,16 +5392,6 @@ export function CommissionBreakdown() {
                   <SelectItem value="higher">Whichever is higher</SelectItem>
                 </SelectContent>
               </Select>
-              {postCapEditor?.scope === "agent" && (
-                <label htmlFor="pc-team-trigger" className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
-                  <Checkbox
-                    id="pc-team-trigger"
-                    checked={postCapDraft.triggerSource === "team-cap"}
-                    onCheckedChange={(checked) => setPostCapDraft((d) => ({ ...d, triggerSource: checked ? "team-cap" : "radius-cap" }))}
-                  />
-                  <span className="text-xs font-medium text-foreground">Set as team cap</span>
-                </label>
-              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Fee Type</Label>
