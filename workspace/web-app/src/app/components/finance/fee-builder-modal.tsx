@@ -48,6 +48,7 @@ export interface FeeTypeDraft {
   notLessThan: { enabled: boolean; amount: string };
   notToExceed: { enabled: boolean; amount: string };
   visibleOnCda?: boolean;
+  isPrivate?: boolean;
   scopeMode?: FeeScopeMode;
   scopeMemberIds?: string[];
   scopeGroupIds?: string[];
@@ -115,6 +116,7 @@ function makeDraft(initial: Partial<FeeTypeDraft> | undefined, teamName: string)
     scopeMemberIds: initial?.scopeMemberIds ?? [],
     scopeGroupIds: initial?.scopeGroupIds ?? [],
     visibleOnCda: initial?.visibleOnCda ?? false,
+    isPrivate: initial?.isPrivate ?? false,
   };
 }
 
@@ -484,6 +486,15 @@ export function FeeBuilderModal({
                 <p className="text-xs text-muted-foreground truncate">Count toward cap.</p>
               </div>
               <Switch id="contributes-cap" checked={draft.contributesToCap} onCheckedChange={(checked) => update("contributesToCap", checked)} />
+            </div>
+
+            {/* Private */}
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label htmlFor="fee-private" className="text-sm">Private</Label>
+                <p className="text-xs text-muted-foreground truncate">Hidden from the breakdown.</p>
+              </div>
+              <Switch id="fee-private" checked={draft.isPrivate ?? false} onCheckedChange={(checked) => update("isPrivate", checked)} />
             </div>
 
           </div>

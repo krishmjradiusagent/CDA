@@ -4243,6 +4243,13 @@ export function CDASettings() {
     setState((current) => ({ ...current, duplicateTarget: { type: "fee", fee } }));
   }
 
+  function toggleFeePrivate(fee: FeeRecord) {
+    setState((current) => ({
+      ...current,
+      fees: current.fees.map((f) => (f.id === fee.id ? { ...f, isPrivate: !f.isPrivate } : f)),
+    }));
+  }
+
   function confirmDuplicateFee() {
     const target = state.duplicateTarget;
     if (target?.type !== "fee") return;
@@ -4571,14 +4578,8 @@ export function CDASettings() {
                       <CreatorChip creator={fee.createdBy} selfId={currentCreatorId} />
                     </TableCell>
                     <TableCell>
-                      <span className={cn("text-xs font-semibold", fee.timing === "pre-split" || fee.appliesToMode !== "team" || fee.visibleOnCda ? "text-emerald-600" : "text-muted-foreground/40")}>
-                        {fee.timing === "pre-split"
-                          ? "Always visible"
-                          : fee.appliesToMode !== "team"
-                            ? "Always visible"
-                            : fee.visibleOnCda
-                              ? "Visible"
-                              : "Hidden"}
+                      <span className={cn("text-xs font-semibold", fee.isPrivate ? "text-muted-foreground/40" : "text-emerald-600")}>
+                        {fee.isPrivate ? "Private" : "Visible"}
                       </span>
                     </TableCell>
                     <TableCell className="pr-6 text-right">
@@ -4612,6 +4613,12 @@ export function CDASettings() {
                               <Copy className="size-4" />
                               Duplicate
                             </DropdownMenuItem>
+                            {canEditOwned(fee) && (
+                              <DropdownMenuItem onClick={() => toggleFeePrivate(fee)}>
+                                {fee.isPrivate ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                                {fee.isPrivate ? "Make visible" : "Make private"}
+                              </DropdownMenuItem>
+                            )}
                             {canEditOwned(fee) && (
                               <>
                                 <DropdownMenuSeparator />
