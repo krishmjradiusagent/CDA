@@ -1,6 +1,7 @@
 import { type FeeTypeDraft } from "../components/finance/fee-builder-modal";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
+import { TeamSettingsPanel } from "./TeamSettingsPanel";
 import {
   Archive,
   Bell,
@@ -2704,6 +2705,7 @@ export function CDASettings() {
     [],
   );
   const [userRole, setUserRole] = useState<"agent" | "team_lead" | "group_lead" | "radius_auditing" | "soul_auditor">("team_lead");
+  const [activeSettingsTab, setActiveSettingsTab] = useState("CDA Settings");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const currentCreatorId = userRole === "team_lead" ? CURRENT_TEAM_LEAD_ID : userRole === "group_lead" ? CURRENT_GROUP_LEAD_ID : null;
   const isTeamLead = userRole === "team_lead" || userRole === "soul_auditor" || userRole === "radius_auditing";
@@ -5019,8 +5021,12 @@ export function CDASettings() {
           {tabs.map((tab) => (
             <button
               key={tab}
+              type="button"
+              onClick={() => {
+                if (tab === "CDA Settings" || tab === "Team settings") setActiveSettingsTab(tab);
+              }}
               className={`flex h-10 shrink-0 items-center px-4 text-sm font-semibold text-[#373758] ${
-                tab === "CDA Settings" ? "border-b-2 border-primary text-primary" : ""
+                tab === activeSettingsTab ? "border-b-2 border-primary text-primary" : ""
               }`}
             >
               {tab}
@@ -5028,6 +5034,9 @@ export function CDASettings() {
           ))}
         </div>
 
+        {activeSettingsTab === "Team settings" ? (
+          <TeamSettingsPanel userRole={userRole} />
+        ) : (
         <div className="flex flex-col gap-8 px-4 py-9">
           {renderCommissionPlans()}
           {renderFeeTypes()}
@@ -5058,6 +5067,7 @@ export function CDASettings() {
           )} 
           */}
         </div>
+        )}
       </main>
 
       {state.wireDraft && state.wireType && (
