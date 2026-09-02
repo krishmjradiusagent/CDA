@@ -3041,10 +3041,10 @@ export function CDASettings() {
           </Alert>
         )}
 
-        <Tabs defaultValue="private" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="shared">Shared</TabsTrigger>
-            <TabsTrigger value="private">Private</TabsTrigger>
+        <Tabs defaultValue="private" className="rds-tabs rds-tabs--underline w-full">
+          <TabsList className="rds-tabs__list mb-4">
+            <TabsTrigger value="shared" className="rds-tab">Shared</TabsTrigger>
+            <TabsTrigger value="private" className="rds-tab">Private</TabsTrigger>
           </TabsList>
 
           <TabsContent value="shared" className="flex flex-col gap-4">
@@ -4917,16 +4917,13 @@ export function CDASettings() {
   const tabs = [
     "Accounts",
     "Billing",
-    "Finances",
     "CDA Settings",
-    "Team settings",
-    "Agents",
-    "Transaction settings",
+    "Team Settings",
     "Pods",
     "Automations",
     "Integrations",
     "Phone Numbers",
-    "Notification settings",
+    "Notifications",
   ];
 
   return (
@@ -5014,28 +5011,33 @@ export function CDASettings() {
           </div>
         </div>
 
-        <div className="flex h-[92px] items-center px-6">
-          <h1 className="text-2xl font-semibold leading-tight text-[#373758]">Settings</h1>
-        </div>
-        <div className="flex h-10 items-center overflow-hidden border-y px-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => {
-                if (tab === "CDA Settings" || tab === "Team settings") setActiveSettingsTab(tab);
-              }}
-              className={`flex h-10 shrink-0 items-center px-4 text-sm font-semibold text-[#373758] ${
-                tab === activeSettingsTab ? "border-b-2 border-primary text-primary" : ""
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="bg-white px-8 pt-3">
+          <h1 className="mb-2 flex h-7 items-center text-sm font-semibold leading-[1.2] text-[#0A0A0A]">Settings</h1>
+          <div className="rds-tabs rds-tabs--underline">
+            <div className="rds-tabs__list" role="tablist">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  className="rds-tab"
+                  aria-selected={tab === activeSettingsTab}
+                  onClick={() => setActiveSettingsTab(tab)}
+                >
+                  {tab === "Team Settings" && userRole === "group_lead" ? "Group Settings" : tab}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {activeSettingsTab === "Team settings" ? (
+        {activeSettingsTab === "Team Settings" ? (
           <TeamSettingsPanel userRole={userRole} />
+        ) : activeSettingsTab !== "CDA Settings" ? (
+          <div className="px-6 py-9">
+            <h2 className="text-base font-medium leading-6 text-foreground">{activeSettingsTab}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Whole pane. Chevrons only collapse sections inside a pane, like CDA.</p>
+          </div>
         ) : (
         <div className="flex flex-col gap-8 px-4 py-9">
           {renderCommissionPlans()}

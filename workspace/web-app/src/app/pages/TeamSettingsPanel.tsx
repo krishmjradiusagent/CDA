@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   CalendarIcon,
+  ChevronDown,
   ChevronRight,
   MoreVertical,
   Pencil,
@@ -323,7 +324,9 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
   const canEditGroup = isGroupLead && !isAgent;
   const readOnly = isAgent;
 
-  const [openSection, setOpenSection] = useState<"members" | "groups" | "team-info" | null>(null);
+  const [openSection, setOpenSection] = useState<"members" | "groups" | "team-info" | null>(
+    isGroupLead ? "groups" : null,
+  );
   const [members, setMembers] = useState<Member[]>(SEED_MEMBERS);
   const [groups, setGroups] = useState<GroupRecord[]>(SEED_GROUPS);
   const [query, setQuery] = useState("");
@@ -636,11 +639,55 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
 
   return (
     <div className="px-4 py-9">
+      {isGroupLead ? (
+        <>
+          <p className="mb-6 text-[13px] text-muted-foreground">
+            Your group cap and reset date are set by the Team Lead. You set the internal cap for each
+            member of your group.
+          </p>
+          <div className="flex flex-col gap-3.5">
+            <div className="rounded-[14px] border border-border bg-card p-4">
+              <HubRow
+                title={activeGroup ? `${activeGroup.name} group` : "Group"}
+                count={String(memberList.length)}
+                description="Members of your group and their internal caps."
+                expanded={openSection === "groups"}
+                onClick={() => toggleSection("groups")}
+              />
+              {openSection === "groups" && activeGroup && (
+                <div className="mt-4 space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <MetaCard label="Group lead" value={leadName(activeGroup.leadId)} />
+                    <MetaCard
+                      label="Group internal cap"
+                      value={activeGroup.internalCap ? money(activeGroup.internalCap) : "—"}
+                      hint="Set by Team Lead"
+                    />
+                    <MetaCard
+                      label="Reset date"
+                      value={formatDate(activeGroup.groupToTeamResetDate) || "—"}
+                      hint="Set by Team Lead"
+                    />
+                  </div>
+                  <GroupCapTable
+                    title={`${activeGroup.name} members`}
+                    query={query}
+                    onQuery={setQuery}
+                    rows={memberList}
+                    onSetCap={openMemberCap}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+      <>
       <p className="mb-6 text-[13px] text-muted-foreground">
-        Caps: Agent ↔ Group (Group Lead sets Agent &gt; Group reset). Group ↔ Team (Team Lead sets Group &gt; Team reset).
+        Caps roll up Agent → Group → Team. Group Leads set the reset date for agents; Team Leads set the reset date for groups.
       </p>
-      <div className="divide-y rounded-none border-y">
-        <div>
+      <div className="flex flex-col gap-3.5">
+        <div className="rounded-[14px] border border-border bg-card p-4">
           <HubRow
             title="Team member"
             count={String(scopedMembers.length)}
@@ -649,7 +696,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
             onClick={() => toggleSection("members")}
           />
           {openSection === "members" && (
-            <div className="pb-6">
+            <div className="mt-4">
               <MemberTable
                 title="Team member"
                 count={scopedMembers.length}
@@ -669,24 +716,24 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
           )}
         </div>
 
-        <div>
+        <div className="rounded-[14px] border border-border bg-card p-4">
           <HubRow
             title="Groups"
             count={String(scopedGroups.length)}
             description="Create a group and add members to it."
             expanded={openSection === "groups"}
             onClick={() => toggleSection("groups")}
+            action={
+              canEditTeam ? (
+                <Button size="sm" onClick={openAddGroup}>
+                  <Plus className="size-4" />
+                  New group
+                </Button>
+              ) : undefined
+            }
           />
           {openSection === "groups" && (
-            <div className="space-y-4 pb-6">
-              <div className="flex justify-end">
-                {canEditTeam && (
-                  <Button onClick={openAddGroup}>
-                    <Plus className="size-4" />
-                    New group
-                  </Button>
-                )}
-              </div>
+            <div className="mt-4 space-y-4">
               <div className="overflow-hidden rounded-md border">
                 <Table>
                   <TableHeader>
@@ -695,34 +742,24 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                       <TableHead>Group lead</TableHead>
                       <TableHead>Members</TableHead>
                       <TableHead>Internal cap</TableHead>
-                      <TableHead>Group &gt; Team reset</TableHead>
+                      <TableHead>Reset date</TableHead>
                       <TableHead className="w-12 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {scopedGroups.map((g) => (
-                      <TableRow
-                        key={g.id}
-                        className={cn(
-                          "h-14 cursor-pointer hover:bg-muted/30",
-                          activeGroupId === g.id && "bg-muted/40",
-                        )}
-                        onClick={() => {
-                          setQuery("");
-                          setActiveGroupId((id) => (id === g.id ? null : g.id));
-                        }}
-                      >
+                      <TableRow key={g.id} className="h-14">
                         <TableCell className="font-medium">{g.name}</TableCell>
                         <TableCell>{leadName(g.leadId)}</TableCell>
                         <TableCell>{g.memberIds.length}</TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TableCell>
                           <CapCell
                             amount={g.internalCap}
-                            canSet={!readOnly}
+                            canSet={canEditTeam}
                             onSet={() => openGroupCap(g)}
                           />
                         </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TableCell>
                           {g.groupToTeamResetDate ? (
                             formatDate(g.groupToTeamResetDate)
                           ) : canEditTeam ? (
@@ -731,18 +768,18 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                               className="text-[13px] font-medium text-primary"
                               onClick={() => openGroupCap(g)}
                             >
-                              Set internal cap
+                              Set reset date
                             </button>
                           ) : (
                             <span className="text-[13px] text-muted-foreground">Set by Team Lead</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          {!readOnly && (
+                        <TableCell className="text-right">
+                          {canEditTeam && (
                             <RowMenu
                               onEdit={() => openEditGroup(g)}
                               onSetCap={() => openGroupCap(g)}
-                              onRemove={canEditTeam ? () => requestRemoveGroup(g) : undefined}
+                              onRemove={() => requestRemoveGroup(g)}
                             />
                           )}
                         </TableCell>
@@ -751,28 +788,11 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                   </TableBody>
                 </Table>
               </div>
-              {activeGroup && (
-                <MemberTable
-                  title={`${activeGroup.name} members`}
-                  count={memberList.length}
-                  query={query}
-                  onQuery={setQuery}
-                  rows={memberList}
-                  groups={groups}
-                  showAgentGroupReset
-                  canEdit={!readOnly}
-                  embedded
-                  onAdd={readOnly ? undefined : openAddMember}
-                  onEdit={openEditMember}
-                  onSetCap={openMemberCap}
-                  onRemove={requestRemoveMember}
-                />
-              )}
             </div>
           )}
         </div>
 
-        <div>
+        <div className="rounded-[14px] border border-border bg-card p-4">
           <HubRow
             title="Team Information"
             description="Informations about team name, about your team, benefits."
@@ -780,7 +800,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
             onClick={() => toggleSection("team-info")}
           />
           {openSection === "team-info" && (
-            <div className="space-y-3 pb-6">
+            <div className="mt-4 space-y-3">
               <div>
                 <Label>Team name</Label>
                 <Input defaultValue="Radius Agent" disabled={!canEditTeam} className="mt-1" />
@@ -797,6 +817,8 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
           )}
         </div>
       </div>
+      </>
+      )}
 
       <Dialog open={memberDialog !== null} onOpenChange={(o) => !o && setMemberDialog(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -851,7 +873,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                 onChange={(e) => setMemberForm((f) => ({ ...f, internalCap: e.target.value }))}
               />
             </Field>
-            <Field label="Agent > Group cap reset date">
+            <Field label="Cap reset date">
               {canEditGroup ? (
                 <DateField
                   value={memberForm.capResetDate}
@@ -997,7 +1019,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                 onChange={(e) => setGroupForm((f) => ({ ...f, internalCap: e.target.value }))}
               />
             </Field>
-            <Field label="Group > Team cap reset date">
+            <Field label="Cap reset date">
               {canEditTeam ? (
                 <DateField
                   value={groupForm.groupToTeamResetDate}
@@ -1107,38 +1129,42 @@ function CapCell({
 function HubRow({
   title,
   count,
-  description,
+  description: _description,
   expanded,
   onClick,
+  action,
 }: {
   title: string;
   count?: string;
   description: string;
   expanded?: boolean;
   onClick: () => void;
+  action?: ReactNode;
 }) {
+  void _description;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-[88px] w-full items-center justify-between gap-4 py-5 text-left"
-    >
-      <div className="min-w-0 flex-1">
-        <span className="text-base font-semibold text-[#373758]">{title}</span>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
+    <div className="flex min-h-8 w-full items-center gap-3">
+      <button type="button" onClick={onClick} className="flex-1 text-left">
+        <span className="text-sm font-semibold leading-[1.3] text-foreground">{title}</span>
+      </button>
+      {action && <div className="shrink-0">{action}</div>}
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex shrink-0 items-center gap-2"
+        aria-label={expanded ? "Collapse" : "Expand"}
+      >
         {count !== undefined && (
-          <span className="text-[13px] tabular-nums text-muted-foreground">{count}</span>
+          <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
         )}
-        <ChevronRight
+        <ChevronDown
           className={cn(
-            "size-5 text-muted-foreground transition-transform",
-            expanded && "rotate-90",
+            "size-4 text-muted-foreground transition-transform duration-[180ms] ease-out motion-reduce:transition-none",
+            !expanded && "-rotate-90",
           )}
         />
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -1173,8 +1199,8 @@ function MemberTable({
 }) {
   return (
     <div>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
           {!embedded && (
             <div className="flex items-baseline gap-2">
               <h2 className="text-xl font-semibold text-[#373758]">{title}</h2>
@@ -1185,21 +1211,23 @@ function MemberTable({
             <p className="text-[13px] font-medium text-[#373758]">{title}</p>
           )}
         </div>
-        {onAdd && (
-          <Button onClick={onAdd}>
-            <Plus className="size-4" />
-            Add team members
-          </Button>
-        )}
-      </div>
-      <div className="relative mb-3">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
-          placeholder="Search agents"
-          className="h-10 rounded-full pl-9"
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="relative w-56">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder="Search agents"
+              className="h-9 rounded-full pl-9"
+            />
+          </div>
+          {onAdd && (
+            <Button size="sm" onClick={onAdd}>
+              <Plus className="size-4" />
+              Add team members
+            </Button>
+          )}
+        </div>
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -1210,13 +1238,13 @@ function MemberTable({
               <TableHead>Role</TableHead>
               <TableHead>Group</TableHead>
               <TableHead>Internal cap</TableHead>
-              {showAgentGroupReset && <TableHead>Agent &gt; Group reset</TableHead>}
+              {showAgentGroupReset && <TableHead>Reset date</TableHead>}
               <TableHead className="w-12 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((m) => (
-              <TableRow key={m.id} className="h-14">
+              <TableRow key={m.id} className="h-10">
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Avatar className="size-7">
@@ -1244,7 +1272,7 @@ function MemberTable({
                         className="text-[13px] font-medium text-primary"
                         onClick={() => onSetCap(m)}
                       >
-                        Set internal cap
+                        Set reset date
                       </button>
                     ) : (
                       <span className="text-[13px] text-muted-foreground">Set by Group Lead</span>
@@ -1258,6 +1286,83 @@ function MemberTable({
                       onSetCap={() => onSetCap(m)}
                       onRemove={() => onRemove(m)}
                     />
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function GroupCapTable({
+  title,
+  query,
+  onQuery,
+  rows,
+  onSetCap,
+}: {
+  title: string;
+  query: string;
+  onQuery: (v: string) => void;
+  rows: Member[];
+  onSetCap: (m: Member) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="min-w-0 text-[13px] font-medium text-[#373758]">{title}</p>
+        <div className="relative w-56 shrink-0">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder="Search agents"
+            className="h-9 rounded-full pl-9"
+          />
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-violet-50/80">
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Internal cap</TableHead>
+              <TableHead>Reset date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((m) => (
+              <TableRow key={m.id} className="h-10">
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-7">
+                      {m.avatarUrl && <AvatarImage src={m.avatarUrl} alt="" />}
+                      <AvatarFallback className="text-[13px]">{initials(m)}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{fullName(m)}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{m.email}</TableCell>
+                <TableCell>{m.role}</TableCell>
+                <TableCell>
+                  <CapCell amount={m.internalCap} canSet onSet={() => onSetCap(m)} />
+                </TableCell>
+                <TableCell>
+                  {m.agentToGroupResetDate ? (
+                    formatDate(m.agentToGroupResetDate)
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-[13px] font-medium text-primary"
+                      onClick={() => onSetCap(m)}
+                    >
+                      Set reset date
+                    </button>
                   )}
                 </TableCell>
               </TableRow>
@@ -1344,8 +1449,10 @@ function MetaCard({
       <div className="text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 text-sm font-semibold text-[#373758]">{value}</div>
-      {hint && <div className="mt-1 text-[13px] text-muted-foreground">{hint}</div>}
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+        <span className="text-sm font-semibold text-[#373758]">{value}</span>
+        {hint && <span className="text-[13px] text-muted-foreground">{hint}</span>}
+      </div>
     </div>
   );
 }
