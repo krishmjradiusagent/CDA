@@ -495,7 +495,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
             : m,
         ),
       );
-      toast(memberDialog === "cap" ? "Internal cap saved" : "Team member updated");
+      toast(memberDialog === "cap" ? "Group cap saved" : "Team member updated");
     }
     setMemberDialog(null);
   }
@@ -658,7 +658,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
       {isGroupLead ? (
         <>
           <p className="mb-6 text-[13px] text-muted-foreground">
-            Your group cap and reset date are set by the Team Lead. You set the internal cap for each
+            Your group cap and reset date are set by the Team Lead. You set the group cap for each
             member of your group.
           </p>
           <div className="flex flex-col gap-3.5">
@@ -751,7 +751,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                       <TableHead>Name</TableHead>
                       <TableHead>Group lead</TableHead>
                       <TableHead>Members</TableHead>
-                      <TableHead>Internal cap</TableHead>
+                      <TableHead>Group cap</TableHead>
                       <TableHead>Reset date</TableHead>
                       <TableHead className="w-12 text-right">Actions</TableHead>
                     </TableRow>
@@ -831,15 +831,15 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
               {memberDialog === "add"
                 ? "Add team member"
                 : memberDialog === "cap"
-                  ? "Set internal cap"
+                  ? "Set group cap"
                   : "Edit team member"}
             </DialogTitle>
             <DialogDescription>
               {memberDialog !== "cap"
                 ? "Modify team member information below."
                 : canEditGroup
-                  ? "Set the internal cap and reset date for this member."
-                  : "Internal cap for this member. The reset date is set by the Group Lead."}
+                  ? "Set the group cap and reset date for this member."
+                  : "Group cap for this member. The reset date is set by the Group Lead."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -872,14 +872,14 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                 </Field>
               </>
             )}
-            <Field label="Internal team cap">
+            <Field label="Group cap">
               <Input
-                placeholder="Enter internal team cap"
+                placeholder="Enter group cap"
                 value={memberForm.internalCap}
                 onChange={(e) => setMemberForm((f) => ({ ...f, internalCap: e.target.value }))}
               />
             </Field>
-            <Field label="Cap reset date">
+            <Field label="Group cap reset date">
               {canEditGroup ? (
                 <DateField
                   value={memberForm.capResetDate}
@@ -966,15 +966,15 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
               {groupDialog === "add"
                 ? "Create a group"
                 : groupDialog === "cap"
-                  ? "Set internal cap"
+                  ? "Set group cap"
                   : "Edit group"}
             </DialogTitle>
             <DialogDescription>
               {groupDialog === "add"
                 ? "Create new groups to organize agents for efficient lead assignment and management."
                 : canEditTeam
-                  ? "Set the internal cap and reset date for this group."
-                  : "Internal cap for this group. The reset date is set by the Team Lead."}
+                  ? "Set the group cap and reset date for this group."
+                  : "Group cap for this group. The reset date is set by the Team Lead."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -1020,14 +1020,14 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                 </div>
               </>
             )}
-            <Field label="Internal cap">
+            <Field label="Group cap">
               <Input
-                placeholder="Enter internal cap"
+                placeholder="Enter group cap"
                 value={groupForm.internalCap}
                 onChange={(e) => setGroupForm((f) => ({ ...f, internalCap: e.target.value }))}
               />
             </Field>
-            <Field label="Cap reset date">
+            <Field label="Group cap reset date">
               {canEditTeam ? (
                 <DateField
                   value={groupForm.groupToTeamResetDate}
@@ -1322,7 +1322,7 @@ function GroupCapTable({
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Internal cap</TableHead>
+              <TableHead>Group cap</TableHead>
               <TableHead>Reset date</TableHead>
               <TableHead className="w-12 text-right">Actions</TableHead>
             </TableRow>
@@ -1387,7 +1387,7 @@ function RowMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={onSetCap}>
-          Set internal cap
+          Set group cap
         </DropdownMenuItem>
         {onRemove && (
           <>
