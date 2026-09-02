@@ -264,6 +264,15 @@ const SEED_GROUPS: GroupRecord[] = [
     internalCap: 800000,
     groupToTeamResetDate: "2026-12-31",
   },
+  // Freshly created group — no cap or reset date yet.
+  {
+    id: "gr-north",
+    name: "North",
+    leadId: "",
+    memberIds: [],
+    internalCap: 0,
+    groupToTeamResetDate: "",
+  },
 ];
 
 function initials(m: Member) {
@@ -963,7 +972,9 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
             <DialogDescription>
               {groupDialog === "add"
                 ? "Create new groups to organize agents for efficient lead assignment and management."
-                : "Internal cap can be set on a group. Group > Team reset date is set by the Team Lead."}
+                : canEditTeam
+                  ? "Set the internal cap and reset date for this group."
+                  : "Internal cap for this group. The reset date is set by the Team Lead."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
