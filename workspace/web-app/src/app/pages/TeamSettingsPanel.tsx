@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   CalendarIcon,
   ChevronDown,
@@ -207,11 +207,11 @@ const SEED_MEMBERS: Member[] = [
     avatarUrl:
       "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=150&auto=format&fit=crop",
     groupId: "gr-west",
-    internalCap: 120000,
+    internalCap: 0,
     teamSplit: 20,
     preRadiusContribution: 0,
     auditor: false,
-    agentToGroupResetDate: "2027-01-01",
+    agentToGroupResetDate: "",
   },
   {
     id: "a8",
@@ -357,6 +357,13 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
     if (isGroupLead) return groups.filter((g) => g.id === "gr-west");
     return groups;
   }, [groups, isGroupLead]);
+
+  // Group Lead has a single section — keep it open, including after a role switch.
+  useEffect(() => {
+    if (!isGroupLead) return;
+    setOpenSection("groups");
+    setActiveGroupId((id) => id ?? "gr-west");
+  }, [isGroupLead]);
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? null;
 
@@ -648,34 +655,28 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
           <div className="flex flex-col gap-3.5">
             <div className="rounded-[14px] border border-border bg-card p-4">
               <HubRow
-                title={activeGroup ? `${activeGroup.name} group` : "Group"}
+                title={activeGroup ? `${activeGroup.name} members` : "Members"}
                 count={String(memberList.length)}
                 description="Members of your group and their internal caps."
                 expanded={openSection === "groups"}
                 onClick={() => toggleSection("groups")}
+                action={
+                  openSection === "groups" ? (
+                    <div className="relative w-56">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search agents"
+                        className="h-9 rounded-full pl-9"
+                      />
+                    </div>
+                  ) : undefined
+                }
               />
               {openSection === "groups" && activeGroup && (
-                <div className="mt-4 space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <MetaCard label="Group lead" value={leadName(activeGroup.leadId)} />
-                    <MetaCard
-                      label="Group internal cap"
-                      value={activeGroup.internalCap ? money(activeGroup.internalCap) : "—"}
-                      hint="Set by Team Lead"
-                    />
-                    <MetaCard
-                      label="Reset date"
-                      value={formatDate(activeGroup.groupToTeamResetDate) || "—"}
-                      hint="Set by Team Lead"
-                    />
-                  </div>
-                  <GroupCapTable
-                    title={`${activeGroup.name} members`}
-                    query={query}
-                    onQuery={setQuery}
-                    rows={memberList}
-                    onSetCap={openMemberCap}
-                  />
+                <div className="mt-4">
+                  <GroupCapTable rows={memberList} onSetCap={openMemberCap} />
                 </div>
               )}
             </div>
@@ -763,13 +764,7 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                           {g.groupToTeamResetDate ? (
                             formatDate(g.groupToTeamResetDate)
                           ) : canEditTeam ? (
-                            <button
-                              type="button"
-                              className="text-[13px] font-medium text-primary"
-                              onClick={() => openGroupCap(g)}
-                            >
-                              Set reset date
-                            </button>
+                            <InlineSetButton label="Set date" onClick={() => openGroupCap(g)} />
                           ) : (
                             <span className="text-[13px] text-muted-foreground">Set by Team Lead</span>
                           )}
@@ -831,9 +826,11 @@ export function TeamSettingsPanel({ userRole }: { userRole: SettingsRole }) {
                   : "Edit team member"}
             </DialogTitle>
             <DialogDescription>
-              {memberDialog === "cap"
-                ? "Internal cap on this member. Agent > Group reset date is set by the Group Lead."
-                : "Modify team member information below."}
+              {memberDialog !== "cap"
+                ? "Modify team member information below."
+                : canEditGroup
+                  ? "Set the internal cap and reset date for this member."
+                  : "Internal cap for this member. The reset date is set by the Group Lead."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -1106,6 +1103,19 @@ function DateField({
   );
 }
 
+function InlineSetButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1 text-[13px] font-medium text-primary"
+    >
+      <Plus className="size-3.5" />
+      {label}
+    </button>
+  );
+}
+
 function CapCell({
   amount,
   canSet,
@@ -1116,13 +1126,7 @@ function CapCell({
   onSet: () => void;
 }) {
   if (amount > 0) return <span>{money(amount)}</span>;
-  if (canSet) {
-    return (
-      <button type="button" className="text-[13px] font-medium text-primary" onClick={onSet}>
-        Set internal cap
-      </button>
-    );
-  }
+  if (canSet) return <InlineSetButton label="Set cap" onClick={onSet} />;
   return <span className="text-muted-foreground">—</span>;
 }
 
@@ -1267,13 +1271,7 @@ function MemberTable({
                     {m.agentToGroupResetDate ? (
                       formatDate(m.agentToGroupResetDate)
                     ) : canEdit ? (
-                      <button
-                        type="button"
-                        className="text-[13px] font-medium text-primary"
-                        onClick={() => onSetCap(m)}
-                      >
-                        Set reset date
-                      </button>
+                      <InlineSetButton label="Set date" onClick={() => onSetCap(m)} />
                     ) : (
                       <span className="text-[13px] text-muted-foreground">Set by Group Lead</span>
                     )}
@@ -1298,32 +1296,14 @@ function MemberTable({
 }
 
 function GroupCapTable({
-  title,
-  query,
-  onQuery,
   rows,
   onSetCap,
 }: {
-  title: string;
-  query: string;
-  onQuery: (v: string) => void;
   rows: Member[];
   onSetCap: (m: Member) => void;
 }) {
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="min-w-0 text-[13px] font-medium text-[#373758]">{title}</p>
-        <div className="relative w-56 shrink-0">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder="Search agents"
-            className="h-9 rounded-full pl-9"
-          />
-        </div>
-      </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
           <TableHeader>
@@ -1333,6 +1313,7 @@ function GroupCapTable({
               <TableHead>Role</TableHead>
               <TableHead>Internal cap</TableHead>
               <TableHead>Reset date</TableHead>
+              <TableHead className="w-12 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1356,14 +1337,11 @@ function GroupCapTable({
                   {m.agentToGroupResetDate ? (
                     formatDate(m.agentToGroupResetDate)
                   ) : (
-                    <button
-                      type="button"
-                      className="text-[13px] font-medium text-primary"
-                      onClick={() => onSetCap(m)}
-                    >
-                      Set reset date
-                    </button>
+                    <InlineSetButton label="Set date" onClick={() => onSetCap(m)} />
                   )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <RowMenu onSetCap={() => onSetCap(m)} />
                 </TableCell>
               </TableRow>
             ))}
@@ -1379,7 +1357,7 @@ function RowMenu({
   onSetCap,
   onRemove,
 }: {
-  onEdit: () => void;
+  onEdit?: () => void;
   onSetCap: () => void;
   onRemove?: () => void;
 }) {
@@ -1391,10 +1369,12 @@ function RowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onClick={onEdit}>
-          <Pencil className="size-4" />
-          Edit
-        </DropdownMenuItem>
+        {onEdit && (
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="size-4" />
+            Edit
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={onSetCap}>
           Set internal cap
         </DropdownMenuItem>
@@ -1431,28 +1411,6 @@ function Field({
       </Label>
       <div className="mt-1">{children}</div>
       {hint && <p className="mt-1 text-[13px] text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-function MetaCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
-        <span className="text-sm font-semibold text-[#373758]">{value}</span>
-        {hint && <span className="text-[13px] text-muted-foreground">{hint}</span>}
-      </div>
     </div>
   );
 }
